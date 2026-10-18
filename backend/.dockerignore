@@ -1,0 +1,26 @@
+# กัน COPY . . กวาดของที่ไม่ควรอยู่ใน image (Sonar docker:S6470)
+# สำคัญที่สุดคือ .env — เคยหลุดเข้า image ทำให้ใครได้ image ไปก็อ่าน JWT_SECRET ได้
+
+.env
+.env.*
+!.env.example
+
+node_modules
+dist
+coverage
+
+.git
+.gitignore
+.vscode
+.idea
+
+# ไฟล์ report/สคริปต์ที่ไม่เกี่ยวกับการรัน service
+issues.json
+sonar-project.properties
+sonar_report.py
+*.log
+
+Dockerfile
+.dockerignore
+docker-compose*.yml
+README.md

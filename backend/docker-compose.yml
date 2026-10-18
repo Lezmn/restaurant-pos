@@ -1,0 +1,63 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: restaurant_postgres_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-restaurant}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-restaurant_db}
+    # bind แค่ 127.0.0.1 — เครื่องอื่นในวง WiFi ร้าน (รวมถึงลูกค้า) ต่อ DB ตรง ๆ ไม่ได้
+    # app ใน compose ต่อผ่าน docker network อยู่แล้ว ไม่ได้ใช้พอร์ตนี้
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-restaurant} -d ${POSTGRES_DB:-restaurant_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: restaurant_api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    # ค่าลับทั้งหมดอ่านจาก .env (ไม่ commit) — ดูตัวอย่างที่ .env.example
+    # DATABASE_URL ตรงนี้ชี้ไป service "postgres" ใน docker network ไม่ใช่ localhost:5433 แบบใน .env
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-restaurant}:${POSTGRES_PASSWORD:-}@postgres:5432/${POSTGRES_DB:-restaurant_db}?schema=public"
+      PORT: 3000
+      # ร้านอยู่ไทย — "วันนี้" ของ Dashboard, ขอบเดือนในรายงาน และเลขรันใบเสร็จ อิงเวลาเครื่อง
+      # ไม่ตั้งไว้ container จะเป็น UTC ทำให้วันใหม่เริ่มตอน 07:00 เวลาไทย
+      TZ: ${TZ:-Asia/Bangkok}
+      NODE_ENV: ${NODE_ENV:-development}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT:-300}
+      THROTTLE_IP_LIMIT: ${THROTTLE_IP_LIMIT:-1000}
+      LOGIN_THROTTLE_LIMIT: ${LOGIN_THROTTLE_LIMIT:-5}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      SLIPOK_API_KEY: ${SLIPOK_API_KEY:-}
+      SLIPOK_BRANCH_ID: ${SLIPOK_BRANCH_ID:-}
+      SLIPOK_MOCK: ${SLIPOK_MOCK:-false}
+      SLIP_RECHECK_INTERVAL_MS: ${SLIP_RECHECK_INTERVAL_MS:-120000}
+      SLIP_RECHECK_MAX_ATTEMPTS: ${SLIP_RECHECK_MAX_ATTEMPTS:-15}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./prisma:/app/prisma
+    command: sh -c "npx prisma migrate deploy && npm run start:dev"
+
+volumes:
+  postgres_data_dev:

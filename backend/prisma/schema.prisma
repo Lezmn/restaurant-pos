@@ -1,0 +1,411 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  STAFF
+  KITCHEN
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  SERVED
+  PAID
+  CANCELLED
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  PROMPTPAY
+}
+
+enum PaymentStatus {
+  COMPLETED
+  VOIDED
+}
+
+/// ผลตรวจสลิป PromptPay ผ่าน SlipOK (เงินสด = null)
+enum SlipStatus {
+  VERIFIED // SlipOK ยืนยันว่ามีรายการโอนจริง ยอด/ผู้รับตรง
+  PENDING // ตรวจไม่ได้ตอนรับเงิน (ธนาคารขัดข้อง/ให้รอ) — ระบบตรวจซ้ำเอง
+  FAILED // ตรวจซ้ำแล้วไม่ผ่าน หรือหมดเวลาตรวจ — เจ้าของต้องตามเงิน/ยกเลิกบิล
+  MANUAL // ADMIN ยืนยันเองโดยไม่ผ่าน SlipOK (มีเหตุผลกำกับ)
+}
+
+enum TableSessionStatus {
+  OPEN
+  CLOSED
+  EXPIRED
+}
+
+enum ServiceRequestType {
+  CALL_STAFF
+  CHECKOUT
+  OTHER
+}
+
+enum ServiceRequestStatus {
+  PENDING
+  RESOLVED
+  CANCELLED
+}
+
+enum MenuOptionGroup {
+  PROTEIN
+  EXTRA
+}
+
+enum ExpenseCategory {
+  INGREDIENTS
+  UTILITIES
+  SALARY
+  EQUIPMENT
+  RENT
+  OTHER
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(STAFF)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cashCloses DailyCashClose[]
+  expenses   Expense[]
+
+  @@map("users")
+}
+
+model Category {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  menuItems MenuItem[]
+
+  @@map("categories")
+}
+
+model MenuItem {
+  id          String   @id @default(uuid())
+  name        String
+  price       Decimal  @db.Decimal(10, 2)
+  imageUrl    String?
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId String
+
+  orderItems OrderItem[]
+  options    MenuOption[]
+
+  @@index([categoryId])
+  @@map("menu_items")
+}
+
+/// วัตถุดิบของร้าน (หมู ไก่ ไข่ ...) — ผูกกับตัวเลือกเมนูได้หลายอัน
+/// ของหมดก็ปิดที่นี่ทีเดียว ตัวเลือกที่ผูกไว้จะหมดตามทุกเมนู ไม่ต้องไล่ปิดทีละเมนู
+model Ingredient {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  menuOptions MenuOption[]
+
+  @@map("ingredients")
+}
+
+model MenuOption {
+  id          String          @id @default(uuid())
+  name        String
+  price       Decimal         @default(0) @db.Decimal(10, 2)
+  /// PROTEIN = เนื้อสัตว์ (ปกติเลือกอย่างเดียว), EXTRA = ท็อปปิ้ง/เพิ่มเติมอื่น ๆ
+  group       MenuOptionGroup @default(EXTRA)
+  isAvailable Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  menuItem         MenuItem          @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  menuItemId       String
+  orderItemOptions OrderItemOption[]
+
+  // ผูกกับวัตถุดิบไว้ ถ้าวัตถุดิบหมด ตัวเลือกนี้ก็สั่งไม่ได้ (null = ไม่ผูกกับอะไร)
+  ingredient   Ingredient? @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
+  ingredientId String?
+
+  @@index([menuItemId])
+  @@index([menuItemId, group])
+  @@index([ingredientId])
+  @@map("menu_options")
+}
+
+model RestaurantTable {
+  id              String           @id @default(uuid())
+  number          Int              @unique
+  seats           Int              @default(4)
+  status          TableStatus      @default(AVAILABLE)
+  orders          Order[]
+  sessions        TableSession[]
+  serviceRequests ServiceRequest[]
+  receipts        Receipt[]
+
+  @@map("restaurant_tables")
+}
+
+model TableSession {
+  id        String             @id @default(uuid())
+  token     String             @unique
+  status    TableSessionStatus @default(OPEN)
+  openedAt  DateTime           @default(now())
+  closedAt  DateTime?
+  expiresAt DateTime?
+
+  table   RestaurantTable @relation(fields: [tableId], references: [id])
+  tableId String
+
+  orders          Order[]
+  serviceRequests ServiceRequest[]
+  payments        Payment[]
+  receipts        Receipt[]
+
+  @@index([tableId, status])
+  @@map("table_sessions")
+}
+
+model Order {
+  id        String      @id @default(uuid())
+  status    OrderStatus @default(PENDING)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  // ครัวกด "ทำเสร็จเรียบร้อย" = ยกของให้ลูกค้าแล้ว ให้หายจากบอร์ดถาวร
+  // เก็บใน DB ไม่ใช่ state ในจอ ไม่งั้นรีเฟรชแล้วกลับมาใหม่ และจอครัวหลายเครื่องไม่ตรงกัน
+  clearedAt DateTime?
+
+  table   RestaurantTable @relation(fields: [tableId], references: [id])
+  tableId String
+
+  tableSession   TableSession? @relation(fields: [tableSessionId], references: [id])
+  tableSessionId String?
+
+  // ออเดอร์นี้ถูกจ่ายด้วย payment ใบไหน (null = ยังไม่จ่าย) ใช้ตอนแยกบิล
+  payment   Payment? @relation(fields: [paymentId], references: [id])
+  paymentId String?
+
+  items OrderItem[]
+
+  @@index([tableId, status])
+  @@index([tableSessionId])
+  @@index([paymentId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  quantity  Int     @default(1)
+  unitPrice Decimal @db.Decimal(10, 2)
+  note      String?
+
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId String
+
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  menuItemId String
+
+  selectedOptions OrderItemOption[]
+
+  @@map("order_items")
+}
+
+model OrderItemOption {
+  id        String   @id @default(uuid())
+  name      String
+  price     Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+
+  orderItem    OrderItem  @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  orderItemId  String
+  menuOption   MenuOption @relation(fields: [menuOptionId], references: [id])
+  menuOptionId String
+
+  @@index([orderItemId])
+  @@index([menuOptionId])
+  @@map("order_item_options")
+}
+
+model Payment {
+  id     String        @id @default(uuid())
+  amount Decimal       @db.Decimal(10, 2)
+  method PaymentMethod
+  status PaymentStatus @default(COMPLETED)
+  paidAt DateTime      @default(now())
+
+  // ยกเลิกบิลที่จ่ายผิด: เก็บแถวไว้เป็นหลักฐาน ไม่ลบทิ้ง
+  voidedAt   DateTime?
+  voidReason String?
+
+  // หมายเหตุที่พนักงานพิมพ์ตอนรับเงิน (สำเนาอยู่ที่ Receipt.note ด้วย)
+  note String?
+
+  // ---- ตรวจสลิป PromptPay (SlipOK) ----
+  slipStatus         SlipStatus?
+  slipPayload        String? // ข้อความใน QR ของสลิป — เก็บไว้ตรวจซ้ำ ไม่เก็บรูปสลิป (มีข้อมูลส่วนตัวลูกค้า)
+  // รหัสรายการโอนจากธนาคาร — unique กันสลิปใบเดียวใช้กับหลายบิล (SlipOK แนะนำให้กันฝั่งเราเองด้วย)
+  slipTransRef       String?     @unique
+  slipAmount         Decimal?    @db.Decimal(10, 2) // ยอดจริงจากธนาคาร
+  slipTransAt        DateTime? // เวลาโอนจริงจากธนาคาร
+  slipSendingBank    String?
+  slipMessage        String? // ผล/เหตุผลล่าสุด เช่น "ธนาคารขัดข้องชั่วคราว"
+  slipAttempts       Int         @default(0)
+  slipCheckedAt      DateTime?
+  // ADMIN ยืนยันเองโดยไม่ตรวจสลิป — ต้องมีเหตุผล และเก็บชื่อคนยืนยันไว้
+  slipOverrideReason String?
+  slipOverrideByName String?
+
+  tableSession   TableSession @relation(fields: [tableSessionId], references: [id])
+  tableSessionId String
+
+  // แยกบิลได้: payment หนึ่งใบครอบคลุมเฉพาะออเดอร์ที่ระบุ
+  orders  Order[]
+  receipt Receipt?
+
+  @@index([tableSessionId, status])
+  @@index([slipStatus])
+  @@map("payments")
+}
+
+model ServiceRequest {
+  id         String               @id @default(uuid())
+  type       ServiceRequestType
+  status     ServiceRequestStatus @default(PENDING)
+  createdAt  DateTime             @default(now())
+  resolvedAt DateTime?
+
+  // เฉพาะ type=CHECKOUT: วิธีจ่ายเงินที่ลูกค้าเลือกไว้ตอนขอเช็คบิล (แคชเชียร์แก้ไขได้ก่อนชำระจริง)
+  paymentMethod PaymentMethod?
+
+  table   RestaurantTable @relation(fields: [tableId], references: [id])
+  tableId String
+
+  tableSession   TableSession? @relation(fields: [tableSessionId], references: [id])
+  tableSessionId String?
+
+  @@index([tableId, status])
+  @@index([tableSessionId, status])
+  @@map("service_requests")
+}
+
+model Receipt {
+  id       String   @id @default(uuid())
+  number   String   @unique
+  subtotal Decimal  @db.Decimal(10, 2)
+  discount Decimal  @default(0) @db.Decimal(10, 2)
+  total    Decimal  @db.Decimal(10, 2)
+  issuedAt DateTime @default(now())
+  // หมายเหตุพิมพ์ท้ายใบเสร็จ — คัดลอกจาก Payment.note ตอนออกใบเสร็จ
+  note     String?
+
+  payment   Payment @relation(fields: [paymentId], references: [id])
+  paymentId String  @unique
+
+  table   RestaurantTable @relation(fields: [tableId], references: [id])
+  tableId String
+
+  tableSession   TableSession @relation(fields: [tableSessionId], references: [id])
+  tableSessionId String
+
+  items ReceiptItem[]
+
+  @@index([tableId])
+  @@index([tableSessionId])
+  @@map("receipts")
+}
+
+/// รายจ่ายของร้าน ใช้คู่กับรายรับจาก Payment ในหน้า report
+model Expense {
+  id       String          @id @default(uuid())
+  title    String
+  amount   Decimal         @db.Decimal(10, 2)
+  category ExpenseCategory
+  note     String?
+  spentAt  DateTime        @default(now())
+
+  // หยิบเงินสดจากลิ้นชักไปจ่าย (ซื้อน้ำแข็ง ผักขาด ฯลฯ) — นับเป็นเงินออกตอนปิดยอดวัน
+  paidFromDrawer Boolean @default(false)
+
+  // ใครบันทึก — พนักงานบันทึกเงินที่หยิบจากลิ้นชักเองได้ เจ้าของต้องเห็นว่าใครหยิบ
+  // ลบ user ได้โดยประวัติไม่หาย (ชื่อเก็บสำเนาไว้) — รายการเก่าก่อนมีคอลัมน์นี้เป็น null
+  createdBy     User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdById   String?
+  createdByName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([spentAt])
+  @@index([category, spentAt])
+  @@map("expenses")
+}
+
+model ReceiptItem {
+  id          String  @id @default(uuid())
+  name        String
+  quantity    Int
+  unitPrice   Decimal @db.Decimal(10, 2)
+  optionTotal Decimal @default(0) @db.Decimal(10, 2)
+  lineTotal   Decimal @db.Decimal(10, 2)
+  note        String?
+  orderId     String?
+
+  receipt   Receipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  receiptId String
+
+  @@index([receiptId])
+  @@map("receipt_items")
+}
+
+/// ปิดยอดเงินสดประจำวัน — นับเงินในลิ้นชักเทียบกับยอดที่ระบบคาดไว้ วันละ 1 ครั้ง
+/// ตัวเลขยอดขาย/รายจ่ายเป็น snapshot ตอนปิด ถ้ามีการยกเลิกบิล/แก้รายจ่ายทีหลัง ดูความต่างได้จาก GET /cash-closes/:id
+model DailyCashClose {
+  id String @id @default(uuid())
+
+  // วันทำการรูปแบบ 'YYYY-MM-DD' (เวลาเครื่อง server) — เก็บเป็น string เลี่ยงปัญหา @db.Date แปลงเป็น UTC แล้ววันเลื่อน
+  date String @unique
+
+  openingFloat   Decimal @db.Decimal(10, 2) // เงินทอนที่ใส่ลิ้นชักไว้ตอนเปิดร้าน
+  cashSales      Decimal @db.Decimal(10, 2)
+  drawerExpenses Decimal @db.Decimal(10, 2)
+  expectedCash   Decimal @db.Decimal(10, 2) // openingFloat + cashSales - drawerExpenses
+  countedCash    Decimal @db.Decimal(10, 2)
+  difference     Decimal @db.Decimal(10, 2) // countedCash - expectedCash (บวก = เกิน, ลบ = ขาด)
+  promptpaySales Decimal @db.Decimal(10, 2) // ไว้เทียบกับแอปธนาคาร ไม่ได้นับในลิ้นชัก
+
+  note     String?
+  closedAt DateTime @default(now())
+
+  // ลบ user ได้โดยประวัติไม่หาย — ชื่อเก็บสำเนาไว้ใน closedByName
+  closedBy     User?   @relation(fields: [closedById], references: [id], onDelete: SetNull)
+  closedById   String?
+  closedByName String
+
+  @@map("daily_cash_closes")
+}
