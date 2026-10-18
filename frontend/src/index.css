@@ -1,0 +1,148 @@
+@import 'tailwindcss';
+
+@theme {
+  /* ---- Foundation / Orange (ค่าจริงจาก Figma) ---- */
+  --color-brand-50: #fff4e9;
+  --color-brand-75: #ffd1a5;
+  --color-brand-100: #ffbe7f;
+  --color-brand-200: #ffa248;
+  --color-brand-300: #ff8f23;
+  --color-brand-400: #b36419;
+  --color-brand-500: #9c5715;
+
+  /* ---- การ์ดเมนู (หน้าเมนูอาหาร) ---- */
+  --color-ink: #5d4037;
+  --color-price: #bf360c;
+
+  /* ---- รายการในตะกร้า / บิล ---- */
+  --color-listing: #fff4e6;
+  --color-text: #2d2d2d;
+  --color-amount: #e65100;
+  --color-accent-pink: #ff2d55;
+  --color-qty: #f57c00;
+  --color-minus: #f44336;
+  --color-plus: #4caf50;
+
+  /* ---- ฟอร์ม ---- */
+  --color-field: #fafafa;
+  --color-field-text: #1c1b1f;
+
+  /* ---- สีตามวิธีชำระเงิน ---- */
+  /* NOTE: ค่าฟ้ายังไม่ได้ยืนยันกับ Figma (โควตา MCP หมด) — คาดจากภาพหน้าจอ */
+  --color-promptpay: #2f6fed;
+
+  /* ---- ตาราง (หน้า Check ฝั่งพนักงาน) ---- */
+  /* NOTE: ยังไม่ได้ยืนยันค่ากับ Figma (โควตา MCP หมด) — คาดจากภาพหน้าจอ */
+  --color-table-head: #1e73be;
+
+  /* ---- การ์ดสถิติ ฝั่งเจ้าของร้าน ---- */
+  /* NOTE: olive ยังไม่ได้ยืนยันกับ Figma (โควตา MCP หมด) — คาดจากภาพหน้าจอ */
+  --color-accent-olive: #b3b300;
+
+  /* ---- สีบอกสถานะ ---- */
+  --color-status-queue: #e05c5c;
+  --color-status-cooking: #b36419;
+  --color-status-done: #8080e0;
+  --color-success: #3aa76d;
+  --color-danger: #d64545;
+
+  /* ---- ฟอนต์ตามดีไซน์ ---- */
+  --font-sans: 'IBM Plex Sans Thai', system-ui, sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+/* ---- โหมดพิมพ์ ----
+   ใช้กับป้าย QR ตั้งโต๊ะ: ซ่อนทุกอย่างในหน้า เหลือเฉพาะกล่องที่ติด .print-area
+   (ใช้ visibility แทน display เพราะ display:none กับ parent จะทำให้ลูกหายไปด้วย) */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+
+  /* กล่องซ้อน (Modal) เคยเป็น position:fixed ซึ่งเบราว์เซอร์วาดซ้ำทุกหน้ากระดาษ = ใบเสร็จ 2 ชุด
+     ตอนนี้ Modal เป็น <dialog> + showModal() ซึ่งอยู่ top layer เบราว์เซอร์บังคับเป็น absolute
+     (สั่ง static ไม่ได้) — absolute ไม่วาดซ้ำต่อหน้าอยู่แล้ว แต่ต้องปลดขนาด/ตำแหน่งเต็มจอทิ้ง
+     ไม่งั้นกล่องจะกินพื้นที่เท่า viewport แล้วดันเนื้อหาใบเสร็จเพี้ยน */
+  .print-shell {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    overflow: visible !important;
+    background: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    max-height: none !important;
+    max-width: none !important;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  /* <dialog> ใน top layer ถูกบังคับเป็น position:absolute แล้ว width:auto หดเท่าเนื้อหา
+     ทำให้ margin-inline:auto ของใบเสร็จไม่มีที่ว่างให้จัดกลาง → ใบเสร็จเกาะมุมซ้ายบนบน A4
+     ยืดกล่องให้กว้างเต็มหน้ากระดาษแทน (ต้องใช้ dialog.print-shell ให้ชนะ inset:auto ด้านบน) */
+  dialog.print-shell {
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: auto !important;
+    width: auto !important;
+  }
+
+  /* ::backdrop ของ <dialog> เป็นพื้นดำเต็มหน้า ถ้าไม่ปิดจะได้กระดาษดำทั้งแผ่น */
+  dialog::backdrop {
+    background: none !important;
+  }
+
+  /* ไม่กำหนด align-items ตรงนี้ — ปล่อยให้แต่ละที่คุมเอง
+     ป้าย QR ใส่ items-center ของมันเองอยู่แล้ว ส่วนใบเสร็จต้องการ stretch
+     (เดิมบังคับ center ทำให้แถว justify-between หดเท่าข้อความ label กับยอดเลยติดกัน) */
+  .print-area {
+    position: static;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 1rem;
+    background: white;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  /* ใบเสร็จ: คุมความกว้างเท่าสลิปจริงแล้วจัดกลางหน้า ไม่ให้ยืดเต็ม A4 จนอ่านยาก */
+  .print-receipt {
+    max-width: 80mm;
+    margin-inline: auto;
+  }
+
+  /* กันหน้าเปล่าท้ายกระดาษ */
+  html,
+  body {
+    height: auto !important;
+  }
+
+  @page {
+    margin: 10mm;
+  }
+}
+
+/* กระดาษใบเสร็จจริง (80mm / 58mm) — ขอบ 10mm กินพื้นที่ไป 25% ของกระดาษ 80mm
+   เครื่องพิมพ์ความร้อนปกติใช้ขอบ 2–3mm; ตอนพิมพ์ width ของ media query = ความกว้างหน้ากระดาษ */
+@media print and (max-width: 100mm) {
+  @page {
+    margin: 3mm;
+  }
+}
