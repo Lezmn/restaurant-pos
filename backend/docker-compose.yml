@@ -1,4 +1,7 @@
-version: "3.9"
+# ล็อกชื่อ project ไว้เป็นชื่อเดิม (ตอนอยู่ในโฟลเดอร์ restaurant-app)
+# ไม่งั้น compose ตั้งชื่อตามโฟลเดอร์ "backend" → สร้าง volume DB ใหม่ว่างเปล่า ข้อมูลเดิมหาย
+# (volume จริงชื่อ restaurant-app_postgres_data_dev) — ตัด version ออก compose v2 เลิกใช้แล้ว
+name: restaurant-app
 
 services:
   postgres:
