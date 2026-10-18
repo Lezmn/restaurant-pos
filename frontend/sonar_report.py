@@ -5,13 +5,16 @@ sonar_report.py
 โดยดึงข้อมูลผ่าน Web API ของ SonarQube แล้วนำมาจัดรูปแบบเป็นไฟล์ PDF
 
 การใช้งาน:
-    python3 sonar_report.py --host http://localhost:9000 --project juice-shop-demo --token <YOUR_TOKEN>
+    python3 sonar_report.py --host http://localhost:9000 --project juice-shop-demo
+
+    Token อ่านจาก environment variable SONAR_TOKEN (หรือส่ง --token เองก็ได้)
 
 ต้องติดตั้งไลบรารีก่อน:
     pip install requests reportlab
 """
 
 import argparse
+import os
 import sys
 from datetime import datetime
 
@@ -242,10 +245,13 @@ def main():
     parser = argparse.ArgumentParser(description="สร้างรายงาน PDF จากผลสแกน SonarQube")
     parser.add_argument("--host", required=True, help="URL ของ SonarQube เช่น http://localhost:9000")
     parser.add_argument("--project", required=True, help="Project Key เช่น juice-shop-demo")
-    parser.add_argument("--token", required=True, help="SonarQube Analysis/User Token")
+    parser.add_argument("--token", default=os.environ.get("SONAR_TOKEN"),
+                        help="SonarQube Analysis/User Token (default: env SONAR_TOKEN)")
     parser.add_argument("--output", default=None, help="ชื่อไฟล์ PDF ผลลัพธ์ (default: <project>_report.pdf)")
     parser.add_argument("--top", type=int, default=15, help="จำนวนตัวอย่าง issues ที่จะแสดง (default 15)")
     args = parser.parse_args()
+    if not args.token:
+        parser.error("ไม่พบ token: ตั้ง environment variable SONAR_TOKEN หรือส่ง --token")
 
     host = args.host.rstrip("/")
     output = args.output or f"{args.project}_report.pdf"

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAsCashier } from '../helpers'
+import { checkTableTile, loginAsCashier } from '../helpers'
 
 // เขียนจากการกระทำจริงที่ record ไว้ด้วย `npx playwright codegen --channel=chrome`:
 // cashier เปิดโต๊ะ -> เอาลิงก์ QR ไปให้ "ลูกค้า" (จำลองด้วยแท็บใหม่) -> ลูกค้าสั่งข้าวผัด (หมู)
@@ -21,8 +21,8 @@ test('cashier เปิดโต๊ะ ลูกค้าสั่งอาห�
   const availableTable = page.locator('article', { hasText: 'ว่าง' }).first()
   await expect(availableTable).toBeVisible()
   // จำชื่อโต๊ะไว้ ใช้หาแถวที่ถูกต้องในหน้า Check ทีหลัง เพราะโต๊ะอื่นที่เปิดค้างจากรันเทสรอบก่อน ๆ
-  // ก็มีข้อความ "ยังเสิร์ฟไม่ครบ (เหลือ N ออเดอร์)" เหมือนกัน ถ้าไม่ระบุเจาะจงโต๊ะ จะชนกันกลายเป็น strict mode violation
-  // การ์ดโต๊ะโชว์ "โต๊ะ {name}" แต่ตาราง Check โชว์แค่ {session.tableName} เฉย ๆ เลยต้องตัดคำว่า "โต๊ะ" ออกก่อน
+  // ก็มีป้าย "รอเสิร์ฟ N ออเดอร์" เหมือนกัน ถ้าไม่ระบุเจาะจงโต๊ะ จะชนกันกลายเป็น strict mode violation
+  // ตัดคำว่า "โต๊ะ" ออกเหลือแค่ชื่อ แล้วให้ checkTableTile ประกอบหัวการ์ด "โต๊ะ {name}" เอง
   const tableCardText = (await availableTable.locator('p.text-xl').innerText()).trim()
   const tableName = tableCardText.replace(/^โต๊ะ\s*/, '')
   await availableTable.getByRole('button', { name: 'เปิดโต๊ะ + สร้าง QR' }).click()
@@ -57,8 +57,9 @@ test('cashier เปิดโต๊ะ ลูกค้าสั่งอาห�
   // กลับมาฝั่งพนักงาน ไปหน้า Check ต้องเห็นโต๊ะนี้ค้างจ่ายอยู่
   await page.getByRole('link', { name: 'Check' }).click()
 
-  // ข้าวผัด (50 บาท) + หมู (+0 บาท) = ยังไม่เสิร์ฟ เลยเก็บเงินไม่ได้ ต้องขึ้น "ยังเสิร์ฟไม่ครบ (เหลือ 1 ออเดอร์)" แทนปุ่ม "เก็บเงิน"
-  // ระบุแถวด้วยชื่อโต๊ะที่จำไว้ กันชนกับโต๊ะอื่นที่อาจมีออเดอร์ค้างจากการรันเทสรอบก่อน ๆ
-  const row = page.getByRole('row').filter({ has: page.getByRole('cell', { name: tableName, exact: true }) })
-  await expect(row.getByText(/ยังเสิร์ฟไม่ครบ \(เหลือ \d+ ออเดอร์\)/)).toBeVisible()
+  // ข้าวผัด (50 บาท) + หมู (+0 บาท) = ยังไม่เสิร์ฟ เลยเก็บเงินไม่ได้ ต้องขึ้นป้าย "รอเสิร์ฟ 1 ออเดอร์" และไม่มีปุ่ม "รับเงิน"
+  // ระบุการ์ดด้วยชื่อโต๊ะที่จำไว้ กันชนกับโต๊ะอื่นที่อาจมีออเดอร์ค้างจากการรันเทสรอบก่อน ๆ
+  const tile = checkTableTile(page, tableName)
+  await expect(tile.getByText(/รอเสิร์ฟ \d+ ออเดอร์/)).toBeVisible()
+  await expect(tile.getByRole('button', { name: /^รับเงิน/ })).toHaveCount(0)
 })

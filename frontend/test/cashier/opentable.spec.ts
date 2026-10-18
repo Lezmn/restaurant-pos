@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAsCashier } from '../helpers'
+import { checkTableTile, loginAsCashier } from '../helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data ที่ localhost:3000
 // เดิมสมมติว่าโต๊ะว่างครบ 6 โต๊ะ แต่ seed มีโต๊ะเปิดค้างไว้เป็นตัวอย่าง (โต๊ะ 2, 4)
@@ -51,9 +51,8 @@ test('cashier เปิดโต๊ะที่ 1 แล้วจำนวนโ
   await expect(page).toHaveURL(/\/employee\/check$/)
   await expect(page.getByText(`จำนวนโต๊ะที่ว่าง ${before - 1} โต๊ะ`)).toBeVisible()
 
-  // scope เฉพาะตารางโต๊ะที่เปิดอยู่ (ตัวแรก) ไม่เอาตาราง "บิลที่เก็บแล้ววันนี้" ด้านล่าง
-  const rows = page.locator('table').first().locator('tbody tr')
-  await expect(rows.filter({ has: page.getByRole('cell', { name: tableName, exact: true }) })).toHaveCount(1)
+  // โต๊ะที่เปิดอยู่แสดงเป็นการ์ด (หัวการ์ด "โต๊ะ {name}")
+  await expect(checkTableTile(page, tableName)).toHaveCount(1)
 
   // เก็บกวาด: ปิดโต๊ะคืน (มี popup ยืนยัน) ให้จำนวนโต๊ะว่างกลับเท่าเดิม
   await page.goto('/employee/tables')

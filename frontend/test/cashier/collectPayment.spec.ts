@@ -1,14 +1,16 @@
 import { test, expect } from '@playwright/test'
 import {
   advanceOrderToServed,
+  checkTableTile,
   loginAsAdmin,
   loginAsCashier,
   openTableAndPlaceOrder,
+  paidBillsTable,
 } from '../helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data ที่ localhost:3000
 // setup ด้วย admin: เปิดโต๊ะ + สั่งอาหาร + ไล่สถานะถึง "เสิร์ฟแล้ว" ก่อน (backend ไม่ให้เก็บเงิน
-// ถ้าออเดอร์ยังไม่ถูกเสิร์ฟ ดู CheckPage.tsx: blocked = unpaid.length===0 || notServed.length>0)
+// ถ้าออเดอร์ยังไม่ถูกเสิร์ฟ ดู CheckPage.tsx: state 'serving' ไม่มีปุ่มรับเงิน)
 // แล้วสลับตัวตนเป็น cashier (STAFF) มาเก็บเงินจริงตามหน้าที่ — ข้าวผัด(หมู) ราคารวม 50 บาท
 
 const FRIED_RICE = /^ข้าวผัด(?!กะเพรา)/
@@ -25,15 +27,17 @@ test('cashier เก็บเงินสดสำเร็จ เห็นใ�
   await page.goto('/employee/check')
 
   const tableName = tableCardText.replace(/^โต๊ะ\s*/, '')
-  const row = page.getByRole('row').filter({ has: page.getByRole('cell', { name: tableName, exact: true }) })
-  await row.getByRole('button', { name: 'เก็บเงิน' }).click()
+  const tile = checkTableTile(page, tableName)
+  await tile.getByRole('button', { name: /^รับเงิน/ }).click()
 
   // ลูกค้าไม่ได้กดเช็คบิลมาเอง เลยตั้งต้นเป็น "เงินสด" ให้ และเติมยอดที่ต้องจ่ายมาให้อัตโนมัติ
-  const dialog = page.getByRole('dialog', { name: 'ชำระเงินสด' })
+  const dialog = page.getByRole('dialog', { name: `รับเงิน โต๊ะ ${tableName}` })
   await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'เงินสด' })).toHaveAttribute('aria-pressed', 'true')
   await expect(dialog.getByLabel('ราคาที่เก็บจริง')).toHaveValue('50')
 
-  await dialog.getByRole('button', { name: 'บันทึก' }).click()
+  // ปุ่มยืนยันบอกยอดในตัว: "รับเงิน ฿50"
+  await dialog.getByRole('button', { name: 'รับเงิน ฿50' }).click()
 
   // PaymentDialog ปิดแล้วเด้ง ReceiptDialog ขึ้นมาทันที
   const receipt = page.getByRole('dialog', { name: 'ใบเสร็จรับเงิน' })
@@ -42,12 +46,11 @@ test('cashier เก็บเงินสดสำเร็จ เห็นใ�
   await expect(receipt.getByText('฿50').first()).toBeVisible()
   await receipt.getByRole('button', { name: 'ปิด' }).click()
 
-  // จ่ายครบแล้ว backend ปิดโต๊ะให้เอง → แถวหายจากตารางโต๊ะที่เปิดอยู่
-  // และบิลไปโผล่ในตาราง "บิลที่เก็บแล้ววันนี้" (ตารางที่สอง)
-  const openTables = page.locator('table').first()
-  await expect(openTables.getByRole('row').filter({ has: page.getByRole('cell', { name: tableName, exact: true }) })).toHaveCount(0)
+  // จ่ายครบแล้ว backend ปิดโต๊ะให้เอง → การ์ดโต๊ะหายไป
+  // และบิลไปโผล่ในตาราง "บิลที่เก็บแล้ววันนี้"
+  await expect(tile).toHaveCount(0)
   await expect(
-    page.locator('table').nth(1).getByRole('row').filter({ has: page.getByRole('cell', { name: tableName, exact: true }) }).filter({ hasText: 'เงินสด' }),
+    paidBillsTable(page).getByRole('row').filter({ has: page.getByRole('cell', { name: tableName, exact: true }) }).filter({ hasText: 'เงินสด' }),
   ).toBeVisible()
 })
 
@@ -63,15 +66,14 @@ test('cashier เก็บเงินผ่าน PromptPay (สแกน) ส�
   await page.goto('/employee/check')
 
   const tableName = tableCardText.replace(/^โต๊ะ\s*/, '')
-  const row = page.getByRole('row').filter({ has: page.getByRole('cell', { name: tableName, exact: true }) })
-  await row.getByRole('button', { name: 'เก็บเงิน' }).click()
+  const tile = checkTableTile(page, tableName)
+  await tile.getByRole('button', { name: /^รับเงิน/ }).click()
 
-  // ใช้ locator แบบไม่ระบุชื่อ (ไม่เหมือนเทสเงินสด) เพราะ title ของ dialog เปลี่ยนจาก
-  // "ชำระเงินสด" เป็น "ชำระผ่าน PromptPay" ทันทีที่กดเลือกวิธีจ่าย (dialogTitle[method] ใน CheckPage.tsx)
-  const dialog = page.getByRole('dialog')
-  await expect(dialog).toHaveAccessibleName('ชำระเงินสด')
+  // ลูกค้าไม่ได้เลือกวิธีจ่ายมา ตั้งต้นเป็นเงินสด แล้วกดสลับเป็น PromptPay (หัวกล่องคงที่ "รับเงิน โต๊ะ X")
+  const dialog = page.getByRole('dialog', { name: `รับเงิน โต๊ะ ${tableName}` })
+  await expect(dialog).toBeVisible()
   await dialog.getByRole('button', { name: 'PromptPay' }).click()
-  await expect(dialog).toHaveAccessibleName('ชำระผ่าน PromptPay')
+  await expect(dialog.getByRole('button', { name: 'PromptPay' })).toHaveAttribute('aria-pressed', 'true')
 
   // เลือก PromptPay แล้วต้องเห็น QR ให้ลูกค้าสแกนพร้อมยอดเงิน — โปรเจกต์นี้ยังไม่ได้ตั้ง
   // VITE_PROMPTPAY_ID ใน .env จริง (มีแค่ .env.example) เลยต้องขึ้นคำเตือนโหมดเดโมเสมอ
@@ -80,7 +82,7 @@ test('cashier เก็บเงินผ่าน PromptPay (สแกน) ส�
   await expect(dialog.getByText('โหมดเดโม')).toBeVisible()
 
   // PromptPay ต้องสแกนสลิปให้ระบบตรวจ (SlipOK) ก่อนบันทึก — ยังไม่สแกนกดบันทึกไม่ได้
-  const save = dialog.getByRole('button', { name: 'บันทึก' })
+  const save = dialog.getByRole('button', { name: 'รับเงิน ฿50' })
   await expect(save).toBeDisabled()
   // จำลองเครื่องสแกน 2D: พิมพ์ข้อความ QR ของสลิปลงช่องแล้วกด Enter (Enter ต้องไม่ submit ฟอร์ม)
   // backend โหมดจำลอง (SLIPOK_MOCK=true) ขึ้นต้น MOCK-OK = ตรวจผ่าน
@@ -96,9 +98,9 @@ test('cashier เก็บเงินผ่าน PromptPay (สแกน) ส�
   await expect(receipt.getByText('PromptPay')).toBeVisible()
   await receipt.getByRole('button', { name: 'ปิด' }).click()
 
-  // จ่ายครบแล้วโต๊ะหายจากตารางโต๊ะที่เปิดอยู่ บิลไปอยู่ "บิลที่เก็บแล้ววันนี้" พร้อมป้ายผลตรวจสลิป
-  await expect(page.locator('table').first().getByRole('row').filter({ has: page.getByRole('cell', { name: tableName, exact: true }) })).toHaveCount(0)
+  // จ่ายครบแล้วการ์ดโต๊ะหายไป บิลไปอยู่ "บิลที่เก็บแล้ววันนี้" พร้อมป้ายผลตรวจสลิป
+  await expect(tile).toHaveCount(0)
   await expect(
-    page.locator('table').nth(1).getByRole('row').filter({ has: page.getByRole('cell', { name: tableName, exact: true }) }).filter({ hasText: /ตรวจสลิปแล้ว|รอตรวจสลิป/ }),
+    paidBillsTable(page).getByRole('row').filter({ has: page.getByRole('cell', { name: tableName, exact: true }) }).filter({ hasText: /ตรวจสลิปแล้ว|รอตรวจสลิป/ }),
   ).toBeVisible()
 })

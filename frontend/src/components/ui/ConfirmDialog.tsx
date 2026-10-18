@@ -39,8 +39,8 @@ export function ConfirmDialog({
 }>) {
   const confirmClass =
     tone === 'danger'
-      ? 'bg-danger hover:brightness-95'
-      : 'bg-brand-300 hover:bg-brand-400'
+      ? 'bg-danger-ink hover:brightness-95'
+      : 'bg-brand-500 hover:brightness-90'
   const boxClass = tone === 'danger' ? 'bg-danger/5' : 'bg-brand-50'
 
   return (

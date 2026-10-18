@@ -1,5 +1,6 @@
 import { ErrorNote } from '@/components/ui/ErrorNote'
 import { Modal } from '@/components/ui/Modal'
+import { button, field, fieldLabel } from '@/components/ui/styles'
 import { useAuth } from '@/features/auth/use-auth'
 import {
   useConfirmSlip,
@@ -30,7 +31,7 @@ export function SlipIssues() {
   if (!payments?.length) return null
 
   return (
-    <section className="mt-8 rounded-xl border-2 border-amber-300 bg-amber-50/50 p-4">
+    <section className="rounded-xl border-2 border-amber-300 bg-amber-50/50 p-4">
       <h2 className="text-lg font-bold text-black">สลิป PromptPay ที่ต้องตาม ({payments.length})</h2>
       <p className="mt-1 text-sm text-gray-600">
         ยังยืนยันไม่ได้ว่าเงินเข้าบัญชีร้านจริง — "รอตรวจ" ระบบตรวจซ้ำให้เอง ·
@@ -61,7 +62,7 @@ export function SlipIssues() {
                   type="button"
                   disabled={recheck.isPending}
                   onClick={() => recheck.mutate(p.id)}
-                  className="min-h-10 rounded-lg border-2 border-brand-300 px-3 text-sm font-bold text-brand-400 transition hover:bg-brand-50 disabled:opacity-60"
+                  className={button('outline', 'sm')}
                 >
                   {recheck.isPending && recheck.variables === p.id ? 'กำลังตรวจ...' : 'ตรวจอีกครั้ง'}
                 </button>
@@ -70,7 +71,7 @@ export function SlipIssues() {
                 <button
                   type="button"
                   onClick={() => setConfirming(p)}
-                  className="min-h-10 rounded-lg bg-brand-300 px-3 text-sm font-bold text-white transition hover:bg-brand-400"
+                  className={button('primary', 'sm')}
                 >
                   ยืนยันเอง
                 </button>
@@ -109,14 +110,14 @@ function ConfirmSlipDialog({
           <p className="font-bold text-black">
             โต๊ะ {payment.tableName} · {formatBaht(payment.amount)}
           </p>
-          <p className="mt-1 text-gray-500">{payment.slip?.message}</p>
+          <p className="mt-1 text-gray-600">{payment.slip?.message}</p>
         </div>
         <p className="mt-3 text-sm text-gray-600">
           ยืนยันเมื่อเห็นยอดเข้าในแอปธนาคารของร้านแล้วเท่านั้น — ถ้าเงินไม่เข้า ให้ยกเลิกบิลแทน
         </p>
         <label className="mt-3 block">
-          <span className="text-sm font-semibold text-gray-700">
-            เหตุผล<span className="ml-1 text-danger">*</span>
+          <span className={fieldLabel}>
+            เหตุผล<span className="ml-1 text-danger-ink">*</span>
           </span>
           <textarea
             value={reason}
@@ -125,21 +126,21 @@ function ConfirmSlipDialog({
             maxLength={200}
             required
             placeholder="เช่น เช็คแอปธนาคารแล้ว ยอดเข้า 19:42"
-            className="mt-1 w-full resize-none rounded border border-gray-300 bg-gray-100 px-3 py-2 outline-none focus:border-brand-300 focus:bg-white"
+            className={`${field} resize-none`}
           />
         </label>
-        <div className="mt-5 grid grid-cols-2 gap-4">
+        <div className="mt-5 grid grid-cols-2 gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="rounded border-2 border-gray-300 py-2.5 font-bold text-gray-700 transition hover:bg-gray-50"
+            className={button('secondary', 'lg')}
           >
             กลับ
           </button>
           <button
             type="submit"
             disabled={confirm.isPending || !reason.trim()}
-            className="rounded bg-brand-300 py-2.5 font-bold text-white transition hover:bg-brand-400 disabled:opacity-60"
+            className={button('primary', 'lg')}
           >
             {confirm.isPending ? 'กำลังบันทึก...' : 'ยืนยันว่าเงินเข้าแล้ว'}
           </button>

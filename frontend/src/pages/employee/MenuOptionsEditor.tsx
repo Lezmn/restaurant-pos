@@ -19,7 +19,7 @@ const GROUP_LABEL: Record<MenuOptionGroupKind, string> = {
 }
 
 const inputClass =
-  'rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-300'
+  'rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-400'
 
 /**
  * จัดการตัวเลือกของเมนู (หมู/ไก่/ไข่ดาว) — เพิ่ม, แก้, เปิด-ปิดให้เลือก, ลบ
@@ -43,7 +43,7 @@ export function MenuOptionsEditor({ menuItemId }: { menuItemId: Id }) {
   return (
     <section className="rounded-xl border border-gray-200 bg-gray-50 p-3">
       <h3 className="text-sm font-bold text-gray-800">ตัวเลือกของเมนู</h3>
-      <p className="mt-0.5 text-xs text-gray-500">
+      <p className="mt-0.5 text-sm text-gray-500">
         ปิดสวิตช์ = ลูกค้าจะไม่เห็นตัวเลือกนั้น (ใช้ตอนของหมดชั่วคราว) ·
         ผูกวัตถุดิบไว้ = ของหมดทีเดียวหายทุกเมนู
       </p>
@@ -57,7 +57,7 @@ export function MenuOptionsEditor({ menuItemId }: { menuItemId: Id }) {
         if (rows.length === 0) return null
         return (
           <div key={group} className="mt-3">
-            <p className="text-xs font-semibold text-gray-600">{GROUP_LABEL[group]}</p>
+            <p className="text-sm font-semibold text-gray-600">{GROUP_LABEL[group]}</p>
             <ul className="mt-1 space-y-1.5">
               {rows.map((option) => (
                 <OptionRow
@@ -83,7 +83,7 @@ export function MenuOptionsEditor({ menuItemId }: { menuItemId: Id }) {
       })}
 
       {options.length === 0 && (
-        <p className="mt-3 text-xs text-gray-400">ยังไม่มีตัวเลือก</p>
+        <p className="mt-3 text-sm text-gray-500">ยังไม่มีตัวเลือก</p>
       )}
 
       <NewOptionRow
@@ -133,7 +133,7 @@ export function PendingOptionsEditor({
   return (
     <section className="rounded-xl border border-gray-200 bg-gray-50 p-3">
       <h3 className="text-sm font-bold text-gray-800">ตัวเลือกของเมนู</h3>
-      <p className="mt-0.5 text-xs text-gray-500">
+      <p className="mt-0.5 text-sm text-gray-500">
         ใส่ไว้ก่อนได้เลย จะถูกบันทึกพร้อมเมนูตอนกด "บันทึก"
       </p>
 
@@ -144,7 +144,7 @@ export function PendingOptionsEditor({
         if (rows.length === 0) return null
         return (
           <div key={group} className="mt-3">
-            <p className="text-xs font-semibold text-gray-600">{GROUP_LABEL[group]}</p>
+            <p className="text-sm font-semibold text-gray-600">{GROUP_LABEL[group]}</p>
             <ul className="mt-1 space-y-1.5">
               {rows.map(({ o, index }) => (
                 <li
@@ -154,13 +154,13 @@ export function PendingOptionsEditor({
                   <span className="min-w-0 flex-1 truncate text-sm text-gray-900">
                     {o.name}
                     {o.price > 0 && (
-                      <span className="ml-1 text-xs text-gray-500">+{formatBaht(o.price)}</span>
+                      <span className="ml-1 text-sm text-gray-500">+{formatBaht(o.price)}</span>
                     )}
                   </span>
                   <button
                     type="button"
                     onClick={() => onChange(options.filter((_, i) => i !== index))}
-                    className="text-xs font-semibold text-danger hover:underline"
+                    className="text-sm font-semibold text-danger-ink hover:underline"
                   >
                     ลบ
                   </button>
@@ -172,7 +172,7 @@ export function PendingOptionsEditor({
       })}
 
       {options.length === 0 && (
-        <p className="mt-3 text-xs text-gray-400">ยังไม่มีตัวเลือก</p>
+        <p className="mt-3 text-sm text-gray-500">ยังไม่มีตัวเลือก</p>
       )}
 
       <NewOptionRow
@@ -273,7 +273,7 @@ function OptionRow({
             })
             setEditing(false)
           }}
-          className="rounded-lg bg-brand-300 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-400 disabled:opacity-50"
+          className="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-bold text-white hover:brightness-90 disabled:opacity-50"
         >
           บันทึก
         </button>
@@ -286,7 +286,7 @@ function OptionRow({
             setIngredientId(option.ingredientId ?? '')
             setEditing(false)
           }}
-          className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-bold text-gray-600 hover:bg-gray-50"
+          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-bold text-gray-600 hover:bg-gray-50"
         >
           ยกเลิก
         </button>
@@ -304,8 +304,8 @@ function OptionRow({
         {option.name}
         {option.ingredientName && (
           <span
-            className={`ml-1 text-xs ${
-              option.ingredientOutOfStock ? 'font-semibold text-danger' : 'text-gray-400'
+            className={`ml-1 text-sm ${
+              option.ingredientOutOfStock ? 'font-semibold text-danger-ink' : 'text-gray-500'
             }`}
           >
             [{option.ingredientName}
@@ -316,16 +316,16 @@ function OptionRow({
         {option.group === MenuOptionGroupKind.PROTEIN && !option.ingredientId && (
           <span
             title="กด 'แก้' แล้วเลือกวัตถุดิบ เพื่อให้ปิดของหมดทีเดียวแล้วหายทุกเมนู"
-            className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800"
+            className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-sm font-semibold text-amber-800"
           >
             ยังไม่ผูกวัตถุดิบ
           </span>
         )}
         {option.price > 0 && (
-          <span className="ml-1 text-xs text-gray-500">+{formatBaht(option.price)}</span>
+          <span className="ml-1 text-sm text-gray-500">+{formatBaht(option.price)}</span>
         )}
         {!option.isAvailable && (
-          <span className="ml-2 text-xs font-semibold text-gray-500">ปิดอยู่</span>
+          <span className="ml-2 text-sm font-semibold text-gray-500">ปิดอยู่</span>
         )}
       </span>
 
@@ -338,7 +338,7 @@ function OptionRow({
         disabled={disabled}
         onClick={() => onToggle(!option.isAvailable)}
         className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-50 ${
-          option.isAvailable ? 'bg-brand-300' : 'bg-gray-300'
+          option.isAvailable ? 'bg-brand-500' : 'bg-gray-300'
         }`}
       >
         <span
@@ -352,7 +352,7 @@ function OptionRow({
         type="button"
         disabled={disabled}
         onClick={() => setEditing(true)}
-        className="text-xs font-semibold text-brand-400 hover:underline disabled:opacity-50"
+        className="text-sm font-semibold text-brand-500 hover:underline disabled:opacity-50"
       >
         แก้
       </button>
@@ -360,7 +360,7 @@ function OptionRow({
         type="button"
         disabled={disabled}
         onClick={onDelete}
-        className="text-xs font-semibold text-danger hover:underline disabled:opacity-50"
+        className="text-sm font-semibold text-danger-ink hover:underline disabled:opacity-50"
       >
         ลบ
       </button>
@@ -479,14 +479,14 @@ function NewOptionRow({
           type="button"
           disabled={disabled || !canSubmit}
           onClick={submit}
-          className="rounded-lg border-2 border-brand-300 px-3 py-1.5 text-xs font-bold text-brand-400 hover:bg-brand-50 disabled:opacity-50"
+          className="rounded-lg border-2 border-brand-400 px-3 py-1.5 text-sm font-bold text-brand-500 hover:bg-brand-50 disabled:opacity-50"
         >
           + เพิ่ม
         </button>
       </div>
 
       {isProtein && available.length === 0 && (
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-2 text-sm text-gray-500">
           {ingredients?.length
             ? 'วัตถุดิบทุกตัวถูกใช้ในเมนูนี้แล้ว'
             : 'ยังไม่มีวัตถุดิบ — เพิ่มได้ที่แท็บ "วัตถุดิบ" ก่อน'}
