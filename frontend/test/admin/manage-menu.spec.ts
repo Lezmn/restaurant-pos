@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { loginAsAdmin } from '../helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data ที่ localhost:3000
-// เทสในไฟล์นี้เป็น read-only ทั้งหมด (ไม่กด "+ เพิ่มเมนู" / "+ เพิ่มวัตถุดิบ" จริง)
+// เทสในไฟล์นี้เป็น read-only ทั้งหมด (ไม่กด "เพิ่มเมนู" / "เพิ่มวัตถุดิบ" จริง)
 // เพื่อไม่ให้สร้างข้อมูลขยะค้างในฐานข้อมูล dev ทุกครั้งที่รันเทส
 
 // ปุ่ม "+ เพิ่มหมวดหมู่" ถูกถอดออกแล้ว (เหลือแถบชิปกรองตามหมวด) — หมวดหมู่มาจาก seed
@@ -13,8 +13,8 @@ test('หน้าจัดการเมนูมีเครื่องม�
   await loginAsAdmin(page, request)
   await page.goto('/employee/manage')
 
-  await expect(page.getByRole('button', { name: '+ เพิ่มเมนู' })).toBeVisible()
-  await expect(page.getByPlaceholder('ค้นหา')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'เพิ่มเมนู', exact: true })).toBeVisible()
+  await expect(page.getByPlaceholder('ค้นหาเมนู')).toBeVisible()
   await expect(page.getByRole('button', { name: 'เมนู', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'วัตถุดิบ', exact: true })).toBeVisible()
 })
@@ -42,6 +42,6 @@ test('กดแท็บ "วัตถุดิบ" แสดงหน้าจ�
 
   await page.getByRole('button', { name: 'วัตถุดิบ', exact: true }).click()
 
-  await expect(page.getByRole('button', { name: '+ เพิ่มวัตถุดิบ' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'เพิ่มวัตถุดิบ', exact: true })).toBeVisible()
   await expect(page.getByText('หมู', { exact: true }).first()).toBeVisible()
 })

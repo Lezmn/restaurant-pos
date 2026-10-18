@@ -156,3 +156,18 @@ export async function advanceOrderToServed(page: Page, orderRef: string) {
   await expect(inCooking).toBeVisible()
   await inCooking.getByRole('button', { name: 'ทำเสร็จแล้ว' }).click()
 }
+
+/**
+ * การ์ดโต๊ะที่เปิดอยู่ในหน้า Check (เดิมเป็นแถวในตาราง) — หาจากหัวการ์ด "โต๊ะ {name}"
+ * หน้า Check มี <article> เฉพาะการ์ดโต๊ะ ส่วนบิลที่เก็บแล้วยังเป็นตาราง
+ */
+export function checkTableTile(page: Page, tableName: string) {
+  return page
+    .locator('article')
+    .filter({ has: page.getByRole('heading', { name: `โต๊ะ ${tableName}`, exact: true }) })
+}
+
+/** ตาราง "บิลที่เก็บแล้ววันนี้" ในหน้า Check (section มี aria-labelledby จึงเป็น region) */
+export function paidBillsTable(page: Page) {
+  return page.getByRole('region', { name: /บิลที่เก็บแล้ววันนี้/ }).locator('table')
+}
