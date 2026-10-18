@@ -1,3 +1,4 @@
+import { button, field, fieldLabel } from '@/components/ui/styles'
 import { ErrorNote } from '@/components/ui/ErrorNote'
 import { Modal } from '@/components/ui/Modal'
 import { useCategories } from '@/features/menu/hooks'
@@ -12,6 +13,7 @@ export function MenuFormDialog({
   isSaving,
   error,
   onCancel,
+  onDelete,
   onSubmit,
 }: {
   /** ไม่ส่งมา = โหมดเพิ่มเมนูใหม่ */
@@ -19,6 +21,8 @@ export function MenuFormDialog({
   isSaving: boolean
   error: unknown
   onCancel: () => void
+  /** โหมดแก้ไขเท่านั้น — ลบเมนูนี้ (เปิดกล่องยืนยันต่อ) */
+  onDelete?: () => void
   /** โหมดเพิ่มเมนูใหม่จะได้ options ที่ผู้ใช้ใส่ไว้มาด้วย (โหมดแก้ไขยิง API ตรงจาก editor เอง) */
   onSubmit: (input: MenuItemInput, pendingOptions: MenuOptionInput[]) => void
 }) {
@@ -55,34 +59,34 @@ export function MenuFormDialog({
         <ErrorNote error={error} />
 
         <label className="block text-sm">
-          <span className="font-semibold text-gray-700">ชื่อเมนู</span>
+          <span className={fieldLabel}>ชื่อเมนู</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="เช่น ข้าวผัดกะเพรา"
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-300"
+            className={field}
           />
         </label>
 
         <div className="grid grid-cols-2 gap-3">
           <label className="block text-sm">
-            <span className="font-semibold text-gray-700">ราคา (บาท)</span>
+            <span className={fieldLabel}>ราคา (บาท)</span>
             <input
               type="number"
               min="0"
               step="1"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-300"
+              className={field}
             />
           </label>
 
           <label className="block text-sm">
-            <span className="font-semibold text-gray-700">หมวดหมู่</span>
+            <span className={fieldLabel}>หมวดหมู่</span>
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-300"
+              className={field}
             >
               <option value="">เลือกหมวดหมู่</option>
               {categories?.map((c) => (
@@ -95,12 +99,12 @@ export function MenuFormDialog({
         </div>
 
         <label className="block text-sm">
-          <span className="font-semibold text-gray-700">ลิงก์รูปภาพ</span>
+          <span className={fieldLabel}>ลิงก์รูปภาพ</span>
           <input
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
             placeholder="https://... (ไม่ใส่ก็ได้)"
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-xs outline-none focus:border-brand-300"
+            className={field}
           />
         </label>
 
@@ -109,9 +113,9 @@ export function MenuFormDialog({
             type="checkbox"
             checked={isAvailable}
             onChange={(e) => setIsAvailable(e.target.checked)}
-            className="h-5 w-5 accent-brand-300"
+            className="h-5 w-5"
           />
-          <span className="font-semibold text-gray-700">พร้อมจำหน่าย</span>
+          <span className={fieldLabel}>พร้อมจำหน่าย</span>
         </label>
 
         {/* โหมดแก้ไขยิง API ทันที; โหมดเพิ่มเมนูใหม่ยังไม่มี id จึงพักไว้ก่อนแล้วสร้างตามหลัง */}
@@ -125,18 +129,34 @@ export function MenuFormDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg border-2 border-gray-300 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
+            className={button('secondary', 'lg')}
           >
             ยกเลิก
           </button>
           <button
             type="submit"
             disabled={isSaving}
-            className="rounded-lg bg-brand-300 py-2.5 text-sm font-bold text-white transition hover:bg-brand-400 disabled:opacity-60"
+            className={button('primary', 'lg')}
           >
             {isSaving ? 'กำลังบันทึก...' : 'บันทึก'}
           </button>
         </div>
+
+        {/* แยกโซนอันตรายไว้ล่างสุด ห่างจากปุ่มบันทึก */}
+        {item && onDelete && (
+          <div className="mt-2 border-t border-gray-200 pt-4">
+            <button
+              type="button"
+              onClick={onDelete}
+              className={`${button('danger-outline')} w-full`}
+            >
+              ลบเมนูนี้
+            </button>
+            <p className="mt-1 text-center text-sm text-gray-600">
+              เมนูที่เคยถูกสั่งแล้วลบไม่ได้ ให้ปิดขายแทน
+            </p>
+          </div>
+        )}
       </form>
     </Modal>
   )

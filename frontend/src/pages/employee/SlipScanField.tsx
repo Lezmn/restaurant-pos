@@ -1,3 +1,4 @@
+import { field, fieldLabel } from '@/components/ui/styles'
 import { useEffect, useRef } from 'react'
 
 export interface SlipInput {
@@ -44,8 +45,8 @@ export function SlipScanField({
   return (
     <div className="mb-4 rounded-xl border-2 border-gray-200 p-3">
       <label className="block">
-        <span className="text-sm font-semibold text-gray-700">
-          สแกนสลิปของลูกค้า<span className="ml-1 text-danger">*</span>
+        <span className={fieldLabel}>
+          สแกนสลิปของลูกค้า<span className="ml-1 text-danger-ink">*</span>
         </span>
         <div className="mt-1 flex gap-2">
           <input
@@ -60,10 +61,10 @@ export function SlipScanField({
             maxLength={500}
             autoComplete="off"
             spellCheck={false}
-            className={`min-w-0 flex-1 rounded border px-3 py-2 text-sm outline-none focus:bg-white disabled:opacity-50 ${
+            className={`min-h-11 min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm outline-none disabled:opacity-50 ${
               scanned
                 ? 'border-success bg-success/5 focus:border-success'
-                : 'border-gray-300 bg-gray-100 focus:border-brand-300'
+                : 'border-gray-300 bg-white focus:border-brand-400'
             }`}
           />
           {scanned && !value.override && (
@@ -78,7 +79,7 @@ export function SlipScanField({
         </div>
       </label>
 
-      <p className={`mt-1 text-xs ${scanned ? 'text-success' : 'text-gray-500'}`}>
+      <p className={`mt-1 text-sm ${scanned ? 'text-black' : 'text-gray-500'}`}>
         {scanned
           ? '✓ อ่าน QR ได้แล้ว — กดบันทึกเพื่อตรวจกับ SlipOK (ยอด / บัญชีร้าน / สลิปซ้ำ)'
           : 'ระบบตรวจกับข้อมูลธนาคารผ่าน SlipOK — ดูแค่รูปสลิปไม่พอ สลิปปลอมทำได้ง่าย'}
@@ -102,7 +103,7 @@ export function SlipScanField({
               rows={2}
               maxLength={200}
               placeholder="เหตุผล เช่น เช็คยอดเข้าในแอปธนาคารแล้ว ฿350 เวลา 19:42"
-              className="mt-1 w-full resize-none rounded border border-gray-300 bg-gray-100 px-3 py-2 text-sm outline-none focus:border-brand-300 focus:bg-white"
+              className={`${field} resize-none text-sm`}
             />
           )}
         </div>

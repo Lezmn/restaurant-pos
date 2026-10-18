@@ -1,6 +1,8 @@
 import { ErrorNote } from '@/components/ui/ErrorNote'
+import { LoadError } from '@/components/ui/LoadError'
 import { Modal } from '@/components/ui/Modal'
 import { Pagination } from '@/components/ui/Pagination'
+import { button, field, fieldLabel } from '@/components/ui/styles'
 import {
   usePayment,
   useTodayPayments,
@@ -21,8 +23,8 @@ const methodLabel: Record<string, string> = {
 
 // สีเดียวกับตารางโต๊ะด้านบน: PromptPay/บัตร = ฟ้า, เงินสด = ส้ม
 const methodColor: Record<string, string> = {
-  [PaymentMethod.CASH]: 'text-brand-300',
-  [PaymentMethod.PROMPTPAY]: 'text-promptpay',
+  [PaymentMethod.CASH]: 'text-black',
+  [PaymentMethod.PROMPTPAY]: 'text-black',
 }
 
 const isToday = (iso: string) =>
@@ -33,7 +35,7 @@ const isToday = (iso: string) =>
  * ยกเลิกแล้ว backend จะคืนออเดอร์เป็นเสิร์ฟแล้วและเปิดโต๊ะกลับ → โต๊ะจะกลับมาโผล่ในตารางด้านบน
  */
 export function PaidBills() {
-  const { data: payments, isPending } = useTodayPayments()
+  const { data: payments, isPending, isError, refetch } = useTodayPayments()
   const voidPayment = useVoidPayment()
 
   const [viewId, setViewId] = useState<Id | null>(null)
@@ -48,36 +50,44 @@ export function PaidBills() {
   const paged = usePagination(today)
 
   return (
-    <section className="mt-8">
-      <h2 className="mb-3 text-lg font-bold text-black">บิลที่เก็บแล้ววันนี้</h2>
+    <section className="mt-12" aria-labelledby="paid-heading">
+      <h2 id="paid-heading" className="mb-3 text-lg font-bold text-black">
+        บิลที่เก็บแล้ววันนี้
+        {today.length > 0 && (
+          <span className="ml-2 text-base font-normal text-gray-600">{today.length} บิล</span>
+        )}
+      </h2>
 
+      {isError && (
+        <LoadError what="บิลวันนี้" stale={Boolean(payments)} onRetry={() => refetch()} />
+      )}
       <ErrorNote error={voidPayment.error} />
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full min-w-[640px] border-collapse text-center">
+      <div className="overflow-x-auto rounded-xl border-2 border-gray-200">
+        <table className="w-full min-w-[640px] border-collapse text-left">
           <thead>
-            <tr className="bg-table-head text-white">
+            <tr className="border-b-2 border-gray-300 bg-gray-100 text-black">
               <th className="px-4 py-3 text-sm font-bold sm:text-base">เวลา</th>
               <th className="px-4 py-3 text-sm font-bold sm:text-base">โต๊ะ</th>
               <th className="px-4 py-3 text-sm font-bold sm:text-base">เลขที่ใบเสร็จ</th>
               <th className="px-4 py-3 text-sm font-bold sm:text-base">วิธีจ่าย</th>
-              <th className="px-4 py-3 text-sm font-bold sm:text-base">ยอด</th>
-              <th className="px-4 py-3 text-sm font-bold sm:text-base">จัดการ</th>
+              <th className="px-4 py-3 text-right text-sm font-bold sm:text-base">ยอด</th>
+              <th className="px-4 py-3 text-right text-sm font-bold sm:text-base">จัดการ</th>
             </tr>
           </thead>
 
           <tbody className="divide-y divide-gray-200 bg-white">
             {isPending && (
               <tr>
-                <td colSpan={6} className="py-6 text-sm text-gray-400">
+                <td colSpan={6} className="py-6 text-center text-sm text-gray-600">
                   กำลังโหลด...
                 </td>
               </tr>
             )}
 
-            {!isPending && today.length === 0 && (
+            {!isPending && !(isError && !payments) && today.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-8 text-sm text-gray-400">
+                <td colSpan={6} className="py-8 text-center text-sm text-gray-600">
                   ยังไม่มีบิลวันนี้
                 </td>
               </tr>
@@ -89,21 +99,21 @@ export function PaidBills() {
                 <tr
                   key={p.id}
                   className={`transition ${
-                    voided ? 'bg-gray-50 text-gray-400' : 'hover:bg-brand-50/60'
+                    voided ? 'bg-gray-50 text-gray-600' : 'text-black hover:bg-brand-50/60'
                   }`}
                 >
-                  <td className="px-4 py-3 text-sm">{formatTime(p.paidAt)}</td>
+                  <td className="px-4 py-3 tabular-nums">{formatTime(p.paidAt)}</td>
                   <td
                     className={`px-4 py-3 font-bold ${voided ? '' : 'text-black'}`}
                   >
                     {p.tableName}
                   </td>
-                  <td className="px-4 py-3 text-sm tabular-nums">
+                  <td className="px-4 py-3 tabular-nums">
                     {p.receipt?.number ?? '-'}
                     {/* หมายเหตุตอนรับเงิน เก็บใน DB แล้ว เปิดดูย้อนหลังได้ */}
                     {p.note && (
                       <span
-                        className="block max-w-48 truncate text-xs font-normal text-gray-500"
+                        className="block max-w-48 truncate text-sm font-normal text-gray-600"
                         title={p.note}
                       >
                         {p.note}
@@ -111,7 +121,7 @@ export function PaidBills() {
                     )}
                   </td>
                   <td
-                    className={`px-4 py-3 text-sm font-semibold ${
+                    className={`px-4 py-3 font-semibold ${
                       voided ? '' : methodColor[p.method]
                     }`}
                   >
@@ -124,7 +134,7 @@ export function PaidBills() {
                     )}
                   </td>
                   <td
-                    className={`px-4 py-3 font-bold tabular-nums ${
+                    className={`px-4 py-3 text-right font-bold tabular-nums ${
                       voided ? 'line-through' : 'text-black'
                     }`}
                   >
@@ -133,30 +143,30 @@ export function PaidBills() {
                   <td className="px-4 py-3">
                     {voided ? (
                       <span
-                        className="text-sm font-semibold text-danger"
+                        className="block text-right text-sm font-semibold text-danger-ink"
                         title={p.voidReason ?? undefined}
                       >
                         ยกเลิกแล้ว
                         {p.voidReason && (
-                          <span className="block text-xs font-normal text-gray-500">
+                          <span className="block text-sm font-normal text-gray-600">
                             {p.voidReason}
                           </span>
                         )}
                       </span>
                     ) : (
                       // ปุ่มหน้าตาเหมือนลิงก์ แต่พื้นที่กดสูง 40px — บน iPad ข้อความ 20px นิ้วกดพลาดไปโดนอีกปุ่มง่าย
-                      <div className="flex items-center justify-center gap-1">
+                      <div className="flex items-center justify-end gap-2">
                         <button
                           type="button"
                           onClick={() => setViewId(p.id)}
-                          className="min-h-10 rounded-lg px-3 text-sm font-semibold text-brand-400 underline-offset-4 transition hover:bg-brand-50 hover:underline"
+                          className={button('outline', 'sm')}
                         >
                           ใบเสร็จ
                         </button>
                         <button
                           type="button"
                           onClick={() => setVoidTarget(p)}
-                          className="min-h-10 rounded-lg px-3 text-sm font-semibold text-danger underline-offset-4 transition hover:bg-danger/5 hover:underline"
+                          className={button('danger-outline', 'sm')}
                         >
                           ยกเลิกบิล
                         </button>
@@ -246,8 +256,8 @@ function VoidDialog({
         </p>
 
         <label className="mt-4 block">
-          <span className="text-sm font-semibold text-gray-700">
-            เหตุผล<span className="ml-1 text-danger">*</span>
+          <span className={fieldLabel}>
+            เหตุผล<span className="ml-1 text-danger-ink">*</span>
           </span>
           <textarea
             value={reason}
@@ -256,15 +266,15 @@ function VoidDialog({
             onChange={(e) => setReason(e.target.value)}
             rows={2}
             placeholder="เช่น กดจ่ายผิดโต๊ะ / ลูกค้าเปลี่ยนวิธีจ่าย"
-            className="mt-1 w-full resize-none rounded border border-gray-300 bg-gray-100 px-3 py-2 outline-none focus:border-brand-300 focus:bg-white"
+            className={`${field} resize-none`}
           />
         </label>
 
-        <div className="mt-5 grid grid-cols-2 gap-4">
+        <div className="mt-5 grid grid-cols-2 gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="rounded border-2 border-gray-300 py-2.5 font-bold text-gray-700 transition hover:bg-gray-50"
+            className={button('secondary', 'lg')}
           >
             กลับ
           </button>
@@ -272,7 +282,7 @@ function VoidDialog({
             type="submit"
             // ต้องมีเหตุผลทุกครั้ง — backend ก็บังคับไว้ (เจ้าของต้องไล่ดูย้อนหลังได้)
             disabled={isSaving || !reason.trim()}
-            className="rounded bg-danger py-2.5 font-bold text-white transition hover:brightness-95 disabled:opacity-60"
+            className={button('danger', 'lg')}
           >
             {isSaving ? 'กำลังยกเลิก...' : 'ยืนยันยกเลิกบิล'}
           </button>

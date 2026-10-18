@@ -48,7 +48,7 @@ export function CallStaffAlert() {
           {current.note && ` — ${current.note}`}
         </p>
         {pending.length > 1 && (
-          <p className="mt-1 text-xs font-semibold text-brand-400">
+          <p className="mt-1 text-xs font-semibold text-brand-500">
             มีคำขอค้างอยู่อีก {pending.length - 1} โต๊ะ
           </p>
         )}

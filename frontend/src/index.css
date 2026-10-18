@@ -45,6 +45,8 @@
   --color-status-done: #8080e0;
   --color-success: #3aa76d;
   --color-danger: #d64545;
+  /* แดงเข้มสำหรับตัวหนังสือ/พื้นปุ่มที่มีตัวขาว — danger ปกติได้แค่ 4.4:1 บนขาว ไม่ผ่าน AA */
+  --color-danger-ink: #b42c2c;
 
   /* ---- ฟอนต์ตามดีไซน์ ---- */
   --font-sans: 'IBM Plex Sans Thai', system-ui, sans-serif;
@@ -56,6 +58,26 @@ html {
 
 body {
   font-family: var(--font-sans);
+}
+
+/* อยู่ใน layer base เพื่อให้ utility อย่าง outline-none ของช่องกรอก (ที่ใช้ ring แทน) ยังชนะได้ */
+@layer base {
+  :where(a, button, summary, [tabindex], [role='switch']):focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--color-brand-75);
+    color: var(--color-text);
+  }
+
+  input,
+  textarea,
+  select {
+    accent-color: var(--color-brand-400);
+    caret-color: var(--color-brand-500);
+  }
 }
 
 /* ---- โหมดพิมพ์ ----

@@ -5,7 +5,7 @@ export function ErrorNote({ error }: { error: unknown }) {
   return (
     <p
       role="alert"
-      className="mb-4 rounded-lg border border-danger/40 bg-danger/10 px-4 py-2.5 text-sm font-semibold text-danger"
+      className="mb-4 rounded-lg border border-danger/40 bg-danger/10 px-4 py-2.5 text-sm font-semibold text-danger-ink"
     >
       {error instanceof Error ? error.message : 'เกิดข้อผิดพลาด ลองใหม่อีกครั้ง'}
     </p>

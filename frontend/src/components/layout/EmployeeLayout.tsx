@@ -59,14 +59,14 @@ function Clock() {
   const date = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear() + 543}`
 
   return (
-    <div className="flex items-center gap-2 rounded-2xl bg-brand-200 px-3 py-2 text-white sm:gap-3 sm:px-4">
+    <div className="flex items-center gap-2 rounded-2xl bg-brand-50 px-3 py-2 text-brand-500 sm:gap-3 sm:px-4">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden className="h-6 w-6 shrink-0 sm:h-8 sm:w-8">
         <circle cx="12" cy="13" r="8" />
         <path d="M12 9.5V13l2.5 1.5M5 4 3 6M19 4l2 2" strokeLinecap="round" />
       </svg>
       <div className="text-right leading-tight">
-        <p className="text-sm font-bold sm:text-base">{time}</p>
-        <p className="text-sm font-bold sm:text-base">{date}</p>
+        <p className="text-sm font-bold tabular-nums sm:text-base">{time}</p>
+        <p className="text-sm font-bold tabular-nums sm:text-base">{date}</p>
       </div>
     </div>
   )
@@ -117,7 +117,7 @@ export function EmployeeLayout() {
               <Link
                 to="/employee/tables"
                 title="เปิดโต๊ะและสร้าง QR ให้ลูกค้า"
-                className="rounded-lg border-2 border-brand-400 px-3 py-2 text-sm font-bold text-brand-400 transition hover:bg-brand-50"
+                className="whitespace-nowrap rounded-lg border-2 border-brand-400 px-3 py-2 text-sm font-bold text-brand-500 transition hover:bg-brand-50"
               >
                 โต๊ะ / QR
               </Link>
@@ -127,7 +127,7 @@ export function EmployeeLayout() {
             {user?.role === Role.ADMIN && (
               <Link
                 to="/owner"
-                className="hidden rounded-lg border-2 border-brand-400 px-3 py-2 text-sm font-bold text-brand-400 transition hover:bg-brand-50 sm:block"
+                className="hidden whitespace-nowrap rounded-lg border-2 border-brand-400 px-3 py-2 text-sm font-bold text-brand-500 transition hover:bg-brand-50 sm:block"
               >
                 Dashboard
               </Link>
@@ -137,9 +137,9 @@ export function EmployeeLayout() {
         </div>
 
         <p className="mt-3 text-right text-base font-bold text-black sm:text-xl">
-          จำนวนโต๊ะที่ว่าง {available} โต๊ะ
+          จำนวนโต๊ะที่ว่าง {tables ? available : '—'} โต๊ะ
           {user && (
-            <span className="ml-3 text-sm font-normal text-gray-500">
+            <span className="ml-3 text-sm font-normal text-gray-600">
               ({user.name} · {user.role})
             </span>
           )}
@@ -167,28 +167,31 @@ export function EmployeeLayout() {
                 type="button"
                 disabled
                 aria-disabled="true"
+                aria-label={`${tab.label} (ไม่มีสิทธิ์)`}
                 title={`ต้องเป็น ${tab.roles.join(' หรือ ')} จึงจะเข้าหน้านี้ได้`}
-                className={`${base} cursor-not-allowed text-gray-300`}
+                className={`${base} cursor-not-allowed text-gray-400`}
               >
-                <span className={`text-gray-300 ${iconClass}`}>{tab.icon}</span>
+                <span className={`text-gray-400 ${iconClass}`}>{tab.icon}</span>
                 <span className="hidden sm:inline">{tab.label}</span>
               </button>
             )
           }
 
+          // active เป็นบล็อก brand-400 (ตัว 24px หนา = ตัวใหญ่ ผ่าน 3:1) ไอคอนต้องเป็นขาวด้วย ไม่งั้นกลืนกับพื้น
           return (
             <NavLink
               key={tab.to}
               to={tab.to}
+              aria-label={tab.label}
               className={({ isActive }) =>
                 `${base} ${
                   isActive
-                    ? 'bg-brand-300 text-white'
+                    ? 'bg-brand-400 text-white [&_.nav-icon]:text-white'
                     : 'text-black hover:bg-brand-50'
                 }`
               }
             >
-              <span className={`text-brand-400 ${iconClass}`}>{tab.icon}</span>
+              <span className={`nav-icon text-brand-500 ${iconClass}`}>{tab.icon}</span>
               <span className="hidden sm:inline">{tab.label}</span>
             </NavLink>
           )
@@ -196,13 +199,14 @@ export function EmployeeLayout() {
 
         <button
           type="button"
+          aria-label="ออกจากระบบ"
           onClick={() => {
             signOut()
             navigate('/login')
           }}
           className="flex flex-1 items-center justify-center gap-2 py-4 text-lg font-bold text-black transition hover:bg-brand-50 sm:gap-3 sm:text-2xl"
         >
-          <span className="text-brand-400">
+          <span className="text-brand-500">
             <IconLogout />
           </span>
           <span className="hidden sm:inline">Logout</span>

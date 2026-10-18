@@ -1,5 +1,7 @@
+import { button, field } from '@/components/ui/styles'
 import { ErrorNote } from '@/components/ui/ErrorNote'
 import { Modal } from '@/components/ui/Modal'
+import { Switch } from '@/components/ui/Switch'
 import {
   useCreateIngredient,
   useDeleteIngredient,
@@ -49,37 +51,38 @@ export function IngredientsPanel() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="ชื่อวัตถุดิบ เช่น หมู, ไก่, ไข่ดาว"
-          className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-300"
+          aria-label="ชื่อวัตถุดิบ"
+          className={`${field} mt-0 min-w-0 flex-1`}
         />
         <button
           type="submit"
           disabled={create.isPending}
-          className="shrink-0 rounded-lg bg-brand-300 px-5 py-2 text-sm font-bold text-white transition hover:bg-brand-400 disabled:opacity-60"
+          className={`${button('primary', 'lg')} shrink-0`}
         >
-          {create.isPending ? 'กำลังเพิ่ม...' : '+ เพิ่มวัตถุดิบ'}
+          {create.isPending ? 'กำลังเพิ่ม...' : 'เพิ่มวัตถุดิบ'}
         </button>
       </form>
 
       {invalid && (
-        <p role="alert" className="mt-2 text-sm font-semibold text-danger">
+        <p role="alert" className="mt-2 text-sm font-semibold text-danger-ink">
           {invalid}
         </p>
       )}
 
-      <p className="mt-3 text-sm text-gray-500">
+      <p className="mt-3 max-w-2xl text-sm text-gray-600">
         ปิดวัตถุดิบที่หมด → ตัวเลือกเมนูที่ผูกไว้จะหายจากหน้าลูกค้าทุกเมนูทันที
         (ผูกวัตถุดิบเข้ากับตัวเลือกได้ที่ปุ่ม “แก้ไข” ของแต่ละเมนู)
       </p>
 
-      {isPending && <p className="mt-6 text-sm text-gray-500">กำลังโหลด...</p>}
+      {isPending && <p className="mt-6 text-sm text-gray-600">กำลังโหลด...</p>}
 
       {!isPending && (ingredients?.length ?? 0) === 0 && (
-        <div className="mt-6 rounded-xl border border-dashed border-gray-300 p-10 text-center text-sm text-gray-500">
+        <div className="mt-6 rounded-xl border-2 border-gray-200 p-10 text-center text-base text-gray-600">
           ยังไม่มีวัตถุดิบ — เพิ่มอันแรกด้านบนได้เลย
         </div>
       )}
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         {ingredients?.map((item) => (
           <article
             key={item.id}
@@ -90,7 +93,7 @@ export function IngredientsPanel() {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="truncate font-bold text-black">{item.name}</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-sm text-gray-600">
                   {item.menuOptionCount > 0
                     ? `ใช้ใน ${item.menuOptionCount} ตัวเลือกเมนู`
                     : 'ยังไม่ได้ผูกกับเมนูไหน'}
@@ -99,8 +102,8 @@ export function IngredientsPanel() {
 
               <Switch
                 checked={item.isAvailable}
-                label={`สถานะของ ${item.name}`}
-                disabled={update.isPending}
+                label={`มีของ ${item.name}`}
+                busy={update.isPending && update.variables?.id === item.id}
                 onChange={(next) =>
                   update.mutate({ id: item.id, isAvailable: next })
                 }
@@ -110,7 +113,7 @@ export function IngredientsPanel() {
             <div className="mt-3 flex items-center justify-between border-t border-gray-200 pt-3">
               <span
                 className={`text-sm font-semibold ${
-                  item.isAvailable ? 'text-success' : 'text-danger'
+                  item.isAvailable ? 'text-black' : 'text-danger-ink'
                 }`}
               >
                 {item.isAvailable ? 'มีของ' : 'ของหมด'}
@@ -120,7 +123,7 @@ export function IngredientsPanel() {
                 type="button"
                 disabled={remove.isPending}
                 onClick={() => setDeleting(item)}
-                className="text-sm font-semibold text-danger underline-offset-4 transition hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+                className="min-h-10 rounded-lg px-3 text-sm font-bold text-danger-ink transition hover:bg-danger/5 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 ลบ
               </button>
@@ -144,7 +147,7 @@ export function IngredientsPanel() {
             ลบแล้วกู้คืนไม่ได้
           </p>
           {deleting.menuOptionCount > 0 && (
-            <p className="mt-2 text-sm text-danger">
+            <p className="mt-2 text-sm text-danger-ink">
               วัตถุดิบนี้ผูกกับ {deleting.menuOptionCount} ตัวเลือกเมนู —
               ตัวเลือกที่ยังไม่เคยถูกสั่งจะถูกลบ ส่วนที่เคยถูกสั่งแล้วจะถูกปิดขาย
               (ประวัติออเดอร์ยังอยู่ครบ)
@@ -155,7 +158,7 @@ export function IngredientsPanel() {
             <button
               type="button"
               onClick={() => setDeleting(null)}
-              className="rounded-lg border-2 border-gray-300 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
+              className={button('secondary', 'lg')}
             >
               ยกเลิก
             </button>
@@ -167,7 +170,7 @@ export function IngredientsPanel() {
                   onSuccess: () => setDeleting(null),
                 })
               }
-              className="rounded-lg bg-danger py-2.5 text-sm font-bold text-white transition hover:brightness-95 disabled:opacity-60"
+              className={button('danger', 'lg')}
             >
               {remove.isPending ? 'กำลังลบ...' : 'ลบวัตถุดิบ'}
             </button>
@@ -175,42 +178,5 @@ export function IngredientsPanel() {
         </Modal>
       )}
     </div>
-  )
-}
-
-function Switch({
-  checked,
-  label,
-  disabled,
-  onChange,
-}: {
-  checked: boolean
-  label: string
-  disabled: boolean
-  onChange: (next: boolean) => void
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      // ปุ่มจริงใหญ่ 40×56 (พื้นที่กดบน iPad) ตัวสวิตช์ที่เห็นอยู่ข้างใน
-      className="flex h-10 w-14 shrink-0 items-center justify-center disabled:opacity-60"
-    >
-      <span
-        className={`relative block h-7 w-12 rounded-full transition ${
-          checked ? 'bg-brand-400' : 'bg-gray-300'
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${
-            checked ? 'left-[22px]' : 'left-0.5'
-          }`}
-        />
-      </span>
-    </button>
   )
 }

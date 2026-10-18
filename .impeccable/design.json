@@ -1,0 +1,639 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-18T18:14:42.037Z",
+  "title": "Design System: ร้านอาหารตามใจ ไม่ตามสั่ง",
+  "extensions": {
+    "colorMeta": {
+      "brand-50": {
+        "role": "primary",
+        "displayName": "Peach Cream",
+        "tonalRamp": [
+          "#9c5715",
+          "#b36419",
+          "#ff8f23",
+          "#ffa248",
+          "#ffbe7f",
+          "#ffd1a5",
+          "#fff4e9"
+        ]
+      },
+      "brand-75": {
+        "role": "primary",
+        "displayName": "Melon",
+        "tonalRamp": [
+          "#9c5715",
+          "#b36419",
+          "#ff8f23",
+          "#ffa248",
+          "#ffbe7f",
+          "#ffd1a5",
+          "#fff4e9"
+        ]
+      },
+      "brand-100": {
+        "role": "primary",
+        "displayName": "Apricot Chip",
+        "tonalRamp": [
+          "#9c5715",
+          "#b36419",
+          "#ff8f23",
+          "#ffa248",
+          "#ffbe7f",
+          "#ffd1a5",
+          "#fff4e9"
+        ]
+      },
+      "brand-200": {
+        "role": "primary",
+        "displayName": "Apricot Glow",
+        "tonalRamp": [
+          "#9c5715",
+          "#b36419",
+          "#ff8f23",
+          "#ffa248",
+          "#ffbe7f",
+          "#ffd1a5",
+          "#fff4e9"
+        ]
+      },
+      "brand-300": {
+        "role": "primary",
+        "displayName": "Ember Orange",
+        "tonalRamp": [
+          "#9c5715",
+          "#b36419",
+          "#ff8f23",
+          "#ffa248",
+          "#ffbe7f",
+          "#ffd1a5",
+          "#fff4e9"
+        ]
+      },
+      "brand-400": {
+        "role": "primary",
+        "displayName": "Toasted Caramel",
+        "tonalRamp": [
+          "#9c5715",
+          "#b36419",
+          "#ff8f23",
+          "#ffa248",
+          "#ffbe7f",
+          "#ffd1a5",
+          "#fff4e9"
+        ]
+      },
+      "brand-500": {
+        "role": "primary",
+        "displayName": "Burnt Sienna",
+        "tonalRamp": [
+          "#9c5715",
+          "#b36419",
+          "#ff8f23",
+          "#ffa248",
+          "#ffbe7f",
+          "#ffd1a5",
+          "#fff4e9"
+        ]
+      },
+      "ink": {
+        "role": "secondary",
+        "displayName": "Cocoa Ink",
+        "canonical": "oklch(40.2% 0.044 38.0)",
+        "tonalRamp": [
+          "oklch(15.0% 0.026 38.0)",
+          "oklch(26.0% 0.044 38.0)",
+          "oklch(37.0% 0.044 38.0)",
+          "oklch(48.0% 0.044 38.0)",
+          "oklch(60.0% 0.044 38.0)",
+          "oklch(72.0% 0.044 38.0)",
+          "oklch(84.0% 0.044 38.0)",
+          "oklch(95.0% 0.015 38.0)"
+        ]
+      },
+      "price": {
+        "role": "secondary",
+        "displayName": "Chili Red",
+        "canonical": "oklch(53.6% 0.180 35.4)",
+        "tonalRamp": [
+          "oklch(15.0% 0.108 35.4)",
+          "oklch(26.0% 0.180 35.4)",
+          "oklch(37.0% 0.180 35.4)",
+          "oklch(48.0% 0.180 35.4)",
+          "oklch(60.0% 0.180 35.4)",
+          "oklch(72.0% 0.180 35.4)",
+          "oklch(84.0% 0.180 35.4)",
+          "oklch(95.0% 0.063 35.4)"
+        ]
+      },
+      "amount": {
+        "role": "secondary",
+        "displayName": "Paprika",
+        "canonical": "oklch(63.1% 0.197 40.3)",
+        "tonalRamp": [
+          "oklch(15.0% 0.118 40.3)",
+          "oklch(26.0% 0.197 40.3)",
+          "oklch(37.0% 0.197 40.3)",
+          "oklch(48.0% 0.197 40.3)",
+          "oklch(60.0% 0.197 40.3)",
+          "oklch(72.0% 0.197 40.3)",
+          "oklch(84.0% 0.197 40.3)",
+          "oklch(95.0% 0.069 40.3)"
+        ]
+      },
+      "qty": {
+        "role": "secondary",
+        "displayName": "Tangerine",
+        "canonical": "oklch(71.2% 0.179 53.5)",
+        "tonalRamp": [
+          "oklch(15.0% 0.108 53.5)",
+          "oklch(26.0% 0.179 53.5)",
+          "oklch(37.0% 0.179 53.5)",
+          "oklch(48.0% 0.179 53.5)",
+          "oklch(60.0% 0.179 53.5)",
+          "oklch(72.0% 0.179 53.5)",
+          "oklch(84.0% 0.179 53.5)",
+          "oklch(95.0% 0.063 53.5)"
+        ]
+      },
+      "accent-pink": {
+        "role": "secondary",
+        "displayName": "Hot Pink",
+        "canonical": "oklch(65.0% 0.238 17.9)",
+        "tonalRamp": [
+          "oklch(15.0% 0.143 17.9)",
+          "oklch(26.0% 0.238 17.9)",
+          "oklch(37.0% 0.238 17.9)",
+          "oklch(48.0% 0.238 17.9)",
+          "oklch(60.0% 0.238 17.9)",
+          "oklch(72.0% 0.238 17.9)",
+          "oklch(84.0% 0.238 17.9)",
+          "oklch(95.0% 0.083 17.9)"
+        ]
+      },
+      "minus": {
+        "role": "secondary",
+        "displayName": "Stepper Red",
+        "canonical": "oklch(64.3% 0.215 28.8)",
+        "tonalRamp": [
+          "oklch(15.0% 0.129 28.8)",
+          "oklch(26.0% 0.215 28.8)",
+          "oklch(37.0% 0.215 28.8)",
+          "oklch(48.0% 0.215 28.8)",
+          "oklch(60.0% 0.215 28.8)",
+          "oklch(72.0% 0.215 28.8)",
+          "oklch(84.0% 0.215 28.8)",
+          "oklch(95.0% 0.075 28.8)"
+        ]
+      },
+      "plus": {
+        "role": "secondary",
+        "displayName": "Leaf Green",
+        "canonical": "oklch(67.3% 0.162 144.2)",
+        "tonalRamp": [
+          "oklch(15.0% 0.097 144.2)",
+          "oklch(26.0% 0.162 144.2)",
+          "oklch(37.0% 0.162 144.2)",
+          "oklch(48.0% 0.162 144.2)",
+          "oklch(60.0% 0.162 144.2)",
+          "oklch(72.0% 0.162 144.2)",
+          "oklch(84.0% 0.162 144.2)",
+          "oklch(95.0% 0.057 144.2)"
+        ]
+      },
+      "listing": {
+        "role": "neutral",
+        "displayName": "Cream Ledger",
+        "canonical": "oklch(97.2% 0.022 74.1)",
+        "tonalRamp": [
+          "oklch(15.0% 0.013 74.1)",
+          "oklch(26.0% 0.022 74.1)",
+          "oklch(37.0% 0.022 74.1)",
+          "oklch(48.0% 0.022 74.1)",
+          "oklch(60.0% 0.022 74.1)",
+          "oklch(72.0% 0.022 74.1)",
+          "oklch(84.0% 0.022 74.1)",
+          "oklch(95.0% 0.008 74.1)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Charcoal",
+        "canonical": "oklch(29.7% 0.000 89.9)",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 89.9)",
+          "oklch(26.0% 0.000 89.9)",
+          "oklch(37.0% 0.000 89.9)",
+          "oklch(48.0% 0.000 89.9)",
+          "oklch(60.0% 0.000 89.9)",
+          "oklch(72.0% 0.000 89.9)",
+          "oklch(84.0% 0.000 89.9)",
+          "oklch(95.0% 0.000 89.9)"
+        ]
+      },
+      "field": {
+        "role": "neutral",
+        "displayName": "Field Fog",
+        "canonical": "oklch(98.5% 0.000 89.9)",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 89.9)",
+          "oklch(26.0% 0.000 89.9)",
+          "oklch(37.0% 0.000 89.9)",
+          "oklch(48.0% 0.000 89.9)",
+          "oklch(60.0% 0.000 89.9)",
+          "oklch(72.0% 0.000 89.9)",
+          "oklch(84.0% 0.000 89.9)",
+          "oklch(95.0% 0.000 89.9)"
+        ]
+      },
+      "field-text": {
+        "role": "neutral",
+        "displayName": "Field Ink",
+        "canonical": "oklch(22.5% 0.008 297.2)",
+        "tonalRamp": [
+          "oklch(15.0% 0.005 297.2)",
+          "oklch(26.0% 0.008 297.2)",
+          "oklch(37.0% 0.008 297.2)",
+          "oklch(48.0% 0.008 297.2)",
+          "oklch(60.0% 0.008 297.2)",
+          "oklch(72.0% 0.008 297.2)",
+          "oklch(84.0% 0.008 297.2)",
+          "oklch(95.0% 0.003 297.2)"
+        ]
+      },
+      "promptpay": {
+        "role": "tertiary",
+        "displayName": "PromptPay Blue",
+        "canonical": "oklch(57.4% 0.202 262.0)",
+        "tonalRamp": [
+          "oklch(15.0% 0.121 262.0)",
+          "oklch(26.0% 0.202 262.0)",
+          "oklch(37.0% 0.202 262.0)",
+          "oklch(48.0% 0.202 262.0)",
+          "oklch(60.0% 0.202 262.0)",
+          "oklch(72.0% 0.202 262.0)",
+          "oklch(84.0% 0.202 262.0)",
+          "oklch(95.0% 0.071 262.0)"
+        ]
+      },
+      "table-head": {
+        "role": "tertiary",
+        "displayName": "Ledger Blue",
+        "canonical": "oklch(54.6% 0.140 250.3)",
+        "tonalRamp": [
+          "oklch(15.0% 0.084 250.3)",
+          "oklch(26.0% 0.140 250.3)",
+          "oklch(37.0% 0.140 250.3)",
+          "oklch(48.0% 0.140 250.3)",
+          "oklch(60.0% 0.140 250.3)",
+          "oklch(72.0% 0.140 250.3)",
+          "oklch(84.0% 0.140 250.3)",
+          "oklch(95.0% 0.049 250.3)"
+        ]
+      },
+      "accent-olive": {
+        "role": "tertiary",
+        "displayName": "Olive",
+        "canonical": "oklch(74.2% 0.162 109.8)",
+        "tonalRamp": [
+          "oklch(15.0% 0.097 109.8)",
+          "oklch(26.0% 0.162 109.8)",
+          "oklch(37.0% 0.162 109.8)",
+          "oklch(48.0% 0.162 109.8)",
+          "oklch(60.0% 0.162 109.8)",
+          "oklch(72.0% 0.162 109.8)",
+          "oklch(84.0% 0.162 109.8)",
+          "oklch(95.0% 0.057 109.8)"
+        ]
+      },
+      "status-queue": {
+        "role": "tertiary",
+        "displayName": "Queue Brick",
+        "canonical": "oklch(64.4% 0.166 22.9)",
+        "tonalRamp": [
+          "oklch(15.0% 0.099 22.9)",
+          "oklch(26.0% 0.166 22.9)",
+          "oklch(37.0% 0.166 22.9)",
+          "oklch(48.0% 0.166 22.9)",
+          "oklch(60.0% 0.166 22.9)",
+          "oklch(72.0% 0.166 22.9)",
+          "oklch(84.0% 0.166 22.9)",
+          "oklch(95.0% 0.058 22.9)"
+        ]
+      },
+      "status-cooking": {
+        "role": "tertiary",
+        "displayName": "Cooking Caramel",
+        "canonical": "oklch(58.2% 0.130 57.6)",
+        "tonalRamp": [
+          "oklch(15.0% 0.078 57.6)",
+          "oklch(26.0% 0.130 57.6)",
+          "oklch(37.0% 0.130 57.6)",
+          "oklch(48.0% 0.130 57.6)",
+          "oklch(60.0% 0.130 57.6)",
+          "oklch(72.0% 0.130 57.6)",
+          "oklch(84.0% 0.130 57.6)",
+          "oklch(95.0% 0.046 57.6)"
+        ]
+      },
+      "status-done": {
+        "role": "tertiary",
+        "displayName": "Done Lavender",
+        "canonical": "oklch(64.3% 0.141 281.7)",
+        "tonalRamp": [
+          "oklch(15.0% 0.085 281.7)",
+          "oklch(26.0% 0.141 281.7)",
+          "oklch(37.0% 0.141 281.7)",
+          "oklch(48.0% 0.141 281.7)",
+          "oklch(60.0% 0.141 281.7)",
+          "oklch(72.0% 0.141 281.7)",
+          "oklch(84.0% 0.141 281.7)",
+          "oklch(95.0% 0.050 281.7)"
+        ]
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "Success Green",
+        "canonical": "oklch(65.1% 0.132 156.2)",
+        "tonalRamp": [
+          "oklch(15.0% 0.079 156.2)",
+          "oklch(26.0% 0.132 156.2)",
+          "oklch(37.0% 0.132 156.2)",
+          "oklch(48.0% 0.132 156.2)",
+          "oklch(60.0% 0.132 156.2)",
+          "oklch(72.0% 0.132 156.2)",
+          "oklch(84.0% 0.132 156.2)",
+          "oklch(95.0% 0.046 156.2)"
+        ]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Danger Red",
+        "canonical": "oklch(59.7% 0.182 24.5)",
+        "tonalRamp": [
+          "oklch(15.0% 0.109 24.5)",
+          "oklch(26.0% 0.182 24.5)",
+          "oklch(37.0% 0.182 24.5)",
+          "oklch(48.0% 0.182 24.5)",
+          "oklch(60.0% 0.182 24.5)",
+          "oklch(72.0% 0.182 24.5)",
+          "oklch(84.0% 0.182 24.5)",
+          "oklch(95.0% 0.064 24.5)"
+        ]
+      },
+      "danger-ink": {
+        "role": "neutral",
+        "displayName": "danger-ink",
+        "canonical": "oklch(51.0% 0.173 25.8)",
+        "tonalRamp": [
+          "oklch(15.0% 0.104 25.8)",
+          "oklch(26.0% 0.173 25.8)",
+          "oklch(37.0% 0.173 25.8)",
+          "oklch(48.0% 0.173 25.8)",
+          "oklch(60.0% 0.173 25.8)",
+          "oklch(72.0% 0.173 25.8)",
+          "oklch(84.0% 0.173 25.8)",
+          "oklch(95.0% 0.061 25.8)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface White",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 89.9)",
+          "oklch(26.0% 0.000 89.9)",
+          "oklch(37.0% 0.000 89.9)",
+          "oklch(48.0% 0.000 89.9)",
+          "oklch(60.0% 0.000 89.9)",
+          "oklch(72.0% 0.000 89.9)",
+          "oklch(84.0% 0.000 89.9)",
+          "oklch(95.0% 0.000 89.9)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "oklch(92.8% 0.006 264.531)"
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "oklch(87.2% 0.01 258.338)"
+      },
+      "muted-text": {
+        "role": "neutral",
+        "displayName": "Muted Slate",
+        "canonical": "oklch(55.1% 0.027 264.364)"
+      },
+      "body-text": {
+        "role": "neutral",
+        "displayName": "Body Slate",
+        "canonical": "oklch(37.3% 0.034 259.733)"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "ตัวเลขการ์ดสถิติขนาดใหญ่ และแบนเนอร์ต้อนรับ"
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "ชื่อร้านใน header พนักงาน ป้ายแถบล่างพนักงาน หัวข้อหน้า"
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "หัวกล่อง modal หัวคอลัมน์ kanban ชื่อร้านบนใบเสร็จ"
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "ขนาดหลักของแอป ขยายเป็น 1rem ที่ md ฝั่งลูกค้า"
+      },
+      "body-strong": {
+        "displayName": "Body Strong",
+        "purpose": "ปุ่ม ป้าย ราคา ตัวเลขเงิน"
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "badge และป้ายเล็ก"
+      }
+    },
+    "shadows": [
+      {
+        "name": "overlay",
+        "value": "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+        "purpose": "กล่อง modal เท่านั้น"
+      },
+      {
+        "name": "floating-bar",
+        "value": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+        "purpose": "แถบตะกร้าลอยฝั่งลูกค้า"
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-change",
+        "value": "150ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "ค่า transition ปกติของ Tailwind ใช้กับ hover/สีพื้นทุกปุ่ม"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "ปุ่มหลัก เช่น บันทึก ยืนยันชำระเงิน เปิดโต๊ะ",
+      "html": "<button class=\"ds-btn-primary\">ยืนยันชำระเงิน</button>",
+      "css": ".ds-btn-primary { font-family: 'IBM Plex Sans Thai', system-ui, sans-serif; background: var(--color-brand-500, #9c5715); color: #fff; padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; transition: background-color 150ms; } .ds-btn-primary:hover { filter: brightness(0.9); } .ds-btn-primary:focus-visible { outline: 2px solid var(--color-brand-500, #9c5715); outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "ปุ่มลัดใน header พนักงาน เช่น โต๊ะ / QR และ Dashboard",
+      "html": "<button class=\"ds-btn-outline\">โต๊ะ / QR</button>",
+      "css": ".ds-btn-outline { font-family: 'IBM Plex Sans Thai', system-ui, sans-serif; background: #fff; color: var(--color-brand-500, #9c5715); padding: 8px 12px; border: 2px solid var(--color-brand-400, #b36419); border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; transition: background-color 150ms; } .ds-btn-outline:hover { background: var(--color-brand-50, #fff4e9); } .ds-btn-outline:focus-visible { outline: 2px solid var(--color-brand-500, #9c5715); outline-offset: 2px; }"
+    },
+    {
+      "name": "Confirm Pair",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "คู่ปุ่มใน ConfirmDialog: ย้อนกลับซ้าย ยืนยันขวา เต็มความกว้าง",
+      "html": "<div class=\"ds-confirm\"><button class=\"ds-btn-secondary\">ย้อนกลับ</button><button class=\"ds-btn-danger\">ลบเมนู</button></div>",
+      "css": ".ds-confirm { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 320px; font-family: 'IBM Plex Sans Thai', system-ui, sans-serif; } .ds-btn-secondary, .ds-btn-danger { font-family: inherit; padding: 10px 0; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; transition: background-color 150ms, filter 150ms; } .ds-btn-secondary { background: #fff; color: oklch(37.3% 0.034 259.733); border: 2px solid oklch(87.2% 0.01 258.338); } .ds-btn-secondary:hover { background: oklch(98.5% 0.002 247.839); } .ds-btn-danger { background: var(--color-danger-ink, #b42c2c); color: #fff; border: none; } .ds-btn-danger:hover { filter: brightness(0.95); } .ds-btn-secondary:focus-visible, .ds-btn-danger:focus-visible { outline: 2px solid var(--color-brand-500, #9c5715); outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "ช่องกรอกในฟอร์มพนักงาน/เจ้าของร้าน",
+      "html": "<label class=\"ds-field\"><span>ชื่อเมนู</span><input placeholder=\"เช่น กะเพราหมูสับ\" /></label>",
+      "css": ".ds-field { display: block; width: 280px; font-family: 'IBM Plex Sans Thai', system-ui, sans-serif; font-size: 14px; font-weight: 600; color: #000; } .ds-field input { margin-top: 4px; width: 100%; box-sizing: border-box; font-family: inherit; font-size: 14px; padding: 8px 12px; border: 1px solid oklch(87.2% 0.01 258.338); border-radius: 8px; background: #fff; color: var(--color-field-text, #1c1b1f); outline: none; transition: border-color 150ms; } .ds-field input:focus { border-color: var(--color-brand-300, #ff8f23); }"
+    },
+    {
+      "name": "Menu Search",
+      "kind": "input",
+      "refersTo": "input-search",
+      "description": "ช่องค้นหาเมนูฝั่งลูกค้า",
+      "html": "<label class=\"ds-search\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"11\" cy=\"11\" r=\"7\"/><path d=\"m20 20-3.5-3.5\" stroke-linecap=\"round\"/></svg><input type=\"search\" placeholder=\"ค้นหาเมนูอาหาร\" /></label>",
+      "css": ".ds-search { position: relative; display: block; width: 320px; font-family: 'IBM Plex Sans Thai', system-ui, sans-serif; } .ds-search svg { position: absolute; left: 16px; top: 50%; width: 20px; height: 20px; transform: translateY(-50%); color: var(--color-field-text, #1c1b1f); pointer-events: none; } .ds-search input { width: 100%; box-sizing: border-box; font-family: inherit; padding: 12px 16px 12px 48px; border: 1px solid var(--color-brand-500, #9c5715); border-radius: 12px; background: var(--color-field, #fafafa); color: var(--color-field-text, #1c1b1f); font-size: 14px; font-weight: 700; outline: none; } .ds-search input::placeholder { color: var(--color-field-text, #1c1b1f); font-weight: 700; } .ds-search input:focus { border-color: var(--color-brand-300, #ff8f23); }"
+    },
+    {
+      "name": "Category Chips",
+      "kind": "chip",
+      "refersTo": "chip-category",
+      "description": "ชิปกรองหมวดหมู่เมนู",
+      "html": "<div class=\"ds-chips\"><button class=\"ds-chip ds-chip-active\">ทั้งหมด</button><button class=\"ds-chip\">อาหารจานเดียว</button><button class=\"ds-chip\">เครื่องดื่ม</button></div>",
+      "css": ".ds-chips { display: flex; gap: 8px; font-family: 'IBM Plex Sans Thai', system-ui, sans-serif; } .ds-chip { font-family: inherit; padding: 10px 24px; border: none; border-radius: 9999px; background: var(--color-brand-100, #ffbe7f); color: var(--color-brand-500, #9c5715); font-size: 14px; font-weight: 700; cursor: pointer; transition: background-color 150ms; } .ds-chip:hover { background: var(--color-brand-75, #ffd1a5); } .ds-chip-active, .ds-chip-active:hover { background: var(--color-brand-300, #ff8f23); color: #fff; } .ds-chip:focus-visible { outline: 2px solid var(--color-brand-500, #9c5715); outline-offset: 2px; }"
+    },
+    {
+      "name": "Staff Bottom Nav",
+      "kind": "nav",
+      "refersTo": "nav-tab-staff-active",
+      "description": "แถบล่างพนักงาน: ปุ่มเท่ากัน ที่เลือกเป็นบล็อกส้ม ปุ่มไม่มีสิทธิ์เป็นเทาจาง",
+      "html": "<nav class=\"ds-staffnav\"><a class=\"ds-staffnav-tab\">Order</a><a class=\"ds-staffnav-tab ds-active\">Check</a><span class=\"ds-staffnav-tab ds-locked\">Manage</span><a class=\"ds-staffnav-tab\">Logout</a></nav>",
+      "css": ".ds-staffnav { display: flex; width: 560px; border-top: 1px solid oklch(92.8% 0.006 264.531); background: #fff; font-family: 'IBM Plex Sans Thai', system-ui, sans-serif; } .ds-staffnav-tab { flex: 1; display: flex; align-items: center; justify-content: center; padding: 16px 0; font-size: 20px; font-weight: 700; color: #000; cursor: pointer; transition: background-color 150ms; } .ds-staffnav-tab:hover { background: var(--color-brand-50, #fff4e9); } .ds-staffnav-tab.ds-active, .ds-staffnav-tab.ds-active:hover { background: var(--color-brand-400, #b36419); color: #fff; } .ds-staffnav-tab.ds-locked, .ds-staffnav-tab.ds-locked:hover { color: oklch(87.2% 0.01 258.338); background: #fff; cursor: not-allowed; }"
+    },
+    {
+      "name": "Kitchen Ticket",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "ตั๋วออเดอร์ใน kanban ครัว ขอบ 2px สีสถานะ ปุ่มเปลี่ยนสถานะเต็มความกว้าง",
+      "html": "<article class=\"ds-ticket\"><header><strong>โต๊ะ 12</strong><span class=\"ds-ticket-badge\">รอคิว</span></header><p>กะเพราหมูสับ × 2</p><p class=\"ds-ticket-note\">ไม่เผ็ด</p><button>เริ่มทำ</button></article>",
+      "css": ".ds-ticket { width: 260px; box-sizing: border-box; padding: 12px; border: 2px solid var(--color-status-queue, #e05c5c); border-radius: 12px; background: #fff; font-family: 'IBM Plex Sans Thai', system-ui, sans-serif; font-size: 14px; color: #000; } .ds-ticket header { display: flex; justify-content: space-between; align-items: center; font-size: 16px; } .ds-ticket-badge { padding: 4px 12px; border-radius: 9999px; background: color-mix(in srgb, var(--color-status-queue, #e05c5c) 15%, transparent); color: var(--color-status-queue, #e05c5c); font-size: 14px; font-weight: 700; } .ds-ticket p { margin: 8px 0 0; font-weight: 600; } .ds-ticket .ds-ticket-note { margin-top: 2px; font-weight: 400; color: oklch(55.1% 0.027 264.364); } .ds-ticket button { margin-top: 12px; width: 100%; padding: 10px 0; border: none; border-radius: 8px; background: var(--color-status-queue, #e05c5c); color: #fff; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; transition: filter 150ms; } .ds-ticket button:hover { filter: brightness(0.95); }"
+    },
+    {
+      "name": "Stat Card",
+      "kind": "card",
+      "refersTo": "stat-card",
+      "description": "การ์ดตัวเลขฝั่งเจ้าของร้าน ขอบ 2px สีโทน",
+      "html": "<div class=\"ds-stat\"><p>รายรับวันนี้</p><strong>฿12,450</strong></div>",
+      "css": ".ds-stat { width: 220px; box-sizing: border-box; padding: 16px; border: 2px solid var(--color-brand-500, #9c5715); border-radius: 12px; background: #fff; font-family: 'IBM Plex Sans Thai', system-ui, sans-serif; color: var(--color-brand-500, #9c5715); } .ds-stat p { margin: 0; font-size: 14px; font-weight: 600; color: #000; } .ds-stat strong { display: block; margin-top: 8px; font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Orange Order Slip",
+    "overview": "เหมือนใบสั่งอาหารสีส้มที่เสียบอยู่หน้าครัว: แบนราบ ขอบหนา ตัวหนา อ่านออกในแวบเดียว ทุกหน้าจอต้องใช้งานได้ระหว่างที่มือไม่ว่าง ไม่ว่าจะเป็นครัวที่ยืนดูแท็บเล็ต พนักงานที่กำลังรับเงิน หรือลูกค้าที่ถือมือถือที่โต๊ะ สีส้มคือเสียงของแบรนด์และเป็นสัญญาณของ \"สิ่งที่กดได้/กำลังเลือกอยู่\" ส่วนสีสถานะ (แดง/ส้มน้ำตาล/ม่วง) บอกว่าออเดอร์อยู่ขั้นไหนในครัว\r\n\r\nความหนาแน่นแตกต่างตามฝั่ง ฝั่งลูกค้าโปร่งและอบอุ่น (การ์ดเมนูสีส้ม รูปอาหาร ชิปหมวดหมู่ทรงแคปซูล) ฝั่งพนักงานหนาแน่นและเป็นเครื่องมือ (kanban 3 คอลัมน์ ตาราง แถบล่างปุ่มใหญ่) ฝั่งเจ้าของร้านเป็นแดชบอร์ดการ์ดตัวเลขขอบหนา 2px ทั้งหมดใช้ฟอนต์ IBM Plex Sans Thai ตัวเดียว เน้นน้ำหนัก bold/semibold มากกว่าขนาด\r\n\r\nความลึกมาจากขอบและสีพื้น ไม่ใช่เงา (ยืนยันแล้ว) ปุ่ม การ์ด และช่องกรอกต้องใหญ่ หนา กดง่าย (ยืนยันแล้ว) ค่าสีแบรนด์ทั้งหมดมาจากไฟล์ Figma ยกเว้น `table-head`, `accent-olive`, `promptpay` ที่ยังคาดจากภาพหน้าจอ",
+    "keyCharacteristics": [
+      "ส้มอุ่นไล่ 7 ระดับ (`brand-50` → `brand-500`) เป็นแกนหลักของทุกฝั่ง",
+      "แบนราบ แยกชั้นด้วยขอบ 1–2px และพื้นครีม/ส้มอ่อน",
+      "ตัวอักษรหนา: `font-bold` และ `font-semibold` คือค่าปกติ ไม่ใช่ค่าเน้น",
+      "เป้ากดใหญ่ แถบนำทางล่างเต็มความกว้าง ปุ่มเต็มแถวในกล่อง",
+      "สีสถานะออเดอร์คงที่ข้ามทุกหน้าที่แสดงออเดอร์"
+    ],
+    "rules": [
+      {
+        "name": "The Orange Means Touch Rule",
+        "body": "สีส้ม `brand-300`/`brand-400` สงวนไว้สำหรับสิ่งที่กดได้ สิ่งที่เลือกอยู่ และชื่อร้าน ข้อมูลที่อ่านอย่างเดียวใช้ดำ/เทา",
+        "section": "colors"
+      },
+      {
+        "name": "The Fixed Status Rule",
+        "body": "รอคิว = `status-queue`, กำลังทำ = `status-cooking`, เสร็จ = `status-done` ทุกหน้าที่แสดงสถานะออเดอร์ ห้ามสลับหรือใช้สีอื่น",
+        "section": "colors"
+      },
+      {
+        "name": "The Token-Only Rule",
+        "body": "ห้ามเขียน hex ตรงในไฟล์ component สีทั้งหมดต้องผ่าน `@theme` ใน `frontend/src/index.css`",
+        "section": "colors"
+      },
+      {
+        "name": "The Ink Rule",
+        "body": "ตัวหนังสือขาวบนพื้นสีใช้ `brand-500` หรือ `danger-ink` เสมอ `brand-400` ใช้ได้เฉพาะตัวหนา 24px ขึ้นไป ตัวหนังสือสีบนพื้นขาวใช้ `brand-500` / `danger-ink` ไม่ใช่ `brand-300` / `brand-400` / `danger`",
+        "section": "colors"
+      },
+      {
+        "name": "The Bold Is Default Rule",
+        "body": "ปุ่ม ป้าย ราคา และตัวเลขเงินใช้ `font-bold` เสมอ ตัวหนังสือน้ำหนักปกติใช้เฉพาะคำอธิบายรอง",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Money Rule",
+        "body": "ตัวเลขจำนวน/ยอดเงินที่เปลี่ยนค่าได้ใช้ `tabular-nums` และแสดงผ่าน `formatBaht`",
+        "section": "typography"
+      },
+      {
+        "name": "The Border Not Shadow Rule",
+        "body": "แยกชั้นด้วยขอบและสีพื้น เงามีไว้สำหรับของที่ลอยอยู่เหนือหน้าจอเท่านั้น (modal, แถบลอย)",
+        "section": "elevation"
+      },
+      {
+        "name": "The Two-Pixel Meaning Rule",
+        "body": "ขอบ 2px สีใช้เมื่อขอบนั้นบอกความหมาย (โทนการ์ดสถิติ คอลัมน์สถานะ kanban ปุ่ม outline) ขอบ 1px เทาใช้แค่แบ่งพื้นที่",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** ใช้ token จาก `@theme` เท่านั้น เช่น `bg-brand-300`, `text-price`, `border-status-queue`",
+      "**Do** แยกชั้นด้วยขอบ 1px `line` หรือ 2px สีโทน และพื้น `brand-50`/`listing` แทนเงา",
+      "**Do** ทำปุ่มให้ใหญ่และหนา: padding ไม่น้อยกว่า 10px แนวตั้ง ตัว bold ปุ่มยืนยันใน modal เต็มความกว้าง",
+      "**Do** ใช้ `ConfirmDialog` ก่อนทุกการกระทำที่ย้อนกลับไม่ได้ โดยปุ่มยืนยันอยู่ขวาเสมอ",
+      "**Do** ใช้สีสถานะออเดอร์ชุดเดียวกับ kanban ทุกที่ที่แสดงสถานะ",
+      "**Do** วางตัวหนังสือขาวบน `brand-500` (5.5:1) หรือ `danger-ink` เท่านั้น `brand-300` ได้แค่ 2.3:1 และ `brand-400` ได้ 4.4:1 ซึ่งไม่ผ่าน AA สำหรับตัวขนาดปกติ",
+      "**Do** แยกสถานะ กำลังโหลด / ดึงข้อมูลไม่ได้ / ไม่มีข้อมูล ให้ชัดทุกหน้า"
+    ],
+    "donts": [
+      "**Don't** เขียน hex ตรงในไฟล์ component",
+      "**Don't** เพิ่มเงาให้การ์ด ปุ่ม หรือช่องกรอกในงานใหม่ เงามีไว้สำหรับ modal และแถบลอยเท่านั้น",
+      "**Don't** ใช้สีส้มกับข้อมูลที่อ่านอย่างเดียว เพราะส้มหมายถึงสิ่งที่กดได้หรือเลือกอยู่",
+      "**Don't** ซ่อนปุ่มที่ role ไม่มีสิทธิ์ในแถบล่างพนักงาน ให้แสดงจางและกดไม่ได้",
+      "**Don't** ใช้ `confirm()` ของเบราว์เซอร์ ให้ใช้ `ConfirmDialog`",
+      "**Don't** ใช้ปุ่มแดงทึบหรือเขียวทึบกับคู่ยกเลิก/บันทึก ใช้ secondary + primary",
+      "**Don't** วางปุ่มลบไว้บนการ์ดที่ถูกกดบ่อย ให้อยู่ในกล่องแก้ไข"
+    ]
+  }
+}
