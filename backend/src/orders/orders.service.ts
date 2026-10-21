@@ -11,6 +11,7 @@ import {
   Prisma,
   TableSessionStatus,
 } from '@prisma/client';
+import { startOfDay } from '../common/date-range.util';
 import { EventsGateway } from '../events/events.gateway';
 import { PrismaService } from '../prisma/prisma.service';
 import { closeSessionIfSettled } from '../table-sessions/session-settlement';
@@ -39,6 +40,25 @@ const MENU_ITEM_WITH_OPTIONS = {
   options: { include: { ingredient: true } },
   ingredients: { include: { ingredient: true } },
 } as const;
+
+/**
+ * ค่า default ของ GET /orders — ห้ามคืนประวัติทั้งหมด (หน้า Check/ครัว poll ทุก 3 วิ ทุกเครื่อง
+ * ยิ่งเปิดร้านนานยิ่งช้า) เอาเฉพาะที่จอพนักงานใช้จริง:
+ * - ออเดอร์ของโต๊ะที่เปิดอยู่ (หน้า Check ต้องเห็นทั้งที่จ่าย/ยกเลิกไปแล้วในรอบนี้)
+ * - ออเดอร์ที่ยังไม่จบ (บอร์ดครัว)
+ * - ออเดอร์ของวันนี้ (หน้ารายการออเดอร์)
+ */
+const ACTIVE_ORDERS_WHERE = (): Prisma.OrderWhereInput => ({
+  OR: [
+    { tableSession: { status: TableSessionStatus.OPEN } },
+    {
+      status: {
+        in: [OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.SERVED],
+      },
+    },
+    { createdAt: { gte: startOfDay() } },
+  ],
+});
 
 @Injectable()
 export class OrdersService {
@@ -130,12 +150,15 @@ export class OrdersService {
   }
 
   findAll(query: FindOrdersQueryDto) {
+    const hasFilter = Boolean(query.status || query.tableId || query.tableSessionId);
     return this.prisma.order.findMany({
-      where: {
-        status: query.status,
-        tableId: query.tableId,
-        tableSessionId: query.tableSessionId,
-      },
+      where: hasFilter
+        ? {
+            status: query.status,
+            tableId: query.tableId,
+            tableSessionId: query.tableSessionId,
+          }
+        : ACTIVE_ORDERS_WHERE(),
       include: ORDER_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });

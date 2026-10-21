@@ -203,6 +203,8 @@ model TableSession {
   payments        Payment[]
   receipts        Receipt[]
 
+  // โต๊ะหนึ่งเปิด session ได้ทีละใบ: partial unique index "table_sessions_one_open_per_table"
+  // (WHERE status = 'OPEN') อยู่ใน migration 20261021130000 — Prisma schema เขียน partial index ไม่ได้
   @@index([tableId, status])
   @@map("table_sessions")
 }
@@ -232,6 +234,8 @@ model Order {
   @@index([tableId, status])
   @@index([tableSessionId])
   @@index([paymentId])
+  @@index([status])
+  @@index([createdAt])
   @@map("orders")
 }
 
@@ -249,6 +253,9 @@ model OrderItem {
 
   selectedOptions OrderItemOption[]
 
+  // Postgres ไม่สร้าง index ให้ foreign key เอง — ทุก include: { items } วิ่งผ่าน orderId
+  @@index([orderId])
+  @@index([menuItemId])
   @@map("order_items")
 }
 
@@ -306,6 +313,7 @@ model Payment {
 
   @@index([tableSessionId, status])
   @@index([slipStatus])
+  @@index([paidAt])
   @@map("payments")
 }
 
@@ -353,6 +361,7 @@ model Receipt {
 
   @@index([tableId])
   @@index([tableSessionId])
+  @@index([issuedAt])
   @@map("receipts")
 }
 

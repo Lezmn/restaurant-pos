@@ -130,6 +130,13 @@ async function upsertTable(number: number, seats = 4) {
   });
 }
 
+async function expireOtherOpenSessions(tableId: string, keepToken: string) {
+  await prisma.tableSession.updateMany({
+    where: { tableId, status: TableSessionStatus.OPEN, token: { not: keepToken } },
+    data: { status: TableSessionStatus.EXPIRED },
+  });
+}
+
 async function upsertServiceRequest(data: {
   tableId: string;
   tableSessionId?: string;
@@ -375,6 +382,8 @@ async function main() {
     upsertTable(6, 8),
   ]);
 
+  // โต๊ะเปิด session ได้ทีละใบ (unique index) — seed ซ้ำบน DB ที่เคยเปิดโต๊ะ demo ไว้ ต้องปิดใบอื่นก่อน
+  await expireOtherOpenSessions(tables[1].id, 'demo-table-2-session');
   const demoSession = await prisma.tableSession.upsert({
     where: { token: 'demo-table-2-session' },
     update: {
@@ -508,6 +517,7 @@ async function main() {
 
   // A second open session (table 4) whose orders are all SERVED, so the
   // Check/checkout screen has a table that's actually ready to pay.
+  await expireOtherOpenSessions(tables[3].id, 'demo-table-4-ready-session');
   const demoReadySession = await prisma.tableSession.upsert({
     where: { token: 'demo-table-4-ready-session' },
     update: {

@@ -17,7 +17,10 @@ import {
 import { AuthenticatedUser } from '../auth/jwt.strategy';
 import { EventsGateway } from '../events/events.gateway';
 import { PrismaService } from '../prisma/prisma.service';
-import { closeSessionIfSettled } from '../table-sessions/session-settlement';
+import {
+  closeSessionIfSettled,
+  isUniqueViolation,
+} from '../table-sessions/session-settlement';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { FindPaymentsQueryDto } from './dto/find-payments-query.dto';
 import { VoidPaymentDto } from './dto/void-payment.dto';
@@ -454,10 +457,19 @@ export class PaymentsService {
     });
     if (!session || session.status === TableSessionStatus.OPEN) return;
 
-    await tx.tableSession.update({
-      where: { id: tableSessionId },
-      data: { status: TableSessionStatus.OPEN, closedAt: null },
-    });
+    await tx.tableSession
+      .update({
+        where: { id: tableSessionId },
+        data: { status: TableSessionStatus.OPEN, closedAt: null },
+      })
+      .catch((e: unknown) => {
+        // assertSessionsCanReopen ผ่านแล้ว แต่มีเครื่องอื่นเปิดโต๊ะนี้รอบใหม่แทรกเข้ามาพอดี
+        throw isUniqueViolation(e)
+          ? new ConflictException(
+              'ยกเลิกบิลไม่ได้: โต๊ะนี้เพิ่งเปิดรับลูกค้ารอบใหม่ ต้องปิดโต๊ะรอบปัจจุบันก่อน',
+            )
+          : e;
+      });
     await tx.restaurantTable.update({
       where: { id: session.tableId },
       data: { status: TableStatus.OCCUPIED },
