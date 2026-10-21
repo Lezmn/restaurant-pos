@@ -64,6 +64,7 @@ export async function apiClient<T>(
     throw new ApiError(res.status, message)
   }
 
-  if (res.status === 204) return undefined as T
-  return (await res.json()) as T
+  // 204 หรือ 200 ที่ไม่มี body (endpoint ที่ไม่ return อะไร) = สำเร็จ ไม่ใช่ error ตอน parse
+  const text = await res.text()
+  return (text ? JSON.parse(text) : undefined) as T
 }

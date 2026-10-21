@@ -197,6 +197,53 @@ describe('OrdersService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
+    describe('กลุ่มเนื้อสัตว์ (PROTEIN)', () => {
+      const withProteins = (chickenAvailable = true, porkAvailable = true) =>
+        menuItem({
+          options: [
+            { id: 'p-pork', name: 'หมู', price: D(0), group: 'PROTEIN', isAvailable: porkAvailable, ingredient: null },
+            {
+              id: 'p-chicken',
+              name: 'ไก่',
+              price: D(0),
+              group: 'PROTEIN',
+              isAvailable: true,
+              ingredient: { name: 'ไก่', isAvailable: chickenAvailable },
+            },
+            { id: 'x-egg', name: 'ไข่ดาว', price: D(10), group: 'EXTRA', isAvailable: true, ingredient: null },
+          ],
+        });
+      const order = (optionIds: string[]) =>
+        service.create({ tableId: 't1', items: [{ menuItemId: 'm1', quantity: 1, optionIds }] });
+
+      beforeEach(() => {
+        prisma.tableSession.findFirst.mockResolvedValue({ id: 's1' });
+      });
+
+      it('ไม่เลือกเนื้อสัตว์ → 400', async () => {
+        prisma.menuItem.findMany.mockResolvedValue([withProteins()]);
+        await expect(order(['x-egg'])).rejects.toBeInstanceOf(BadRequestException);
+        expect(prisma.order.create).not.toHaveBeenCalled();
+      });
+
+      it('เลือกเนื้อสัตว์ 2 อย่าง → 400', async () => {
+        prisma.menuItem.findMany.mockResolvedValue([withProteins()]);
+        await expect(order(['p-pork', 'p-chicken'])).rejects.toBeInstanceOf(BadRequestException);
+      });
+
+      it('เลือกอย่างเดียว + ท็อปปิ้ง → สร้างได้', async () => {
+        prisma.menuItem.findMany.mockResolvedValue([withProteins()]);
+        await order(['p-pork', 'x-egg']);
+        expect(prisma.order.create).toHaveBeenCalled();
+      });
+
+      it('เนื้อสัตว์หมดทุกตัว (กลุ่มหายจากหน้าจอ) → สั่งโดยไม่เลือกได้', async () => {
+        prisma.menuItem.findMany.mockResolvedValue([withProteins(false, false)]);
+        await order([]);
+        expect(prisma.order.create).toHaveBeenCalled();
+      });
+    });
+
     it('โต๊ะไม่มี session เปิด → 400 และไม่สร้างออเดอร์', async () => {
       prisma.menuItem.findMany.mockResolvedValue([menuItem()]);
       await expect(

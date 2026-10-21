@@ -108,13 +108,14 @@ export async function deleteMenuOption(vars: {
   })
 }
 
-/** เปิด/ปิดการขาย — ใช้ PATCH ตัวเดียวกับการแก้ไขเมนู */
+/** เปิด/ปิดการขาย — PATCH /menu/:id/availability @Roles(ADMIN, KITCHEN) แยกจากการแก้ไขเมนู (ADMIN) */
 export async function setMenuItemAvailability(vars: {
   id: Id
   isAvailable: boolean
 }): Promise<MenuItem> {
-  return updateMenuItem({
-    id: vars.id,
-    input: { isAvailable: vars.isAvailable },
+  const data = await apiClient<ApiMenuItem>(`/menu/${vars.id}/availability`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isAvailable: vars.isAvailable }),
   })
+  return mapMenuItem(data)
 }

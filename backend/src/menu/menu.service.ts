@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { EventsGateway } from '../events/events.gateway';
 import { PrismaService } from '../prisma/prisma.service';
@@ -120,6 +125,7 @@ export class MenuService {
 
   async createOption(menuItemId: string, dto: CreateMenuOptionDto) {
     await this.findOne(menuItemId);
+    await this.assertOptionNameFree(menuItemId, dto.name);
     const isAvailable = this.resolveOptionAvailability(dto.ingredientId, dto.isAvailable);
     try {
       return this.notifyMenuChanged(
@@ -138,6 +144,9 @@ export class MenuService {
     dto: UpdateMenuOptionDto,
   ) {
     const option = await this.findOptionOrThrow(menuItemId, optionId);
+    if (dto.name !== undefined && dto.name !== option.name) {
+      await this.assertOptionNameFree(menuItemId, dto.name, optionId);
+    }
     const ingredientId =
       dto.ingredientId === undefined ? option.ingredientId : dto.ingredientId;
     const isAvailable = this.resolveOptionAvailability(ingredientId, dto.isAvailable);
@@ -176,6 +185,25 @@ export class MenuService {
         );
       }
       throw e;
+    }
+  }
+
+  /**
+   * ตัวเลือกชื่อซ้ำในเมนูเดียวกัน ลูกค้า/ครัวแยกไม่ออกว่าเลือกตัวไหน
+   * ไม่นับตัวที่ถูกลบแบบซ่อน (ปิดขาย + ไม่ผูกวัตถุดิบ ดู removeOption) — ชื่อนั้นใช้ใหม่ได้
+   */
+  private async assertOptionNameFree(menuItemId: string, name: string, exceptId?: string) {
+    const taken = await this.prisma.menuOption.findFirst({
+      where: {
+        menuItemId,
+        name: { equals: name, mode: 'insensitive' },
+        id: exceptId ? { not: exceptId } : undefined,
+        OR: [{ isAvailable: true }, { ingredientId: { not: null } }],
+      },
+      select: { id: true },
+    });
+    if (taken) {
+      throw new ConflictException(`เมนูนี้มีตัวเลือก "${name}" อยู่แล้ว`);
     }
   }
 

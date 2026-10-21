@@ -4,11 +4,12 @@ import {
   cartCount,
   cartTotal,
   lineTotal,
+  unavailableLineIds,
   useCart,
 } from '@/features/public/cart-store'
-import { useSession, useSubmitOrder } from '@/features/public/hooks'
+import { usePublicMenu, useSession, useSubmitOrder } from '@/features/public/hooks'
 import { formatBaht } from '@/lib/format'
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 export function CustomerCartPage() {
@@ -17,8 +18,19 @@ export function CustomerCartPage() {
   const { data: session } = useSession(token)
   const lines = useCart((s) => s.lines)
   const setQuantity = useCart((s) => s.setQuantity)
+  const remove = useCart((s) => s.remove)
   const clear = useCart((s) => s.clear)
+  const syncPrices = useCart((s) => s.syncPrices)
   const submit = useSubmitOrder(token)
+  // เมนู refetch เองเมื่อมี menu.updated — ราคาในตะกร้าต้องตามให้ตรงกับที่ backend จะคิดจริง
+  const { data: menu } = usePublicMenu()
+  const repriced = useCart((s) => s.repriced)
+
+  useEffect(() => {
+    if (menu) syncPrices(menu)
+  }, [menu, lines, syncPrices])
+  // ปิดขาย/ของหมดระหว่างอยู่ในตะกร้า — ส่งไป backend จะปฏิเสธทั้งออเดอร์ ต้องเอาออกก่อน
+  const unavailable = menu ? unavailableLineIds(lines, menu) : new Set<string>()
   // isPending ยังไม่ทันเป็น true ตอนแตะครั้งที่สอง (state อัปเดตหลัง render) — ล็อกแบบ sync กันออเดอร์ซ้ำ
   const sending = useRef(false)
 
@@ -70,6 +82,15 @@ export function CustomerCartPage() {
           </button>
         </div>
 
+        {repriced.length > 0 && (
+          <p
+            role="status"
+            className="mt-4 rounded-xl border-2 border-brand-300 bg-brand-50 px-4 py-3 text-sm md:text-base font-semibold text-text"
+          >
+            ราคา {repriced.join(', ')} มีการเปลี่ยนแปลง — ยอดด้านล่างเป็นราคาล่าสุดแล้ว
+          </p>
+        )}
+
         <ul className="mt-4 space-y-3">
           {lines.map((line) => (
             <li
@@ -96,6 +117,11 @@ export function CustomerCartPage() {
                         {line.note}
                       </p>
                     )}
+                    {unavailable.has(line.lineId) && (
+                      <p className="text-xs md:text-sm font-semibold text-danger">
+                        หมดชั่วคราว
+                      </p>
+                    )}
                   </div>
                   <p className="shrink-0 text-sm md:text-base font-semibold text-amount">
                     {formatBaht(lineTotal(line))}
@@ -103,12 +129,22 @@ export function CustomerCartPage() {
                 </div>
 
                 <div className="flex justify-end">
-                  <QuantityStepper
-                    size="sm"
-                    min={0}
-                    value={line.quantity}
-                    onChange={(next) => setQuantity(line.lineId, next)}
-                  />
+                  {unavailable.has(line.lineId) ? (
+                    <button
+                      type="button"
+                      onClick={() => remove(line.lineId)}
+                      className="rounded-full border-2 border-danger px-4 py-1 text-sm font-bold text-danger"
+                    >
+                      เอาออก
+                    </button>
+                  ) : (
+                    <QuantityStepper
+                      size="sm"
+                      min={0}
+                      value={line.quantity}
+                      onChange={(next) => setQuantity(line.lineId, next)}
+                    />
+                  )}
                 </div>
               </div>
             </li>
@@ -125,12 +161,18 @@ export function CustomerCartPage() {
 
         <button
           type="button"
-          disabled={submit.isPending}
+          disabled={submit.isPending || unavailable.size > 0}
           onClick={send}
           className="w-full rounded-xl bg-white py-3 text-base md:text-lg font-bold text-qty transition disabled:opacity-60"
         >
           {submit.isPending ? 'กำลังส่ง...' : '➤ ส่งรายการเข้าครัว'}
         </button>
+
+        {unavailable.size > 0 && (
+          <p role="alert" className="mt-2 px-2 text-sm md:text-base font-semibold text-white">
+            มีรายการที่หมดชั่วคราว — กด "เอาออก" ก่อนส่งเข้าครัว
+          </p>
+        )}
 
         {submit.isError && (
           <p role="alert" className="mt-2 px-2 text-sm md:text-base font-semibold text-white">

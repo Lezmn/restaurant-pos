@@ -93,15 +93,48 @@ test('ครัวปิดวัตถุดิบ "ไข่" → ข้าว
   await customer.context().close()
 })
 
-test('KITCHEN เข้าหน้า Manage ได้ แต่ปุ่มที่ backend ไม่ให้ทำ (เพิ่ม/แก้/ปิดขายเมนู) ต้องไม่โผล่ให้กด', async ({
+test('KITCHEN เข้าหน้า Manage ได้: เปิด/ปิดขายเมนูได้จริง แต่ไม่เห็นปุ่มเพิ่ม/แก้เมนู หรือเพิ่ม/ลบวัตถุดิบ', async ({
   page,
   request,
 }) => {
   await loginAsKitchen(page, request)
   await page.goto('/employee/manage')
   await expect(page.getByRole('heading', { name: 'จัดการเมนู' })).toBeVisible()
-  // PATCH/POST /menu เป็น @Roles(ADMIN) — ถ้า KITCHEN เห็นปุ่มพวกนี้ กดแล้วจะเจอ 403
+  // POST/PATCH/DELETE /menu เป็น @Roles(ADMIN) — ถ้า KITCHEN เห็นปุ่มพวกนี้ กดแล้วจะเจอ 403
   await expect(page.getByRole('button', { name: 'เพิ่มเมนู', exact: true })).toHaveCount(0)
-  await expect(page.getByRole('switch', { name: /^เปิดขาย / })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'แก้ไข' })).toHaveCount(0)
+
+  // ปิดขาย/เปิดขายใช้ PATCH /menu/:id/availability @Roles(ADMIN, KITCHEN) — ต้องสำเร็จ ไม่ใช่ 403
+  const water = page.getByRole('switch', { name: 'เปิดขาย น้ำเปล่า' })
+  await expect(water).toBeChecked()
+  const statuses: number[] = []
+  page.on('response', (res) => {
+    if (res.url().includes('/availability')) statuses.push(res.status())
+  })
+  await water.click()
+  await expect(water).not.toBeChecked()
+  await water.click()
+  await expect(water).toBeChecked()
+  expect(statuses).toEqual([200, 200])
+
+  // แท็บวัตถุดิบ: สลับมีของ/หมดได้ แต่เพิ่ม/ลบไม่ได้
+  await page.getByRole('button', { name: 'วัตถุดิบ', exact: true }).click()
+  await expect(page.getByRole('switch', { name: /^มีของ / }).first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'เพิ่มวัตถุดิบ' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'ลบ', exact: true })).toHaveCount(0)
+})
+
+test('จอครัวไม่ยิง /service-requests (ADMIN/STAFF เท่านั้น) — ไม่มี 403 เต็ม console', async ({ page, request }) => {
+  const hits: number[] = []
+  page.on('response', (res) => {
+    // นับเฉพาะ API — Vite เสิร์ฟไฟล์ /src/features/service-requests/* ชื่อคล้ายกัน
+    if (res.url().startsWith(`${API_URL}/service-requests`)) hits.push(res.status())
+  })
+  await loginAsKitchen(page, request)
+  await page.goto('/employee/order')
+  await expect(page.getByRole('heading', { name: 'รอคิว' })).toBeVisible()
+  // มีออเดอร์ใหม่เข้า = socket event ที่เคยทำให้ refetch service-requests
+  await freshOrder(request)
+  await page.waitForTimeout(2000)
+  expect(hits).toEqual([])
 })

@@ -22,6 +22,7 @@ const matrix: [Method, string, Role[]][] = [
   ['GET', '/menu', ALL],
   ['POST', '/menu', ADMIN],
   ['PATCH', `/menu/${ID}`, ADMIN],
+  ['PATCH', `/menu/${ID}/availability`, ADMIN_KITCHEN],
   ['DELETE', `/menu/${ID}`, ADMIN],
   ['POST', `/menu/${ID}/options`, ADMIN],
   ['PATCH', `/menu/${ID}/options/${ID}`, ADMIN],

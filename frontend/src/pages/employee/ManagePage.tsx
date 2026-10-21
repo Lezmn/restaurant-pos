@@ -5,6 +5,8 @@ import { LoadError } from '@/components/ui/LoadError'
 import { Switch } from '@/components/ui/Switch'
 import { toast } from '@/components/ui/toast'
 import { button, field } from '@/components/ui/styles'
+import { pageRoles } from '@/features/auth/permissions'
+import { useAuth } from '@/features/auth/use-auth'
 import {
   useCategories,
   useCreateMenuItem,
@@ -38,6 +40,9 @@ export function ManagePage() {
   const createOption = useCreateMenuOption()
   const updateItem = useUpdateMenuItem()
   const deleteItem = useDeleteMenuItem()
+  const user = useAuth((s) => s.user)
+  /** ครัวเปิด/ปิดขายได้ แต่เพิ่ม/แก้/ลบเมนูได้เฉพาะ ADMIN — ซ่อนปุ่มที่กดแล้วจะโดน 403 */
+  const canEdit = Boolean(user && pageRoles.editMenu.includes(user.role))
 
   const [tab, setTab] = useState<Tab>('menu')
   const [search, setSearch] = useState('')
@@ -185,7 +190,7 @@ export function ManagePage() {
             </p>
           )}
         </div>
-        {tab === 'menu' && (
+        {tab === 'menu' && canEdit && (
           <button
             type="button"
             onClick={() => setEditing('new')}
@@ -253,7 +258,7 @@ export function ManagePage() {
       </div>
 
       {tab === 'ingredient' ? (
-        <IngredientsPanel />
+        <IngredientsPanel canEdit={canEdit} />
       ) : (
         <>
           {/* หมวดหมู่ + ตัวกรองเมนูที่หมด — กดเพื่อกรอง ใช้ร่วมกับช่องค้นหาได้ */}
@@ -321,7 +326,9 @@ export function ManagePage() {
                 {onlySoldOut && !search.trim()
                   ? 'ไม่มีเมนูที่ปิดขายอยู่ ทุกเมนูพร้อมขาย'
                   : categoryId && !search.trim()
-                    ? 'หมวดนี้ยังไม่มีเมนู กด "เพิ่มเมนู" แล้วเลือกหมวดนี้ได้เลย'
+                    ? canEdit
+                      ? 'หมวดนี้ยังไม่มีเมนู กด "เพิ่มเมนู" แล้วเลือกหมวดนี้ได้เลย'
+                      : 'หมวดนี้ยังไม่มีเมนู'
                     : 'ไม่พบเมนูที่ค้นหา'}
               </p>
             )}
@@ -339,7 +346,7 @@ export function ManagePage() {
                       selected={selected?.has(item.id) ?? false}
                       onSelect={() => toggleSelected(item.id)}
                       onToggle={(next) => queueToggle(item, next)}
-                      onEdit={() => setEditing(item)}
+                      onEdit={canEdit ? () => setEditing(item) : undefined}
                     />
                   </li>
                 )
@@ -479,7 +486,8 @@ function MenuCard({
   selected: boolean
   onSelect: () => void
   onToggle: (next: boolean) => void
-  onEdit: () => void
+  /** ไม่ส่ง = ไม่มีสิทธิ์แก้ไขเมนู (ครัว) ซ่อนปุ่มแก้ไข */
+  onEdit?: () => void
 }) {
   const soldOut = isSoldOut(item)
   // ปิดขายเอง กับ วัตถุดิบหลักหมด ต่างกันตรงที่ต้องไปแก้คนละที่ — บอกให้ชัดว่าเพราะอะไร
@@ -541,13 +549,15 @@ function MenuCard({
               />
             </div>
 
-            <button
-              type="button"
-              onClick={onEdit}
-              className={`${button('outline', 'sm')} mt-2 w-full`}
-            >
-              แก้ไข
-            </button>
+            {onEdit && (
+              <button
+                type="button"
+                onClick={onEdit}
+                className={`${button('outline', 'sm')} mt-2 w-full`}
+              >
+                แก้ไข
+              </button>
+            )}
           </div>
         )}
       </div>
