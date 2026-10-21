@@ -17,6 +17,7 @@ import { useState } from 'react'
  *
  * วัตถุดิบเป็นของกลางของร้าน (หมู ไก่ ไข่ ...) ผูกกับ "ตัวเลือกเมนู" ได้หลายอัน
  * ปิดที่นี่ทีเดียว ตัวเลือกที่ผูกไว้จะสั่งไม่ได้ทุกเมนูทันที — ไม่ต้องไล่ปิดทีละเมนู
+ * ตั้งยอดคงเหลือไว้ = ออเดอร์ตัดยอดให้เอง เหลือ 0 ปิดให้เอง เติมของแล้วเปิดคืนเอง
  */
 export function IngredientsPanel() {
   const { data: ingredients, isPending } = useIngredients()
@@ -27,6 +28,8 @@ export function IngredientsPanel() {
   const [name, setName] = useState('')
   const [invalid, setInvalid] = useState('')
   const [deleting, setDeleting] = useState<Ingredient | null>(null)
+  /** การ์ดที่กำลังตั้งยอดคงเหลือ */
+  const [stockEditing, setStockEditing] = useState<string | null>(null)
 
   const submit = () => {
     if (!name.trim()) {
@@ -93,7 +96,8 @@ export function IngredientsPanel() {
 
       <p className="mt-3 max-w-2xl text-sm text-gray-600">
         ปิดวัตถุดิบที่หมด → ตัวเลือกเมนูที่ผูกไว้จะหายจากหน้าลูกค้าทุกเมนูทันที
-        (ผูกวัตถุดิบเข้ากับตัวเลือกได้ที่ปุ่ม “แก้ไข” ของแต่ละเมนู)
+        (ผูกวัตถุดิบเข้ากับตัวเลือกได้ที่ปุ่ม “แก้ไข” ของแต่ละเมนู) ·
+        กด “ตั้งยอด” เพื่อให้ระบบตัดของตามออเดอร์และปิดเองเมื่อหมด
       </p>
 
       {isPending && <p className="mt-6 text-sm text-gray-600">กำลังโหลด...</p>}
@@ -118,32 +122,64 @@ export function IngredientsPanel() {
                 <p className="text-sm text-gray-600">{usageText(item)}</p>
               </div>
 
+              {/* นับสต็อกอยู่และยอดเป็น 0 — เปิดไปก็สั่งไม่ได้จริง เปิดฟอร์มตั้งยอดให้แทน */}
               <Switch
                 checked={item.isAvailable}
                 label={`มีของ ${item.name}`}
                 busy={update.isPending && update.variables?.id === item.id}
-                onChange={(next) => setStock(item, next)}
+                onChange={(next) =>
+                  next && item.stockQty === 0
+                    ? setStockEditing(item.id)
+                    : setStock(item, next)
+                }
               />
             </div>
 
-            <div className="mt-3 flex items-center justify-between border-t border-gray-200 pt-3">
-              <span
-                className={`text-sm font-semibold ${
-                  item.isAvailable ? 'text-black' : 'text-danger-ink'
-                }`}
-              >
-                {item.isAvailable ? 'มีของ' : 'ของหมด'}
-              </span>
+            <div className="mt-3 flex items-center justify-between gap-2 border-t border-gray-200 pt-3">
+              <StockStatus item={item} />
 
-              <button
-                type="button"
-                disabled={remove.isPending}
-                onClick={() => setDeleting(item)}
-                className={button('danger-outline', 'sm')}
-              >
-                ลบ
-              </button>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStockEditing(stockEditing === item.id ? null : item.id)}
+                  aria-expanded={stockEditing === item.id}
+                  className={button('outline', 'sm')}
+                >
+                  ตั้งยอด
+                </button>
+                <button
+                  type="button"
+                  disabled={remove.isPending}
+                  onClick={() => setDeleting(item)}
+                  className={button('danger-outline', 'sm')}
+                >
+                  ลบ
+                </button>
+              </div>
             </div>
+
+            {stockEditing === item.id && (
+              <StockForm
+                item={item}
+                busy={update.isPending}
+                onCancel={() => setStockEditing(null)}
+                onSave={(stockQty, lowStockAt) =>
+                  update
+                    .mutateAsync({ id: item.id, stockQty, lowStockAt })
+                    .then(() => {
+                      setStockEditing(null)
+                      toast(
+                        stockQty === null
+                          ? `${item.name}: เลิกนับสต็อกแล้ว`
+                          : `${item.name}: ตั้งยอดคงเหลือ ${stockQty}`,
+                      )
+                    })
+                    .catch(() => {
+                      // error ขึ้นที่ ErrorNote ด้านบนอยู่แล้ว
+                    })
+                }
+              />
+            )}
           </article>
         ))}
       </div>
@@ -189,4 +225,123 @@ function usageText(item: Ingredient) {
     item.menuOptionCount > 0 ? `${item.menuOptionCount} ตัวเลือก` : '',
   ].filter(Boolean)
   return parts.length ? `ใช้ใน ${parts.join(' · ')}` : 'ยังไม่ได้ผูกกับเมนูไหน'
+}
+
+/** "เหลือ 12" + ป้ายใกล้หมด/หมด — ไม่นับสต็อกก็บอกแค่ มีของ/ของหมด แบบเดิม */
+function StockStatus({ item }: Readonly<{ item: Ingredient }>) {
+  if (item.stockQty === null) {
+    return (
+      <span
+        className={`text-sm font-semibold ${item.isAvailable ? 'text-black' : 'text-danger-ink'}`}
+      >
+        {item.isAvailable ? 'มีของ' : 'ของหมด'}
+        <span className="ml-1 font-normal text-gray-500">· ไม่นับสต็อก</span>
+      </span>
+    )
+  }
+
+  const low =
+    item.stockQty > 0 && item.lowStockAt !== null && item.stockQty <= item.lowStockAt
+  return (
+    <span className="flex min-w-0 items-center gap-2 text-sm">
+      <span className="font-semibold text-black tabular-nums">เหลือ {item.stockQty}</span>
+      {item.stockQty === 0 && (
+        <span className="rounded-full bg-danger/10 px-2 py-0.5 font-semibold text-danger-ink">
+          หมด
+        </span>
+      )}
+      {low && (
+        <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-800">
+          ใกล้หมด
+        </span>
+      )}
+      {item.stockQty > 0 && !item.isAvailable && (
+        <span className="font-semibold text-danger-ink">ปิดอยู่</span>
+      )}
+    </span>
+  )
+}
+
+/** ฟอร์มตั้งยอดคงเหลือ + จุดเตือนใกล้หมด หรือเลิกนับสต็อก */
+function StockForm({
+  item,
+  busy,
+  onCancel,
+  onSave,
+}: Readonly<{
+  item: Ingredient
+  busy: boolean
+  onCancel: () => void
+  onSave: (stockQty: number | null, lowStockAt: number | null) => void
+}>) {
+  const [stock, setStockValue] = useState(item.stockQty === null ? '' : String(item.stockQty))
+  const [warn, setWarn] = useState(item.lowStockAt === null ? '' : String(item.lowStockAt))
+
+  const stockNum = Number(stock)
+  const warnNum = Number(warn)
+  const stockValid = stock.trim() !== '' && Number.isInteger(stockNum) && stockNum >= 0
+  const warnValid = warn.trim() === '' || (Number.isInteger(warnNum) && warnNum >= 0)
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (stockValid && warnValid) onSave(stockNum, warn.trim() === '' ? null : warnNum)
+      }}
+      className="mt-3 space-y-2 rounded-lg bg-gray-50 p-3"
+    >
+      <div className="grid grid-cols-2 gap-2">
+        <label className="text-sm">
+          <span className="font-semibold text-gray-700">คงเหลือ</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min="0"
+            step="1"
+            value={stock}
+            onChange={(e) => setStockValue(e.target.value)}
+            placeholder="เช่น 30"
+            aria-invalid={stock.trim() !== '' && !stockValid}
+            className={`${field} mt-1 tabular-nums`}
+          />
+        </label>
+        <label className="text-sm">
+          <span className="font-semibold text-gray-700">เตือนเมื่อเหลือ</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min="0"
+            step="1"
+            value={warn}
+            onChange={(e) => setWarn(e.target.value)}
+            placeholder="ไม่เตือน"
+            aria-invalid={!warnValid}
+            className={`${field} mt-1 tabular-nums`}
+          />
+        </label>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="submit"
+          disabled={busy || !stockValid || !warnValid}
+          className={button('primary', 'sm')}
+        >
+          บันทึก
+        </button>
+        <button type="button" onClick={onCancel} className={button('secondary', 'sm')}>
+          ยกเลิก
+        </button>
+        {item.stockQty !== null && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onSave(null, null)}
+            className="ml-auto text-sm font-semibold text-gray-600 underline-offset-2 hover:underline"
+          >
+            เลิกนับสต็อก
+          </button>
+        )}
+      </div>
+    </form>
+  )
 }

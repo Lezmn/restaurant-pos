@@ -98,6 +98,8 @@ async function upsertMenuOption(
   group: MenuOptionGroup = MenuOptionGroup.EXTRA,
   /** วัตถุดิบที่ใช้ ถ้าชื่อไม่ตรงกับตัวเลือก (ไข่ดาว → ไข่) */
   ingredientName = name,
+  /** ใช้วัตถุดิบกี่หน่วยต่อจาน (0 = ผูกไว้ให้หมดตามอย่างเดียว ไม่ตัดสต็อกเพิ่ม) */
+  usageQty = 1,
 ) {
   const existing = await prisma.menuOption.findFirst({
     where: { menuItemId, name },
@@ -113,12 +115,12 @@ async function upsertMenuOption(
   if (existing) {
     return prisma.menuOption.update({
       where: { id: existing.id },
-      data: { price, group, isAvailable: true, ingredientId },
+      data: { price, group, isAvailable: true, ingredientId, usageQty },
     });
   }
 
   return prisma.menuOption.create({
-    data: { menuItemId, name, price, group, isAvailable: true, ingredientId },
+    data: { menuItemId, name, price, group, isAvailable: true, ingredientId, usageQty },
   });
 }
 
@@ -359,7 +361,8 @@ async function main() {
   ]);
 
   await Promise.all([
-    upsertMenuOption(omeletRice.id, 'ไข่ 1 ฟอง', 0, EXTRA, 'ไข่'),
+    // ตัวเมนูตัดไข่ 1 ฟองแล้ว — "ไข่ 1 ฟอง" ไม่ตัดเพิ่ม, "ไข่ 2 ฟอง" ตัดอีก 1
+    upsertMenuOption(omeletRice.id, 'ไข่ 1 ฟอง', 0, EXTRA, 'ไข่', 0),
     upsertMenuOption(omeletRice.id, 'ไข่ 2 ฟอง', 10, EXTRA, 'ไข่'),
     upsertMenuOption(omeletRice.id, 'หมูสับ', 10, PROTEIN),
     upsertMenuOption(friedRice.id, 'หมู', 0, PROTEIN),

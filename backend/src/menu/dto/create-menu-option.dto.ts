@@ -4,10 +4,12 @@ import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsEnum,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   Min,
 } from 'class-validator';
 
@@ -48,4 +50,16 @@ export class CreateMenuOptionDto {
   @IsOptional()
   @IsUUID()
   ingredientId?: string | null;
+
+  @ApiPropertyOptional({
+    example: 1,
+    default: 1,
+    description:
+      'ใช้วัตถุดิบที่ผูกไว้กี่หน่วยต่อจาน (ตัดสต็อกตามนี้) — 0 = ผูกไว้ให้หมดตามอย่างเดียว ไม่ตัดเพิ่ม',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(99)
+  usageQty?: number;
 }

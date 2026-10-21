@@ -77,6 +77,8 @@ const mapMenuOption = (o: ApiMenuOption): MenuOption => ({
   ingredientId: o.ingredientId ?? o.ingredient?.id ?? null,
   ingredientName: o.ingredient?.name ?? null,
   ingredientOutOfStock: o.ingredient ? !o.ingredient.isAvailable : false,
+  ingredientStockQty: o.ingredient?.stockQty ?? null,
+  usageQty: o.usageQty ?? 1,
   id: o.id,
   name: o.name,
   price: o.price,

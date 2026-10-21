@@ -13,6 +13,13 @@ import {
 } from '@prisma/client';
 import { startOfDay } from '../common/date-range.util';
 import { EventsGateway } from '../events/events.gateway';
+import {
+  deductStock,
+  mergeUsage,
+  restoreStock,
+  stockUsageOf,
+  toStockUsage,
+} from '../ingredients/ingredient-stock';
 import { PrismaService } from '../prisma/prisma.service';
 import { closeSessionIfSettled } from '../table-sessions/session-settlement';
 import { TableSessionsService } from '../table-sessions/table-sessions.service';
@@ -81,9 +88,11 @@ export class OrdersService {
       include: MENU_ITEM_WITH_OPTIONS,
     });
     this.assertAllMenuItemsExistAndAvailable(dto.items, menuItems);
+    const { items: itemsData, usage } = this.buildOrderItems(dto.items, menuItems);
 
-    // ใช้ transaction: สร้าง order + item ทั้งหมด และอัปเดตสถานะโต๊ะ
+    // ใช้ transaction: สร้าง order + item ทั้งหมด ตัดสต็อก และอัปเดตสถานะโต๊ะ
     // ต้องสำเร็จพร้อมกันทั้งหมด ถ้าล้มเหลวจุดใดจุดหนึ่งให้ rollback ทั้งหมด
+    let ingredientClosed = false;
     const order = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // ออเดอร์ต้องผูกกับ session ที่เปิดอยู่เสมอ — POST /payments เก็บเงินได้เฉพาะออเดอร์ที่มี session
       // ออเดอร์ที่ไม่มี session จะค้างตลอดไป (เก็บเงินไม่ได้ / โต๊ะ OCCUPIED ค้าง)
@@ -103,11 +112,13 @@ export class OrdersService {
         );
       }
 
+      ingredientClosed = await deductStock(tx, usage);
+
       const order = await tx.order.create({
         data: {
           tableId: dto.tableId,
           tableSessionId: openSession.id,
-          items: { create: this.buildOrderItems(dto.items, menuItems) },
+          items: { create: itemsData },
         },
         include: ORDER_INCLUDE,
       });
@@ -116,6 +127,7 @@ export class OrdersService {
     });
 
     this.emitOrderEvent('order.created', order);
+    if (ingredientClosed) this.notifyMenuChanged();
     return order;
   }
 
@@ -128,8 +140,12 @@ export class OrdersService {
       include: MENU_ITEM_WITH_OPTIONS,
     });
     this.assertAllMenuItemsExistAndAvailable(items, menuItems);
+    const { items: itemsData, usage } = this.buildOrderItems(items, menuItems);
 
+    let ingredientClosed = false;
     const order = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      ingredientClosed = await deductStock(tx, usage);
+
       await tx.restaurantTable.update({
         where: { id: session.tableId },
         data: { status: TableStatus.OCCUPIED },
@@ -139,13 +155,14 @@ export class OrdersService {
         data: {
           tableId: session.tableId,
           tableSessionId: session.id,
-          items: { create: this.buildOrderItems(items, menuItems) },
+          items: { create: itemsData },
         },
         include: ORDER_INCLUDE,
       });
     });
 
     this.emitOrderEvent('order.created', order);
+    if (ingredientClosed) this.notifyMenuChanged();
     return order;
   }
 
@@ -194,20 +211,17 @@ export class OrdersService {
       throw new BadRequestException('เมนูนี้ไม่พร้อมขายหรือไม่มีอยู่จริง');
     }
     this.assertMenuIngredientsAvailable(menuItem);
+    const { items: itemsData, usage } = this.buildOrderItems([dto], [menuItem]);
 
-    await this.prisma.orderItem.create({
-      data: {
-        orderId,
-        menuItemId: dto.menuItemId,
-        quantity: dto.quantity,
-        unitPrice: menuItem.price,
-        note: dto.note,
-        selectedOptions: { create: this.resolveSelectedOptions(dto, menuItem) },
-      },
+    const ingredientClosed = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const closed = await deductStock(tx, usage);
+      await tx.orderItem.create({ data: { orderId, ...itemsData[0] } });
+      return closed;
     });
 
     const updated = await this.findOne(orderId);
     this.emitOrderEvent('order.updated', updated);
+    if (ingredientClosed) this.notifyMenuChanged();
     return updated;
   }
 
@@ -215,14 +229,21 @@ export class OrdersService {
     const order = await this.findOne(orderId);
     this.assertOrderIsEditable(order.status);
 
-    const hasItem = order.items.some((i: { id: string }) => i.id === orderItemId);
-    if (!hasItem) {
+    const item = order.items.find((i) => i.id === orderItemId);
+    if (!item) {
       throw new NotFoundException(`ไม่พบรายการ id: ${orderItemId} ในออเดอร์นี้`);
     }
 
-    await this.prisma.orderItem.delete({ where: { id: orderItemId } });
+    const ingredientReopened = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      await tx.orderItem.delete({ where: { id: orderItemId } });
+      // ครัวยังไม่เริ่มทำ ของยังไม่ถูกใช้ — คืนสต็อก (เริ่มทำแล้วถือว่าใช้ไปแล้ว)
+      return order.status === OrderStatus.PENDING
+        ? restoreStock(tx, toStockUsage(item.stockUsed))
+        : false;
+    });
     const updated = await this.findOne(orderId);
     this.emitOrderEvent('order.updated', updated);
+    if (ingredientReopened) this.notifyMenuChanged();
     return updated;
   }
 
@@ -231,6 +252,7 @@ export class OrdersService {
     this.assertValidTransition(order.status, status);
 
     let sessionClosed = false;
+    let ingredientReopened = false;
     const updated = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // เปลี่ยนเฉพาะถ้าสถานะยังเป็นค่าที่เพิ่งอ่านมา — กันกรณีแคชเชียร์เก็บเงินไปพอดี
       // แล้วครัวกดยกเลิกทับ ได้ออเดอร์ CANCELLED ที่มี payment ผูกอยู่
@@ -246,6 +268,14 @@ export class OrdersService {
 
       // การจ่ายเงินใช้ PaymentsService; ตรงนี้ดูแลแค่กรณียกเลิก
       if (status === OrderStatus.CANCELLED) {
+        // ยกเลิกก่อนครัวเริ่มทำ = ของยังไม่ถูกใช้ คืนสต็อก
+        // PREPARING/SERVED ถือว่าวัตถุดิบถูกใช้ไปแล้ว ไม่คืน
+        if (order.status === OrderStatus.PENDING) {
+          ingredientReopened = await restoreStock(
+            tx,
+            mergeUsage(order.items.map((item) => toStockUsage(item.stockUsed))),
+          );
+        }
         if (order.tableSessionId) {
           // ยกเลิกใบสุดท้ายที่ค้างจ่าย หลังจากแยกบิลจ่ายใบอื่นไปแล้ว = โต๊ะนี้จบแล้ว
           sessionClosed = await closeSessionIfSettled(tx, order.tableSessionId, {
@@ -259,6 +289,7 @@ export class OrdersService {
     });
 
     this.emitOrderEvent('order.updated', updated);
+    if (ingredientReopened) this.notifyMenuChanged();
     if (sessionClosed) {
       this.events.emitToStaffAndSession(updated.tableSessionId, 'table-session.closed', {
         id: updated.tableSessionId,
@@ -280,6 +311,11 @@ export class OrdersService {
       tableId: order.tableId,
       tableSessionId: order.tableSessionId,
     });
+  }
+
+  /** วัตถุดิบถูกปิด/เปิดเองจากสต็อก — ทุกจอ (รวมลูกค้า) ต้องดึงเมนูใหม่ */
+  private notifyMenuChanged() {
+    this.events.emitToEveryone('menu.updated', { at: new Date().toISOString() });
   }
 
   /**
@@ -367,7 +403,7 @@ export class OrdersService {
     }>,
   ) {
     const selectedIds = requested.optionIds ?? [];
-    const selected = selectedIds.map((id) => {
+    return selectedIds.map((id) => {
       const option = menuItem.options.find((candidate) => candidate.id === id);
       if (!option?.isAvailable) {
         throw new BadRequestException(`ตัวเลือก id: ${id} ไม่ถูกต้องหรือไม่พร้อมขาย`);
@@ -380,33 +416,44 @@ export class OrdersService {
       }
       return option;
     });
-
-    return selected.map((option) => ({
-      menuOptionId: option.id,
-      name: option.name,
-      price: option.price,
-    }));
   }
 
+  /** ข้อมูลสร้าง order item พร้อมยอดวัตถุดิบที่ต้องตัด (แยกต่อรายการ ไว้คืนทีละรายการได้) */
   private buildOrderItems(
     items: OrderItemInputDto[],
     menuItems: Prisma.MenuItemGetPayload<{
       include: typeof MENU_ITEM_WITH_OPTIONS;
     }>[],
   ) {
-    return items.map((item) => {
+    const built = items.map((item) => {
       const menuItem = menuItems.find(
         (m: MenuItem) => m.id === item.menuItemId,
       )!;
       const selectedOptions = this.resolveSelectedOptions(item, menuItem);
+      const stockUsed = stockUsageOf(
+        item.quantity,
+        menuItem.ingredients.map((link) => link.ingredient),
+        selectedOptions,
+      );
       return {
         menuItemId: item.menuItemId,
         quantity: item.quantity,
         unitPrice: menuItem.price,
         note: item.note,
-        selectedOptions: { create: selectedOptions },
+        ...(Object.keys(stockUsed).length ? { stockUsed } : {}),
+        selectedOptions: {
+          create: selectedOptions.map((option) => ({
+            menuOptionId: option.id,
+            name: option.name,
+            price: option.price,
+          })),
+        },
       };
     });
+    return {
+      items: built,
+      usage: mergeUsage(built.map((item) => item.stockUsed)),
+    };
   }
 
   private calculateLineTotal(item: {

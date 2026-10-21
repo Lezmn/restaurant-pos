@@ -249,6 +249,34 @@ function IngredientSelect({
   )
 }
 
+/** ใช้วัตถุดิบกี่หน่วยต่อจาน — โชว์เมื่อผูกวัตถุดิบแล้ว ตัดสต็อกตามเลขนี้ */
+function UsageInput({ value, onChange }: Readonly<{ value: string; onChange: (v: string) => void }>) {
+  return (
+    <label
+      className="flex items-center gap-1 text-sm text-gray-600"
+      title="ตัดสต็อกวัตถุดิบกี่หน่วยต่อจาน (0 = ผูกไว้ให้หมดตาม แต่ไม่ตัดสต็อก)"
+    >
+      ใช้
+      <input
+        type="number"
+        min="0"
+        max="99"
+        step="1"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label="ใช้วัตถุดิบกี่หน่วยต่อจาน"
+        className={`${inputClass} w-16`}
+      />
+    </label>
+  )
+}
+
+/** "0" → 0, ว่าง/ผิด → 1 (ค่าเริ่มต้น) */
+const parseUsage = (value: string) => {
+  const n = Number.parseInt(value, 10)
+  return Number.isFinite(n) && n >= 0 ? Math.min(n, 99) : 1
+}
+
 function OptionRow({
   option,
   disabled,
@@ -262,6 +290,7 @@ function OptionRow({
     price: number
     group: MenuOptionGroupKind
     ingredientId: Id | null
+    usageQty: number
   }) => void
   onDelete: () => void
 }) {
@@ -271,6 +300,7 @@ function OptionRow({
   const [price, setPrice] = useState(String(option.price))
   const [group, setGroup] = useState<MenuOptionGroupKind>(option.group)
   const [ingredientId, setIngredientId] = useState(option.ingredientId ?? '')
+  const [usage, setUsage] = useState(String(option.usageQty))
 
   const isProtein = group === MenuOptionGroupKind.PROTEIN
   const chosen = ingredients?.find((ing) => ing.id === ingredientId)
@@ -300,6 +330,7 @@ function OptionRow({
           />
         )}
         <IngredientSelect value={ingredientId} onChange={setIngredientId} required={isProtein} />
+        {ingredientId && <UsageInput value={usage} onChange={setUsage} />}
 
         <input
           type="number"
@@ -319,6 +350,7 @@ function OptionRow({
               price: Number(price) || 0,
               group,
               ingredientId: ingredientId || null,
+              usageQty: parseUsage(usage),
             })
             setEditing(false)
           }}
@@ -333,6 +365,7 @@ function OptionRow({
             setPrice(String(option.price))
             setGroup(option.group)
             setIngredientId(option.ingredientId ?? '')
+            setUsage(String(option.usageQty))
             setEditing(false)
           }}
           className={button('secondary', 'sm')}
@@ -379,7 +412,7 @@ function OptionRow({
         >
           {/* ชื่อตรงกับวัตถุดิบ (หมู) ไม่ต้องซ้ำ บอกแค่สถานะ ชื่อต่างกัน (ไข่ดาว → ไข่) ค่อยบอกว่าผูกกับอะไร */}
           {option.ingredientName !== option.name && `${option.ingredientName} · `}
-          {option.ingredientOutOfStock ? 'หมด' : 'มีของ'}
+          {stockLabel(option)}
         </span>
       )}
 
@@ -428,6 +461,7 @@ function NewOptionRow({
   const [price, setPrice] = useState('')
   const [group, setGroup] = useState<MenuOptionGroupKind>(MenuOptionGroupKind.EXTRA)
   const [ingredientId, setIngredientId] = useState('')
+  const [usage, setUsage] = useState('1')
 
   const isProtein = group === MenuOptionGroupKind.PROTEIN
   const proteinChoices = (ingredients ?? []).filter(
@@ -452,10 +486,12 @@ function NewOptionRow({
       group,
       isAvailable: true,
       ingredientId: ingredientId || null,
+      usageQty: parseUsage(usage),
     })
     setName('')
     setPrice('')
     setIngredientId('')
+    setUsage('1')
   }
 
   const onEnter = (e: { key: string; preventDefault: () => void }) => {
@@ -496,6 +532,7 @@ function NewOptionRow({
           required={isProtein}
           excludeIds={isProtein ? usedIngredientIds : []}
         />
+        {ingredientId && <UsageInput value={usage} onChange={setUsage} />}
 
         <input
           type="number"
@@ -533,4 +570,15 @@ function NewOptionRow({
       )}
     </div>
   )
+}
+
+/** "หมด" / "เหลือ 12" / "มีของ" (+ "ใช้ 2" ถ้าไม่ใช่ 1) — ป้ายสถานะของตัวเลือกที่ผูกวัตถุดิบ */
+function stockLabel(option: MenuOption) {
+  const status = option.ingredientOutOfStock
+    ? 'หมด'
+    : option.ingredientStockQty === null
+      ? 'มีของ'
+      : `เหลือ ${option.ingredientStockQty}`
+  if (option.ingredientStockQty === null || option.usageQty === 1) return status
+  return option.usageQty === 0 ? `${status} · ไม่ตัดสต็อก` : `${status} · ใช้ ${option.usageQty}`
 }

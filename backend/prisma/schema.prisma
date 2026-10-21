@@ -127,6 +127,11 @@ model Ingredient {
   id          String   @id @default(uuid())
   name        String   @unique
   isAvailable Boolean  @default(true)
+  /// จำนวนคงเหลือ (หน่วยตามที่ร้านนับ เช่น ฟอง/ที่) — null = ไม่นับสต็อก เปิด/ปิดด้วยมือแบบเดิม
+  /// นับอยู่: ออเดอร์ใหม่ตัดยอด เหลือ 0 ปิด isAvailable ให้เอง เติมของแล้วเปิดคืนเอง
+  stockQty    Int?
+  /// เหลือเท่านี้หรือน้อยกว่าให้ขึ้นเตือน "ใกล้หมด" (null = ไม่เตือน)
+  lowStockAt  Int?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -156,6 +161,9 @@ model MenuOption {
   /// PROTEIN = เนื้อสัตว์ (ปกติเลือกอย่างเดียว), EXTRA = ท็อปปิ้ง/เพิ่มเติมอื่น ๆ
   group       MenuOptionGroup @default(EXTRA)
   isAvailable Boolean         @default(true)
+  /// ใช้วัตถุดิบที่ผูกไว้กี่หน่วยต่อ 1 จาน (ไข่ดาว = 1, "ไข่ 2 ฟอง" ในข้าวไข่เจียว = 1 ฟองเพิ่ม)
+  /// 0 = ผูกไว้แค่ให้หมดตามวัตถุดิบ ไม่ตัดสต็อกเพิ่ม (เช่น "ไข่ 1 ฟอง" ที่ตัวเมนูตัดไปแล้ว)
+  usageQty    Int             @default(1)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
@@ -244,6 +252,9 @@ model OrderItem {
   quantity  Int     @default(1)
   unitPrice Decimal @db.Decimal(10, 2)
   note      String?
+  /// วัตถุดิบที่ตัดสต็อกไปตอนสั่ง { ingredientId: จำนวน } — ไว้คืนตอนยกเลิก/ลบรายการ
+  /// เก็บตอนสั่งเลย ไม่คำนวณใหม่ตอนคืน เพราะการผูกวัตถุดิบของเมนูอาจถูกแก้ไประหว่างนั้น
+  stockUsed Json?
 
   order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
   orderId String

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -23,7 +24,12 @@ export class IngredientsService {
   async create(dto: CreateIngredientDto) {
     try {
       const ingredient = await this.prisma.ingredient.create({
-        data: { name: dto.name.trim(), isAvailable: dto.isAvailable },
+        data: {
+          name: dto.name.trim(),
+          stockQty: dto.stockQty,
+          lowStockAt: dto.lowStockAt,
+          isAvailable: this.availabilityFor(dto),
+        },
         include: INGREDIENT_INCLUDE,
       });
       this.emitMenuChanged();
@@ -52,15 +58,22 @@ export class IngredientsService {
   }
 
   async update(id: string, dto: UpdateIngredientDto) {
-    await this.findOne(id);
+    const current = await this.findOne(id);
+    const stockAfter = dto.stockQty === undefined ? current.stockQty : dto.stockQty;
+    // นับสต็อกอยู่แต่ยอดเป็น 0 แล้วจะเปิด = เปิดได้แต่สั่งไม่ได้จริง (ตัดสต็อกไม่ผ่าน) ให้ตั้งยอดก่อน
+    if (stockAfter === 0 && this.availabilityFor(dto) === true) {
+      throw new BadRequestException(
+        `"${current.name}" ยอดคงเหลือเป็น 0 — ตั้งยอดคงเหลือก่อนเปิด หรือเลิกนับสต็อก`,
+      );
+    }
     try {
       const ingredient = await this.prisma.ingredient.update({
         where: { id },
         data: {
           ...(dto.name === undefined ? {} : { name: dto.name.trim() }),
-          ...(dto.isAvailable === undefined
-            ? {}
-            : { isAvailable: dto.isAvailable }),
+          ...(dto.stockQty === undefined ? {} : { stockQty: dto.stockQty }),
+          ...(dto.lowStockAt === undefined ? {} : { lowStockAt: dto.lowStockAt }),
+          isAvailable: this.availabilityFor(dto),
         },
         include: INGREDIENT_INCLUDE,
       });
@@ -109,6 +122,16 @@ export class IngredientsService {
       }
       throw e;
     }
+  }
+
+  /**
+   * ส่ง isAvailable มาตรง ๆ = ตามนั้น (พนักงานปิดเองได้แม้ยังมียอด)
+   * ไม่ส่งมาแต่ตั้งยอดใหม่ = 0 ปิดให้ / มากกว่า 0 เปิดให้ — เติมของแล้วไม่ต้องไปกดเปิดอีกที่
+   */
+  private availabilityFor(dto: UpdateIngredientDto): boolean | undefined {
+    if (dto.isAvailable !== undefined) return dto.isAvailable;
+    if (dto.stockQty === undefined || dto.stockQty === null) return undefined;
+    return dto.stockQty > 0;
   }
 
   /** เมนู/ตัวเลือกเปลี่ยน — ให้ทุกจอ (พนักงาน + ลูกค้าที่เปิดค้างไว้) ดึงเมนูใหม่ */

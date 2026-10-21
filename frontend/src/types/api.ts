@@ -48,7 +48,9 @@ export interface ApiMenuOption {
   isAvailable: boolean
   /** ผูกกับวัตถุดิบกลาง — วัตถุดิบหมดแล้วตัวเลือกนี้สั่งไม่ได้ทุกเมนู */
   ingredientId?: string | null
-  ingredient?: { id: string; name: string; isAvailable: boolean } | null
+  ingredient?: { id: string; name: string; isAvailable: boolean; stockQty?: number | null } | null
+  /** ใช้วัตถุดิบกี่หน่วยต่อจาน (ตัดสต็อกตามนี้) */
+  usageQty?: number
 }
 
 /** GET /ingredients — _count มาเฉพาะตอนดึงเป็นรายการ */
@@ -56,6 +58,9 @@ export interface ApiIngredient {
   id: string
   name: string
   isAvailable: boolean
+  /** null = ไม่นับสต็อก */
+  stockQty?: number | null
+  lowStockAt?: number | null
   _count?: { menuOptions: number; menuItems?: number }
 }
 

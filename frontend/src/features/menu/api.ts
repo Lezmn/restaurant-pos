@@ -64,6 +64,8 @@ export async function deleteMenuItem(id: Id): Promise<void> {
 export interface MenuOptionInput {
   /** ผูกกับวัตถุดิบกลาง (null = ไม่ผูก) */
   ingredientId?: Id | null
+  /** ใช้วัตถุดิบกี่หน่วยต่อจาน (ไม่ส่ง = 1) */
+  usageQty?: number
   name: string
   price: number
   group: MenuOptionGroupKind
