@@ -7,6 +7,18 @@ import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import { CreateMenuOptionDto } from './dto/create-menu-option.dto';
 import { UpdateMenuOptionDto } from './dto/update-menu-option.dto';
 
+const MENU_ITEM_INCLUDE = {
+  category: true,
+  // วัตถุดิบหลักของเมนู — หน้าจัดการต้องรู้ว่าเมนูนี้หมดเพราะวัตถุดิบตัวไหน
+  ingredients: { include: { ingredient: true } },
+  // เรียงเนื้อสัตว์ขึ้นก่อน แล้วค่อยตัวเลือกเพิ่มเติม ตามลำดับใน enum
+  // ส่งวัตถุดิบมาด้วย หน้าจัดการจะได้บอกได้ว่าตัวเลือกนี้ผูกกับอะไรและของหมดหรือยัง
+  options: {
+    include: { ingredient: true },
+    orderBy: [{ group: 'asc' }, { name: 'asc' }],
+  },
+} satisfies Prisma.MenuItemInclude;
+
 @Injectable()
 export class MenuService {
   constructor(
@@ -23,9 +35,18 @@ export class MenuService {
       throw new NotFoundException(`ไม่พบหมวดหมู่ id: ${dto.categoryId}`);
     }
 
+    const { ingredientIds, ...data } = dto;
     try {
       return this.notifyMenuChanged(
-        await this.prisma.menuItem.create({ data: dto }),
+        await this.prisma.menuItem.create({
+          data: {
+            ...data,
+            ingredients: {
+              create: (ingredientIds ?? []).map((ingredientId) => ({ ingredientId })),
+            },
+          },
+          include: MENU_ITEM_INCLUDE,
+        }),
       );
     } catch (e) {
       throw this.mapPrismaError(e);
@@ -36,17 +57,14 @@ export class MenuService {
     return this.prisma.menuItem.findMany({
       where: {
         categoryId: params?.categoryId,
-        isAvailable: params?.onlyAvailable ? true : undefined,
+        ...(params?.onlyAvailable
+          ? {
+              isAvailable: true,
+              ingredients: { none: { ingredient: { isAvailable: false } } },
+            }
+          : {}),
       },
-      // เรียงเนื้อสัตว์ขึ้นก่อน แล้วค่อยตัวเลือกเพิ่มเติม ตามลำดับใน enum
-      include: {
-        category: true,
-        // ส่งวัตถุดิบมาด้วย หน้าจัดการจะได้บอกได้ว่าตัวเลือกนี้ผูกกับอะไรและของหมดหรือยัง
-        options: {
-          include: { ingredient: true },
-          orderBy: [{ group: 'asc' }, { name: 'asc' }],
-        },
-      },
+      include: MENU_ITEM_INCLUDE,
       orderBy: { name: 'asc' },
     });
   }
@@ -54,15 +72,7 @@ export class MenuService {
   async findOne(id: string) {
     const item = await this.prisma.menuItem.findUnique({
       where: { id },
-      // เรียงเนื้อสัตว์ขึ้นก่อน แล้วค่อยตัวเลือกเพิ่มเติม ตามลำดับใน enum
-      include: {
-        category: true,
-        // ส่งวัตถุดิบมาด้วย หน้าจัดการจะได้บอกได้ว่าตัวเลือกนี้ผูกกับอะไรและของหมดหรือยัง
-        options: {
-          include: { ingredient: true },
-          orderBy: [{ group: 'asc' }, { name: 'asc' }],
-        },
-      },
+      include: MENU_ITEM_INCLUDE,
     });
     if (!item) {
       throw new NotFoundException(`ไม่พบเมนู id: ${id}`);
@@ -72,9 +82,25 @@ export class MenuService {
 
   async update(id: string, dto: UpdateMenuItemDto) {
     await this.findOne(id); // throws 404 if not found
+    const { ingredientIds, ...data } = dto;
     try {
       return this.notifyMenuChanged(
-        await this.prisma.menuItem.update({ where: { id }, data: dto }),
+        await this.prisma.menuItem.update({
+          where: { id },
+          data: {
+            ...data,
+            // ส่งมา = แทนที่ทั้งชุด ไม่ส่ง = ไม่แตะวัตถุดิบเดิม
+            ...(ingredientIds === undefined
+              ? {}
+              : {
+                  ingredients: {
+                    deleteMany: {},
+                    create: ingredientIds.map((ingredientId) => ({ ingredientId })),
+                  },
+                }),
+          },
+          include: MENU_ITEM_INCLUDE,
+        }),
       );
     } catch (e) {
       throw this.mapPrismaError(e);
@@ -94,9 +120,12 @@ export class MenuService {
 
   async createOption(menuItemId: string, dto: CreateMenuOptionDto) {
     await this.findOne(menuItemId);
+    const isAvailable = this.resolveOptionAvailability(dto.ingredientId, dto.isAvailable);
     try {
       return this.notifyMenuChanged(
-        await this.prisma.menuOption.create({ data: { menuItemId, ...dto } }),
+        await this.prisma.menuOption.create({
+          data: { menuItemId, ...dto, isAvailable },
+        }),
       );
     } catch (e) {
       throw this.mapPrismaError(e);
@@ -108,12 +137,15 @@ export class MenuService {
     optionId: string,
     dto: UpdateMenuOptionDto,
   ) {
-    await this.findOptionOrThrow(menuItemId, optionId);
+    const option = await this.findOptionOrThrow(menuItemId, optionId);
+    const ingredientId =
+      dto.ingredientId === undefined ? option.ingredientId : dto.ingredientId;
+    const isAvailable = this.resolveOptionAvailability(ingredientId, dto.isAvailable);
     try {
       return this.notifyMenuChanged(
         await this.prisma.menuOption.update({
           where: { id: optionId },
-          data: dto,
+          data: { ...dto, isAvailable },
         }),
       );
     } catch (e) {
@@ -139,6 +171,23 @@ export class MenuService {
   private notifyMenuChanged<T>(result: T): T {
     this.events.emitToEveryone('menu.updated', { at: new Date().toISOString() });
     return result;
+  }
+
+  /**
+   * ตัวเลือกที่ผูกวัตถุดิบเปิด/ปิดที่วัตถุดิบที่เดียว — ปิดที่ตัวเลือกด้วยจะได้สวิตช์ซ้อนสองที่
+   * แล้วลืมเปิดคืนอันใดอันหนึ่ง ผูกแล้วจึงเปิดตัวเลือกให้เสมอ และไม่ยอมให้ปิดตรงนี้
+   */
+  private resolveOptionAvailability(
+    ingredientId: string | null | undefined,
+    isAvailable: boolean | undefined,
+  ) {
+    if (!ingredientId) return isAvailable;
+    if (isAvailable === false) {
+      throw new BadRequestException(
+        'ตัวเลือกนี้ผูกกับวัตถุดิบแล้ว ให้ปิดที่หน้า "วัตถุดิบ" แทน',
+      );
+    }
+    return true;
   }
 
   private async findOptionOrThrow(menuItemId: string, optionId: string) {

@@ -31,7 +31,11 @@ export class PublicService {
     return this.prisma.category.findMany({
       include: {
         menuItems: {
-          where: { isAvailable: true },
+          // วัตถุดิบหลักของเมนูหมด = ซ่อนทั้งเมนู เหมือนปิดขาย
+          where: {
+            isAvailable: true,
+            ingredients: { none: { ingredient: { isAvailable: false } } },
+          },
           include: {
             options: {
               // ตัวเลือกที่ผูกวัตถุดิบไว้ ต้องมีวัตถุดิบพร้อมด้วยถึงจะโชว์ให้ลูกค้าสั่ง

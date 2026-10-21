@@ -34,9 +34,10 @@ const ORDER_INCLUDE = {
   items: { include: { menuItem: true, selectedOptions: { include: { menuOption: true } } } },
 } as const;
 
-/** ตัวเลือกเมนูพร้อมวัตถุดิบ — ต้องรู้ว่าวัตถุดิบหมดหรือยังก่อนรับออเดอร์ */
+/** เมนูและตัวเลือกพร้อมวัตถุดิบ — ต้องรู้ว่าวัตถุดิบหมดหรือยังก่อนรับออเดอร์ */
 const MENU_ITEM_WITH_OPTIONS = {
   options: { include: { ingredient: true } },
+  ingredients: { include: { ingredient: true } },
 } as const;
 
 @Injectable()
@@ -169,6 +170,7 @@ export class OrdersService {
     if (!menuItem?.isAvailable) {
       throw new BadRequestException('เมนูนี้ไม่พร้อมขายหรือไม่มีอยู่จริง');
     }
+    this.assertMenuIngredientsAvailable(menuItem);
 
     await this.prisma.orderItem.create({
       data: {
@@ -308,7 +310,7 @@ export class OrdersService {
 
   private assertAllMenuItemsExistAndAvailable(
     requested: OrderItemInputDto[],
-    found: { id: string; isAvailable: boolean }[],
+    found: Prisma.MenuItemGetPayload<{ include: typeof MENU_ITEM_WITH_OPTIONS }>[],
   ) {
     for (const item of requested) {
       const menuItem = found.find((m) => m.id === item.menuItemId);
@@ -318,6 +320,19 @@ export class OrdersService {
       if (!menuItem.isAvailable) {
         throw new BadRequestException(`เมนู id: ${item.menuItemId} ไม่พร้อมขายตอนนี้`);
       }
+      this.assertMenuIngredientsAvailable(menuItem);
+    }
+  }
+
+  /** วัตถุดิบหลักของเมนูหมด (ข้าวไข่เจียว แต่ไข่หมด) = ทั้งเมนูสั่งไม่ได้ */
+  private assertMenuIngredientsAvailable(
+    menuItem: Prisma.MenuItemGetPayload<{ include: typeof MENU_ITEM_WITH_OPTIONS }>,
+  ) {
+    const outOfStock = menuItem.ingredients.find((link) => !link.ingredient.isAvailable);
+    if (outOfStock) {
+      throw new BadRequestException(
+        `"${menuItem.name}" หมดชั่วคราว (วัตถุดิบ: ${outOfStock.ingredient.name})`,
+      );
     }
   }
 

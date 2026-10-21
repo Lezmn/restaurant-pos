@@ -8,6 +8,7 @@ const mapIngredient = (i: ApiIngredient): Ingredient => ({
   isAvailable: i.isAvailable,
   /** จำนวนตัวเลือกเมนูที่ผูกอยู่ */
   menuOptionCount: i._count?.menuOptions ?? 0,
+  menuItemCount: i._count?.menuItems ?? 0,
 })
 
 /** GET /ingredients — ทุก role ที่ login แล้วดูได้ (ครัวต้องเห็นว่าอะไรหมด) */

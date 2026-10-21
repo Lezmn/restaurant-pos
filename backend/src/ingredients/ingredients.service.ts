@@ -10,7 +10,7 @@ import { CreateIngredientDto } from './dto/create-ingredient.dto';
 import { UpdateIngredientDto } from './dto/update-ingredient.dto';
 
 const INGREDIENT_INCLUDE = {
-  _count: { select: { menuOptions: true } },
+  _count: { select: { menuOptions: true, menuItems: true } },
 } as const;
 
 @Injectable()

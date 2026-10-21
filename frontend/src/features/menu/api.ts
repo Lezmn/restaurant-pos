@@ -29,6 +29,8 @@ export interface MenuItemInput {
   imageUrl: string | null
   categoryId: Id
   isAvailable: boolean
+  /** วัตถุดิบหลักที่เมนูใช้เสมอ — ส่งมาแล้วแทนที่ของเดิมทั้งชุด */
+  ingredientIds: Id[]
 }
 
 /** POST /menu @Roles(ADMIN) */

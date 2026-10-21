@@ -1,5 +1,7 @@
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ErrorNote } from '@/components/ui/ErrorNote'
+import { Switch } from '@/components/ui/Switch'
+import { button } from '@/components/ui/styles'
 import {
   useCreateMenuOption,
   useDeleteMenuOption,
@@ -19,7 +21,7 @@ const GROUP_LABEL: Record<MenuOptionGroupKind, string> = {
 }
 
 const inputClass =
-  'rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-400'
+  'min-h-10 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-400/25'
 
 /**
  * จัดการตัวเลือกของเมนู (หมู/ไก่/ไข่ดาว) — เพิ่ม, แก้, เปิด-ปิดให้เลือก, ลบ
@@ -43,9 +45,9 @@ export function MenuOptionsEditor({ menuItemId }: { menuItemId: Id }) {
   return (
     <section className="rounded-xl border border-gray-200 bg-gray-50 p-3">
       <h3 className="text-sm font-bold text-gray-800">ตัวเลือกของเมนู</h3>
-      <p className="mt-0.5 text-sm text-gray-500">
-        ปิดสวิตช์ = ลูกค้าจะไม่เห็นตัวเลือกนั้น (ใช้ตอนของหมดชั่วคราว) ·
-        ผูกวัตถุดิบไว้ = ของหมดทีเดียวหายทุกเมนู
+      <p className="mt-0.5 text-sm text-gray-600">
+        ผูกวัตถุดิบไว้ = เปิด/ปิดที่แท็บ "วัตถุดิบ" ที่เดียว ของหมดทีเดียวหายทุกเมนู ·
+        ไม่ผูก = ใช้สวิตช์ของตัวเลือกเอง
       </p>
 
       <div className="mt-2">
@@ -83,15 +85,13 @@ export function MenuOptionsEditor({ menuItemId }: { menuItemId: Id }) {
       })}
 
       {options.length === 0 && (
-        <p className="mt-3 text-sm text-gray-500">ยังไม่มีตัวเลือก</p>
+        <p className="mt-3 text-sm text-gray-600">ยังไม่มีตัวเลือก</p>
       )}
 
       <NewOptionRow
         disabled={busy}
         onAdd={(input) => createOption.mutate({ menuItemId, input })}
-        usedIngredientIds={options
-          .map((o) => o.ingredientId)
-          .filter((id): id is Id => Boolean(id))}
+        usedIngredientIds={proteinIngredientIds(options)}
       />
 
       {deleting && (
@@ -101,7 +101,11 @@ export function MenuOptionsEditor({ menuItemId }: { menuItemId: Id }) {
           detail={
             deleting.price > 0 ? `เพิ่มเงิน ${formatBaht(deleting.price)}` : 'ไม่มีค่าใช้จ่ายเพิ่ม'
           }
-          consequence="ถ้าตัวเลือกนี้เคยถูกสั่งไปแล้วจะลบไม่ได้ — ให้ปิดสวิตช์แทนเพื่อซ่อนจากลูกค้า"
+          consequence={
+            deleting.ingredientId
+              ? 'ถ้าตัวเลือกนี้เคยถูกสั่งไปแล้วจะลบไม่ได้ — ถ้าแค่ของหมด ให้ปิดที่แท็บ "วัตถุดิบ" แทน'
+              : 'ถ้าตัวเลือกนี้เคยถูกสั่งไปแล้วจะลบไม่ได้ — ให้ปิดสวิตช์แทนเพื่อซ่อนจากลูกค้า'
+          }
           confirmLabel="ลบตัวเลือก"
           pendingLabel="กำลังลบ..."
           isPending={deleteOption.isPending}
@@ -133,7 +137,7 @@ export function PendingOptionsEditor({
   return (
     <section className="rounded-xl border border-gray-200 bg-gray-50 p-3">
       <h3 className="text-sm font-bold text-gray-800">ตัวเลือกของเมนู</h3>
-      <p className="mt-0.5 text-sm text-gray-500">
+      <p className="mt-0.5 text-sm text-gray-600">
         ใส่ไว้ก่อนได้เลย จะถูกบันทึกพร้อมเมนูตอนกด "บันทึก"
       </p>
 
@@ -154,7 +158,7 @@ export function PendingOptionsEditor({
                   <span className="min-w-0 flex-1 truncate text-sm text-gray-900">
                     {o.name}
                     {o.price > 0 && (
-                      <span className="ml-1 text-sm text-gray-500">+{formatBaht(o.price)}</span>
+                      <span className="ml-1 text-sm text-gray-600">+{formatBaht(o.price)}</span>
                     )}
                   </span>
                   <button
@@ -172,17 +176,61 @@ export function PendingOptionsEditor({
       })}
 
       {options.length === 0 && (
-        <p className="mt-3 text-sm text-gray-500">ยังไม่มีตัวเลือก</p>
+        <p className="mt-3 text-sm text-gray-600">ยังไม่มีตัวเลือก</p>
       )}
 
       <NewOptionRow
         disabled={false}
         onAdd={(input) => onChange([...options, input])}
-        usedIngredientIds={options
-          .map((o) => o.ingredientId)
-          .filter((id): id is Id => Boolean(id))}
+        usedIngredientIds={proteinIngredientIds(options)}
       />
     </section>
+  )
+}
+
+/** วัตถุดิบที่ใช้เป็นเนื้อสัตว์ในเมนูนี้แล้ว — กันมี "หมู" สองอันในกลุ่มเลือกได้ 1 */
+function proteinIngredientIds(options: readonly { group: MenuOptionGroupKind; ingredientId?: Id | null }[]) {
+  return options
+    .filter((o) => o.group === MenuOptionGroupKind.PROTEIN)
+    .map((o) => o.ingredientId)
+    .filter((id): id is Id => Boolean(id))
+}
+
+/**
+ * ช่องเลือกวัตถุดิบ — เนื้อสัตว์ต้องเลือก (ชื่อตัวเลือกมาจากวัตถุดิบ)
+ * ส่วนเพิ่มเติมเลือกหรือไม่ก็ได้ (ไข่ดาว → ไข่ / พิเศษ → ไม่ผูก)
+ */
+function IngredientSelect({
+  value,
+  onChange,
+  required,
+  excludeIds = [],
+}: Readonly<{
+  value: string
+  onChange: (id: string) => void
+  required: boolean
+  excludeIds?: readonly Id[]
+}>) {
+  const { data: ingredients } = useIngredients()
+  const choices = (ingredients ?? []).filter(
+    (ing) => ing.id === value || !excludeIds.includes(ing.id),
+  )
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      aria-label="วัตถุดิบที่ใช้"
+      title="ของหมดที่แท็บวัตถุดิบแล้วตัวเลือกนี้จะหายจากทุกเมนูที่ใช้"
+      className={`${inputClass} ${required ? 'min-w-0 flex-1' : 'w-36'}`}
+    >
+      <option value="">{required ? 'เลือกวัตถุดิบ' : 'ไม่ผูกวัตถุดิบ'}</option>
+      {choices.map((ing) => (
+        <option key={ing.id} value={ing.id}>
+          {ing.name}
+          {ing.isAvailable ? '' : ' (ตอนนี้ของหมด)'}
+        </option>
+      ))}
+    </select>
   )
 }
 
@@ -214,6 +262,7 @@ function OptionRow({
   const isProtein = group === MenuOptionGroupKind.PROTEIN
   const chosen = ingredients?.find((ing) => ing.id === ingredientId)
   const canSave = isProtein ? Boolean(chosen) : Boolean(name.trim())
+  const linked = Boolean(option.ingredientId)
 
   if (editing) {
     return (
@@ -228,22 +277,7 @@ function OptionRow({
         </select>
 
         {/* เนื้อสัตว์ต้องอ้างวัตถุดิบกลางเสมอ ชื่อจึงมาจากวัตถุดิบ ไม่ให้พิมพ์เอง */}
-        {isProtein ? (
-          <select
-            value={ingredientId}
-            onChange={(e) => setIngredientId(e.target.value)}
-            title="ของหมดที่หน้าวัตถุดิบแล้วตัวเลือกนี้จะหายจากทุกเมนูที่ใช้"
-            className={`${inputClass} min-w-0 flex-1`}
-          >
-            <option value="">เลือกวัตถุดิบ</option>
-            {ingredients?.map((ing) => (
-              <option key={ing.id} value={ing.id}>
-                {ing.name}
-                {ing.isAvailable ? '' : ' (ตอนนี้ของหมด)'}
-              </option>
-            ))}
-          </select>
-        ) : (
+        {!isProtein && (
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -251,6 +285,7 @@ function OptionRow({
             placeholder="ชื่อตัวเลือก"
           />
         )}
+        <IngredientSelect value={ingredientId} onChange={setIngredientId} required={isProtein} />
 
         <input
           type="number"
@@ -269,11 +304,11 @@ function OptionRow({
               name: isProtein ? chosen!.name : name.trim(),
               price: Number(price) || 0,
               group,
-              ingredientId: isProtein ? ingredientId : null,
+              ingredientId: ingredientId || null,
             })
             setEditing(false)
           }}
-          className="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-bold text-white hover:brightness-90 disabled:opacity-50"
+          className={button('primary', 'sm')}
         >
           บันทึก
         </button>
@@ -286,7 +321,7 @@ function OptionRow({
             setIngredientId(option.ingredientId ?? '')
             setEditing(false)
           }}
-          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-bold text-gray-600 hover:bg-gray-50"
+          className={button('secondary', 'sm')}
         >
           ยกเลิก
         </button>
@@ -294,73 +329,69 @@ function OptionRow({
     )
   }
 
+  const closed = linked ? option.ingredientOutOfStock : !option.isAvailable
+
   return (
     <li
       className={`flex items-center gap-2 rounded-lg border bg-white px-3 py-2 ${
-        option.isAvailable ? 'border-gray-200' : 'border-dashed border-gray-300 opacity-60'
+        closed ? 'border-gray-300 bg-gray-50' : 'border-gray-200'
       }`}
     >
       <span className="min-w-0 flex-1 truncate text-sm text-gray-900">
         {option.name}
-        {option.ingredientName && (
-          <span
-            className={`ml-1 text-sm ${
-              option.ingredientOutOfStock ? 'font-semibold text-danger-ink' : 'text-gray-500'
-            }`}
-          >
-            [{option.ingredientName}
-            {option.ingredientOutOfStock ? ' — หมด' : ''}]
-          </span>
-        )}
         {/* เนื้อสัตว์ที่ไม่ได้ผูกวัตถุดิบจะปิดตามของหมดไม่ได้ ต้องไล่ปิดเองทีละเมนู */}
-        {option.group === MenuOptionGroupKind.PROTEIN && !option.ingredientId && (
+        {option.group === MenuOptionGroupKind.PROTEIN && !linked && (
           <span
-            title="กด 'แก้' แล้วเลือกวัตถุดิบ เพื่อให้ปิดของหมดทีเดียวแล้วหายทุกเมนู"
+            title="กด 'แก้ไข' แล้วเลือกวัตถุดิบ เพื่อให้ปิดของหมดทีเดียวแล้วหายทุกเมนู"
             className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-sm font-semibold text-amber-800"
           >
             ยังไม่ผูกวัตถุดิบ
           </span>
         )}
         {option.price > 0 && (
-          <span className="ml-1 text-sm text-gray-500">+{formatBaht(option.price)}</span>
+          <span className="ml-1 text-sm text-gray-600">+{formatBaht(option.price)}</span>
         )}
-        {!option.isAvailable && (
-          <span className="ml-2 text-sm font-semibold text-gray-500">ปิดอยู่</span>
+        {!linked && !option.isAvailable && (
+          <span className="ml-2 text-sm font-semibold text-danger-ink">ปิดอยู่</span>
         )}
       </span>
 
-      {/* สวิตช์เปิด/ปิดให้ลูกค้าเลือก */}
-      <button
-        type="button"
-        role="switch"
-        aria-checked={option.isAvailable}
-        aria-label={option.isAvailable ? 'ปิดตัวเลือกนี้' : 'เปิดตัวเลือกนี้'}
-        disabled={disabled}
-        onClick={() => onToggle(!option.isAvailable)}
-        className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-50 ${
-          option.isAvailable ? 'bg-brand-500' : 'bg-gray-300'
-        }`}
-      >
+      {/* ผูกวัตถุดิบ = เปิด/ปิดที่แท็บวัตถุดิบที่เดียว ตรงนี้บอกสถานะอย่างเดียว ไม่มีสวิตช์ซ้อน */}
+      {linked ? (
         <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
-            option.isAvailable ? 'left-[22px]' : 'left-0.5'
+          title='เปิด/ปิดที่แท็บ "วัตถุดิบ"'
+          className={`shrink-0 rounded-full px-2.5 py-1 text-sm font-semibold ${
+            option.ingredientOutOfStock
+              ? 'bg-danger/10 text-danger-ink'
+              : 'bg-gray-100 text-gray-700'
           }`}
+        >
+          {/* ชื่อตรงกับวัตถุดิบ (หมู) ไม่ต้องซ้ำ บอกแค่สถานะ ชื่อต่างกัน (ไข่ดาว → ไข่) ค่อยบอกว่าผูกกับอะไร */}
+          {option.ingredientName !== option.name && `${option.ingredientName} · `}
+          {option.ingredientOutOfStock ? 'หมด' : 'มีของ'}
+        </span>
+      ) : (
+        <Switch
+          checked={option.isAvailable}
+          label={`เปิดให้เลือก ${option.name}`}
+          busy={disabled}
+          onChange={onToggle}
         />
-      </button>
+      )}
 
       <button
         type="button"
         disabled={disabled}
         onClick={() => setEditing(true)}
-        className="text-sm font-semibold text-brand-500 hover:underline disabled:opacity-50"
+        className={button('outline', 'sm')}
       >
-        แก้
+        แก้ไข
       </button>
       <button
         type="button"
         disabled={disabled}
         onClick={onDelete}
-        className="text-sm font-semibold text-danger-ink hover:underline disabled:opacity-50"
+        className={button('danger-outline', 'sm')}
       >
         ลบ
       </button>
@@ -372,12 +403,12 @@ function OptionRow({
  * แถวเพิ่มตัวเลือกใหม่
  * - เนื้อสัตว์ (PROTEIN) = เลือกจากวัตถุดิบในหน้า "วัตถุดิบ" เท่านั้น ชื่อมาจากวัตถุดิบ
  *   เพื่อให้ปิดของหมดทีเดียวแล้วหายทุกเมนู ไม่ใช่ต่างเมนูต่างมี "หมู" ของตัวเอง
- * - เพิ่มเติม (EXTRA) = พิมพ์เองได้ เพราะเป็นของเฉพาะเมนูนั้น (ไข่ดาว/พิเศษ)
+ * - เพิ่มเติม (EXTRA) = พิมพ์ชื่อเอง แล้วจะผูกวัตถุดิบหรือไม่ก็ได้ (ไข่ดาว → ไข่ / พิเศษ → ไม่ผูก)
  */
 function NewOptionRow({
   disabled,
   onAdd,
-  /** ตัวเลือกที่มีอยู่แล้ว ใช้กันเลือกวัตถุดิบซ้ำในเมนูเดียวกัน */
+  /** วัตถุดิบที่เป็นเนื้อสัตว์ในเมนูนี้แล้ว ใช้กันเลือกซ้ำ */
   usedIngredientIds = [],
 }: Readonly<{
   disabled: boolean
@@ -391,31 +422,23 @@ function NewOptionRow({
   const [ingredientId, setIngredientId] = useState('')
 
   const isProtein = group === MenuOptionGroupKind.PROTEIN
-  const available = (ingredients ?? []).filter(
+  const proteinChoices = (ingredients ?? []).filter(
     (ing) => !usedIngredientIds.includes(ing.id),
   )
-  const chosen = available.find((ing) => ing.id === ingredientId)
-  const canSubmit = isProtein ? Boolean(chosen) : Boolean(name.trim())
+  const chosen = ingredients?.find((ing) => ing.id === ingredientId)
+  const canSubmit = isProtein
+    ? Boolean(chosen && !usedIngredientIds.includes(chosen.id))
+    : Boolean(name.trim())
 
   const submit = () => {
     if (!canSubmit) return
-    onAdd(
-      isProtein
-        ? {
-            name: chosen!.name,
-            price: Number(price) || 0,
-            group,
-            isAvailable: true,
-            ingredientId: chosen!.id,
-          }
-        : {
-            name: name.trim(),
-            price: Number(price) || 0,
-            group,
-            isAvailable: true,
-            ingredientId: null,
-          },
-    )
+    onAdd({
+      name: isProtein ? chosen!.name : name.trim(),
+      price: Number(price) || 0,
+      group,
+      isAvailable: true,
+      ingredientId: ingredientId || null,
+    })
     setName('')
     setPrice('')
     setIngredientId('')
@@ -441,21 +464,7 @@ function NewOptionRow({
           <option value={MenuOptionGroupKind.EXTRA}>เพิ่มเติม</option>
         </select>
 
-        {isProtein ? (
-          <select
-            value={ingredientId}
-            onChange={(e) => setIngredientId(e.target.value)}
-            className={`${inputClass} min-w-0 flex-1`}
-          >
-            <option value="">เลือกวัตถุดิบ</option>
-            {available.map((ing) => (
-              <option key={ing.id} value={ing.id}>
-                {ing.name}
-                {ing.isAvailable ? '' : ' (ตอนนี้ของหมด)'}
-              </option>
-            ))}
-          </select>
-        ) : (
+        {!isProtein && (
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -464,6 +473,12 @@ function NewOptionRow({
             placeholder="เพิ่มตัวเลือก เช่น ไข่ดาว"
           />
         )}
+        <IngredientSelect
+          value={ingredientId}
+          onChange={setIngredientId}
+          required={isProtein}
+          excludeIds={isProtein ? usedIngredientIds : []}
+        />
 
         <input
           type="number"
@@ -479,16 +494,16 @@ function NewOptionRow({
           type="button"
           disabled={disabled || !canSubmit}
           onClick={submit}
-          className="rounded-lg border-2 border-brand-400 px-3 py-1.5 text-sm font-bold text-brand-500 hover:bg-brand-50 disabled:opacity-50"
+          className={button('outline', 'sm')}
         >
           + เพิ่ม
         </button>
       </div>
 
-      {isProtein && available.length === 0 && (
-        <p className="mt-2 text-sm text-gray-500">
+      {isProtein && proteinChoices.length === 0 && (
+        <p className="mt-2 text-sm text-gray-600">
           {ingredients?.length
-            ? 'วัตถุดิบทุกตัวถูกใช้ในเมนูนี้แล้ว'
+            ? 'วัตถุดิบทุกตัวถูกใช้เป็นเนื้อสัตว์ในเมนูนี้แล้ว'
             : 'ยังไม่มีวัตถุดิบ — เพิ่มได้ที่แท็บ "วัตถุดิบ" ก่อน'}
         </p>
       )}

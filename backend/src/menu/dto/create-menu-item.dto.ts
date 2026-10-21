@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayUnique,
+  IsArray,
   IsBoolean,
   IsNotEmpty,
   IsNumber,
@@ -33,4 +35,15 @@ export class CreateMenuItemDto {
   @ApiProperty({ example: 'category-uuid' })
   @IsUUID()
   categoryId: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'วัตถุดิบหลักที่เมนูนี้ใช้เสมอ (ข้าวไข่เจียว → ไข่) วัตถุดิบหมดแล้วทั้งเมนูสั่งไม่ได้ — ส่งมา = แทนที่ของเดิมทั้งชุด',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  ingredientIds?: string[];
 }

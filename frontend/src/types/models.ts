@@ -41,12 +41,21 @@ export interface MenuOption {
   ingredientOutOfStock: boolean
 }
 
-/** วัตถุดิบกลางของร้าน — ผูกกับตัวเลือกเมนูได้หลายอัน ปิดทีเดียวหมดทุกเมนู */
+/** วัตถุดิบกลางของร้าน — ผูกกับตัวเลือกเมนูและเมนูได้หลายอัน ปิดทีเดียวหมดทุกเมนู */
 export interface Ingredient {
   id: Id
   name: string
   isAvailable: boolean
   menuOptionCount: number
+  /** จำนวนเมนูที่ใช้เป็นวัตถุดิบหลัก (ข้าวไข่เจียว → ไข่) */
+  menuItemCount: number
+}
+
+/** วัตถุดิบที่เมนูอ้างถึง — พอให้รู้ชื่อกับว่าหมดหรือยัง */
+export interface IngredientRef {
+  id: Id
+  name: string
+  isAvailable: boolean
 }
 
 // ตัวเลือกแยกเป็น 2 แบบ: "เนื้อสัตว์" (group=PROTEIN) เลือกได้อันเดียว (radio)
@@ -66,8 +75,13 @@ export interface MenuItem {
   name: string
   price: number
   imageUrl: string | null
+  /** สวิตช์เปิด/ปิดขายของเมนูเอง (ไม่รวมวัตถุดิบ) */
   isAvailable: boolean
   optionGroups: MenuOptionGroup[]
+  /** วัตถุดิบหลักที่เมนูใช้เสมอ — ตัวไหนหมด ทั้งเมนูสั่งไม่ได้ */
+  ingredients: IngredientRef[]
+  /** ชื่อวัตถุดิบหลักที่หมดอยู่ (ว่าง = สั่งได้ ถ้าเมนูเปิดขาย) */
+  ingredientsOutOfStock: string[]
 }
 
 export interface RestaurantTable {

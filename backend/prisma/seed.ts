@@ -40,7 +40,18 @@ async function upsertMenuItem(data: {
   name: string;
   price: number;
   imageUrl?: string;
+  /** วัตถุดิบหลักที่เมนูใช้เสมอ (ข้าวไข่เจียว → ไข่) ต้อง upsert วัตถุดิบไว้ก่อน */
+  ingredientNames?: string[];
 }) {
+  const ingredients = await prisma.ingredient.findMany({
+    where: { name: { in: data.ingredientNames ?? [] } },
+    select: { id: true },
+  });
+  const ingredientLinks = {
+    deleteMany: {},
+    create: ingredients.map((i) => ({ ingredientId: i.id })),
+  };
+
   const existing = await prisma.menuItem.findFirst({
     where: {
       categoryId: data.categoryId,
@@ -55,6 +66,7 @@ async function upsertMenuItem(data: {
         price: data.price,
         imageUrl: data.imageUrl,
         isAvailable: true,
+        ingredients: ingredientLinks,
       },
     });
   }
@@ -66,6 +78,7 @@ async function upsertMenuItem(data: {
       price: data.price,
       imageUrl: data.imageUrl,
       isAvailable: true,
+      ingredients: { create: ingredientLinks.create },
     },
   });
 }
@@ -83,14 +96,18 @@ async function upsertMenuOption(
   name: string,
   price = 0,
   group: MenuOptionGroup = MenuOptionGroup.EXTRA,
+  /** วัตถุดิบที่ใช้ ถ้าชื่อไม่ตรงกับตัวเลือก (ไข่ดาว → ไข่) */
+  ingredientName = name,
 ) {
   const existing = await prisma.menuOption.findFirst({
     where: { menuItemId, name },
   });
 
-  // ตัวเลือกที่ชื่อตรงกับวัตถุดิบ (หมู/ไก่/กุ้ง/ไข่ดาว) ผูกให้อัตโนมัติ
+  // ตัวเลือกที่ชื่อตรงกับวัตถุดิบ (หมู/ไก่/กุ้ง) หรือระบุวัตถุดิบไว้ (ไข่ดาว → ไข่) ผูกให้อัตโนมัติ
   // ของหมดทีเดียวหายทุกเมนู ไม่ต้องไล่ปิดเอง
-  const ingredient = await prisma.ingredient.findUnique({ where: { name } });
+  const ingredient = await prisma.ingredient.findUnique({
+    where: { name: ingredientName },
+  });
   const ingredientId = ingredient?.id ?? null;
 
   if (existing) {
@@ -277,7 +294,7 @@ async function main() {
 
   // ต้องมาก่อนตัวเลือกเมนู เพราะ upsertMenuOption จะไปหาวัตถุดิบชื่อเดียวกันมาผูกให้
   await Promise.all(
-    ['หมู', 'ไก่', 'หมูกรอบ', 'กุ้ง', 'ไข่ดาว', 'ไข่เจียว'].map(upsertIngredient),
+    ['หมู', 'ไก่', 'หมูกรอบ', 'กุ้ง', 'ไข่'].map(upsertIngredient),
   );
 
   const [riceCategory, noodleCategory, drinkCategory] = await Promise.all([
@@ -298,6 +315,7 @@ async function main() {
       categoryId: riceCategory.id,
       name: 'ข้าวไข่เจียว',
       price: 40,
+      ingredientNames: ['ไข่'],
       imageUrl: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38',
     }),
     upsertMenuItem({
@@ -328,19 +346,19 @@ async function main() {
     upsertMenuOption(gaprao.id, 'ไก่', 0, PROTEIN),
     upsertMenuOption(gaprao.id, 'หมูกรอบ', 10, PROTEIN),
     upsertMenuOption(gaprao.id, 'กุ้ง', 20, PROTEIN),
-    upsertMenuOption(gaprao.id, 'ไข่ดาว', 10, EXTRA),
-    upsertMenuOption(gaprao.id, 'ไข่เจียว', 10, EXTRA),
+    upsertMenuOption(gaprao.id, 'ไข่ดาว', 10, EXTRA, 'ไข่'),
+    upsertMenuOption(gaprao.id, 'ไข่เจียว', 10, EXTRA, 'ไข่'),
     upsertMenuOption(gaprao.id, 'พิเศษ', 10, EXTRA),
   ]);
 
   await Promise.all([
-    upsertMenuOption(omeletRice.id, 'ไข่ 1 ฟอง', 0, EXTRA),
-    upsertMenuOption(omeletRice.id, 'ไข่ 2 ฟอง', 10, EXTRA),
+    upsertMenuOption(omeletRice.id, 'ไข่ 1 ฟอง', 0, EXTRA, 'ไข่'),
+    upsertMenuOption(omeletRice.id, 'ไข่ 2 ฟอง', 10, EXTRA, 'ไข่'),
     upsertMenuOption(omeletRice.id, 'หมูสับ', 10, PROTEIN),
     upsertMenuOption(friedRice.id, 'หมู', 0, PROTEIN),
     upsertMenuOption(friedRice.id, 'ไก่', 0, PROTEIN),
     upsertMenuOption(friedRice.id, 'กุ้ง', 20, PROTEIN),
-    upsertMenuOption(friedRice.id, 'ไข่ดาว', 10, EXTRA),
+    upsertMenuOption(friedRice.id, 'ไข่ดาว', 10, EXTRA, 'ไข่'),
     upsertMenuOption(friedRice.id, 'พิเศษ', 10, EXTRA),
     upsertMenuOption(padSeeEw.id, 'หมู', 0, PROTEIN),
     upsertMenuOption(padSeeEw.id, 'ไก่', 0, PROTEIN),

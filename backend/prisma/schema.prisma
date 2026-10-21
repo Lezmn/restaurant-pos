@@ -113,15 +113,16 @@ model MenuItem {
   category   Category @relation(fields: [categoryId], references: [id])
   categoryId String
 
-  orderItems OrderItem[]
-  options    MenuOption[]
+  orderItems  OrderItem[]
+  options     MenuOption[]
+  ingredients MenuItemIngredient[]
 
   @@index([categoryId])
   @@map("menu_items")
 }
 
-/// วัตถุดิบของร้าน (หมู ไก่ ไข่ ...) — ผูกกับตัวเลือกเมนูได้หลายอัน
-/// ของหมดก็ปิดที่นี่ทีเดียว ตัวเลือกที่ผูกไว้จะหมดตามทุกเมนู ไม่ต้องไล่ปิดทีละเมนู
+/// วัตถุดิบของร้าน (หมู ไก่ ไข่ ...) — ผูกกับตัวเลือกเมนูและเมนูได้หลายอัน
+/// ของหมดก็ปิดที่นี่ที่เดียว ตัวเลือก/เมนูที่ผูกไว้จะหมดตามทุกเมนู ไม่ต้องไล่ปิดทีละเมนู
 model Ingredient {
   id          String   @id @default(uuid())
   name        String   @unique
@@ -130,8 +131,22 @@ model Ingredient {
   updatedAt   DateTime @updatedAt
 
   menuOptions MenuOption[]
+  menuItems   MenuItemIngredient[]
 
   @@map("ingredients")
+}
+
+/// วัตถุดิบหลักที่เมนูต้องใช้เสมอ (ข้าวไข่เจียว → ไข่) วัตถุดิบหมด = ทั้งเมนูสั่งไม่ได้
+/// แยกจาก MenuOption.ingredientId ที่หมดแค่ตัวเลือกนั้น (กะเพรา + ไข่ดาว)
+model MenuItemIngredient {
+  menuItem     MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  menuItemId   String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  ingredientId String
+
+  @@id([menuItemId, ingredientId])
+  @@index([ingredientId])
+  @@map("menu_item_ingredients")
 }
 
 model MenuOption {
@@ -149,6 +164,7 @@ model MenuOption {
   orderItemOptions OrderItemOption[]
 
   // ผูกกับวัตถุดิบไว้ ถ้าวัตถุดิบหมด ตัวเลือกนี้ก็สั่งไม่ได้ (null = ไม่ผูกกับอะไร)
+  // ผูกแล้วเปิด/ปิดที่วัตถุดิบที่เดียว isAvailable ของตัวเลือกจะเป็น true เสมอ
   ingredient   Ingredient? @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
   ingredientId String?
 

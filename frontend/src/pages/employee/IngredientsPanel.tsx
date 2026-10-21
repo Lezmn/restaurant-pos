@@ -1,7 +1,8 @@
 import { button, field } from '@/components/ui/styles'
 import { ErrorNote } from '@/components/ui/ErrorNote'
-import { Modal } from '@/components/ui/Modal'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Switch } from '@/components/ui/Switch'
+import { toast } from '@/components/ui/toast'
 import {
   useCreateIngredient,
   useDeleteIngredient,
@@ -33,8 +34,28 @@ export function IngredientsPanel() {
       return
     }
     setInvalid('')
-    create.mutate(name.trim(), { onSuccess: () => setName('') })
+    const added = name.trim()
+    create.mutate(added, {
+      onSuccess: () => {
+        setName('')
+        toast(`เพิ่มวัตถุดิบ ${added} แล้ว`)
+      },
+    })
   }
+
+  /** เปิด/ปิดวัตถุดิบ แล้วขึ้นข้อความพร้อม "เลิกทำ" — ปิดผิดตัวกระทบทุกเมนูที่ใช้ จึงต้องย้อนได้ง่าย */
+  const setStock = (item: Ingredient, next: boolean) =>
+    update
+      .mutateAsync({ id: item.id, isAvailable: next })
+      .then(() =>
+        toast(`${item.name}: ${next ? 'มีของแล้ว' : 'ของหมด'}`, {
+          label: 'เลิกทำ',
+          run: () => setStock(item, !next),
+        }),
+      )
+      .catch(() => {
+        // error ขึ้นที่ ErrorNote ด้านบนอยู่แล้ว
+      })
 
   return (
     <div className="mt-6">
@@ -50,8 +71,9 @@ export function IngredientsPanel() {
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="ชื่อวัตถุดิบ เช่น หมู, ไก่, ไข่ดาว"
+          placeholder="ชื่อวัตถุดิบ เช่น หมู, ไก่, ไข่"
           aria-label="ชื่อวัตถุดิบ"
+          aria-invalid={Boolean(invalid)}
           className={`${field} mt-0 min-w-0 flex-1`}
         />
         <button
@@ -93,20 +115,14 @@ export function IngredientsPanel() {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="truncate font-bold text-black">{item.name}</p>
-                <p className="text-sm text-gray-600">
-                  {item.menuOptionCount > 0
-                    ? `ใช้ใน ${item.menuOptionCount} ตัวเลือกเมนู`
-                    : 'ยังไม่ได้ผูกกับเมนูไหน'}
-                </p>
+                <p className="text-sm text-gray-600">{usageText(item)}</p>
               </div>
 
               <Switch
                 checked={item.isAvailable}
                 label={`มีของ ${item.name}`}
                 busy={update.isPending && update.variables?.id === item.id}
-                onChange={(next) =>
-                  update.mutate({ id: item.id, isAvailable: next })
-                }
+                onChange={(next) => setStock(item, next)}
               />
             </div>
 
@@ -123,7 +139,7 @@ export function IngredientsPanel() {
                 type="button"
                 disabled={remove.isPending}
                 onClick={() => setDeleting(item)}
-                className="min-h-10 rounded-lg px-3 text-sm font-bold text-danger-ink transition hover:bg-danger/5 disabled:cursor-not-allowed disabled:opacity-40"
+                className={button('danger-outline', 'sm')}
               >
                 ลบ
               </button>
@@ -133,50 +149,44 @@ export function IngredientsPanel() {
       </div>
 
       {deleting && (
-        <Modal
+        <ConfirmDialog
           title="ลบวัตถุดิบ"
-          onClose={() => {
+          subject={deleting.name}
+          detail={usageText(deleting)}
+          consequence={
+            deleting.menuOptionCount > 0
+              ? 'ลบแล้วกู้คืนไม่ได้ ตัวเลือกที่ยังไม่เคยถูกสั่งจะถูกลบ ส่วนที่เคยถูกสั่งแล้วจะถูกปิดขาย (ประวัติออเดอร์ยังอยู่ครบ) ถ้าแค่ของหมด ให้ปิดสวิตช์แทน'
+              : deleting.menuItemCount > 0
+                ? 'ลบแล้วกู้คืนไม่ได้ เมนูที่ใช้วัตถุดิบนี้จะถูกปลดออก (เมนูยังอยู่) ถ้าแค่ของหมด ให้ปิดสวิตช์แทน'
+                : 'ลบแล้วกู้คืนไม่ได้ ถ้าแค่ของหมด ให้ปิดสวิตช์แทน'
+          }
+          confirmLabel="ลบวัตถุดิบ"
+          pendingLabel="กำลังลบ..."
+          isPending={remove.isPending}
+          error={remove.error}
+          onCancel={() => {
             remove.reset()
             setDeleting(null)
           }}
-        >
-          <ErrorNote error={remove.error} />
-          <p className="text-sm text-gray-700">
-            ลบวัตถุดิบ{' '}
-            <b className="text-black">{deleting.name}</b> ?
-            ลบแล้วกู้คืนไม่ได้
-          </p>
-          {deleting.menuOptionCount > 0 && (
-            <p className="mt-2 text-sm text-danger-ink">
-              วัตถุดิบนี้ผูกกับ {deleting.menuOptionCount} ตัวเลือกเมนู —
-              ตัวเลือกที่ยังไม่เคยถูกสั่งจะถูกลบ ส่วนที่เคยถูกสั่งแล้วจะถูกปิดขาย
-              (ประวัติออเดอร์ยังอยู่ครบ)
-            </p>
-          )}
-
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => setDeleting(null)}
-              className={button('secondary', 'lg')}
-            >
-              ยกเลิก
-            </button>
-            <button
-              type="button"
-              disabled={remove.isPending}
-              onClick={() =>
-                remove.mutate(deleting.id, {
-                  onSuccess: () => setDeleting(null),
-                })
-              }
-              className={button('danger', 'lg')}
-            >
-              {remove.isPending ? 'กำลังลบ...' : 'ลบวัตถุดิบ'}
-            </button>
-          </div>
-        </Modal>
+          onConfirm={() =>
+            remove.mutate(deleting.id, {
+              onSuccess: () => {
+                toast(`ลบวัตถุดิบ ${deleting.name} แล้ว`)
+                setDeleting(null)
+              },
+            })
+          }
+        />
       )}
     </div>
   )
+}
+
+/** "ใช้ใน 1 เมนู · 4 ตัวเลือก" — บอกให้รู้ว่าปิดแล้วกระทบอะไรบ้าง */
+function usageText(item: Ingredient) {
+  const parts = [
+    item.menuItemCount > 0 ? `${item.menuItemCount} เมนู` : '',
+    item.menuOptionCount > 0 ? `${item.menuOptionCount} ตัวเลือก` : '',
+  ].filter(Boolean)
+  return parts.length ? `ใช้ใน ${parts.join(' · ')}` : 'ยังไม่ได้ผูกกับเมนูไหน'
 }

@@ -102,15 +102,24 @@ const optionGroupsOf = (m: ApiMenuItem): MenuOptionGroup[] =>
     ]
   })
 
-export const mapMenuItem = (m: ApiMenuItem): MenuItem => ({
-  id: m.id,
-  categoryId: m.categoryId,
-  name: m.name,
-  price: m.price,
-  imageUrl: m.imageUrl,
-  isAvailable: m.isAvailable,
-  optionGroups: optionGroupsOf(m),
-})
+export const mapMenuItem = (m: ApiMenuItem): MenuItem => {
+  const ingredients = (m.ingredients ?? []).map(({ ingredient }) => ({
+    id: ingredient.id,
+    name: ingredient.name,
+    isAvailable: ingredient.isAvailable,
+  }))
+  return {
+    id: m.id,
+    categoryId: m.categoryId,
+    name: m.name,
+    price: m.price,
+    imageUrl: m.imageUrl,
+    isAvailable: m.isAvailable,
+    optionGroups: optionGroupsOf(m),
+    ingredients,
+    ingredientsOutOfStock: ingredients.filter((i) => !i.isAvailable).map((i) => i.name),
+  }
+}
 
 export const mapOrder = (o: ApiOrder): Order => ({
   id: o.id,

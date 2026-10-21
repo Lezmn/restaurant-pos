@@ -3,6 +3,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ErrorNote } from '@/components/ui/ErrorNote'
 import { LoadError } from '@/components/ui/LoadError'
 import { Switch } from '@/components/ui/Switch'
+import { toast } from '@/components/ui/toast'
 import { button, field } from '@/components/ui/styles'
 import {
   useCategories,
@@ -13,11 +14,12 @@ import {
   useSetMenuItemAvailability,
   useUpdateMenuItem,
 } from '@/features/menu/hooks'
-import type { MenuItem } from '@/types/models'
+import type { Id, MenuItem } from '@/types/models'
 import { IngredientsPanel } from './IngredientsPanel'
 import { MenuFormDialog } from './MenuFormDialog'
 import { formatBaht } from '@/lib/format'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useSlashFocus } from '@/lib/use-slash-focus'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 
 type Tab = 'menu' | 'ingredient'
 
@@ -33,10 +35,16 @@ export function ManagePage() {
 
   const [tab, setTab] = useState<Tab>('menu')
   const [search, setSearch] = useState('')
+  const searchRef = useRef<HTMLInputElement>(null)
+  useSlashFocus(searchRef)
   /** '' = ทุกหมวด */
   const [categoryId, setCategoryId] = useState('')
   /** ครัวเข้าหน้านี้บ่อยสุดเพื่อดู/เปิดเมนูที่หมดกลับ — กรองให้เหลือแค่ตัวที่ปิดขายอยู่ */
   const [onlySoldOut, setOnlySoldOut] = useState(false)
+  /** โหมดเลือกหลายเมนู (วัตถุดิบหมดทีเดียวหลายจาน) — null = ไม่ได้อยู่ในโหมดเลือก */
+  const [selected, setSelected] = useState<Set<Id> | null>(null)
+  /** เมนูที่กำลังบันทึกสถานะอยู่ — ล็อกเฉพาะตัวเหล่านี้ */
+  const [busyIds, setBusyIds] = useState<Set<Id>>(new Set())
   /** null = ปิดฟอร์ม, 'new' = เพิ่มใหม่, object = แก้ไขเมนูนั้น */
   const [editing, setEditing] = useState<MenuItem | 'new' | null>(null)
   /** เมนูที่กำลังถามยืนยันว่าจะลบ — null = ไม่มีกล่องเปิดอยู่ */
@@ -46,13 +54,17 @@ export function ManagePage() {
     () => new Map((categories ?? []).map((c) => [c.id, c.name])),
     [categories],
   )
+  const itemName = useMemo(
+    () => new Map((items ?? []).map((i) => [i.id, i.name])),
+    [items],
+  )
 
   const visible = useMemo(() => {
     const keyword = search.trim().toLowerCase()
     return (items ?? []).filter(
       (i) =>
         (!categoryId || i.categoryId === categoryId) &&
-        (!onlySoldOut || !i.isAvailable) &&
+        (!onlySoldOut || isSoldOut(i)) &&
         (!keyword || i.name.toLowerCase().includes(keyword)),
     )
   }, [items, search, categoryId, onlySoldOut])
@@ -66,11 +78,56 @@ export function ManagePage() {
     return counts
   }, [items])
 
-  const soldOutCount = (items ?? []).filter((i) => !i.isAvailable).length
+  const soldOutCount = (items ?? []).filter(isSoldOut).length
   const itemsFailed = itemsQuery.isError && !items
 
+  /**
+   * เปิด/ปิดขายทีละหลายเมนู ยิงทีละตัวตามลำดับ (backend ไม่มี endpoint แบบกลุ่ม)
+   * สำเร็จแล้วขึ้นข้อความพร้อม "เลิกทำ" ที่ย้อนเฉพาะตัวที่เปลี่ยนสำเร็จจริง
+   */
+  const applyAvailability = async (ids: Id[], next: boolean) => {
+    setBusyIds((prev) => new Set([...prev, ...ids]))
+    const done: Id[] = []
+    try {
+      for (const id of ids) {
+        await setAvailability.mutateAsync({ id, isAvailable: next })
+        done.push(id)
+      }
+    } catch {
+      // error ขึ้นที่ ErrorNote ด้านบนอยู่แล้ว (setAvailability.error)
+    } finally {
+      setBusyIds((prev) => {
+        const rest = new Set(prev)
+        for (const id of ids) rest.delete(id)
+        return rest
+      })
+    }
+    if (done.length === 0) return
+
+    const what =
+      done.length === 1 ? (itemName.get(done[0]) ?? 'เมนู') : `${done.length} เมนู`
+    toast(`${next ? 'เปิดขาย' : 'ปิดขาย'} ${what} แล้ว`, {
+      label: 'เลิกทำ',
+      run: () => applyAvailability(done, !next),
+    })
+  }
+
+  const toggleSelected = (id: Id) =>
+    setSelected((prev) => {
+      const nextSet = new Set(prev ?? [])
+      if (nextSet.has(id)) nextSet.delete(id)
+      else nextSet.add(id)
+      return nextSet
+    })
+
+  const bulkApply = async (next: boolean) => {
+    if (!selected?.size) return
+    await applyAvailability([...selected], next)
+    setSelected(null)
+  }
+
   return (
-    <div className="mx-auto max-w-7xl">
+    <div className={`mx-auto max-w-7xl ${selected ? 'pb-24' : ''}`}>
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div>
           <h1 className="text-2xl font-bold text-black">จัดการเมนู</h1>
@@ -104,17 +161,26 @@ export function ManagePage() {
           aria-label="เลือกสิ่งที่จะจัดการ"
           className="inline-flex self-start rounded-lg bg-gray-100 p-1"
         >
-          <Segment active={tab === 'menu'} onClick={() => setTab('menu')}>
+          <Segment
+            active={tab === 'menu'}
+            onClick={() => setTab('menu')}
+          >
             เมนู
           </Segment>
-          <Segment active={tab === 'ingredient'} onClick={() => setTab('ingredient')}>
+          <Segment
+            active={tab === 'ingredient'}
+            onClick={() => {
+              setSelected(null)
+              setTab('ingredient')
+            }}
+          >
             วัตถุดิบ
           </Segment>
         </div>
 
         {tab === 'menu' && (
           <label className="relative block w-full sm:w-72">
-            <span className="sr-only">ค้นหาเมนู</span>
+            <span className="sr-only">ค้นหาเมนู (กด / เพื่อค้นหา)</span>
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -127,12 +193,19 @@ export function ManagePage() {
               <path d="m20 20-3.5-3.5" strokeLinecap="round" />
             </svg>
             <input
+              ref={searchRef}
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="ค้นหาเมนู"
-              className={`${field} mt-0 pl-10`}
+              className={`${field} mt-0 pr-10 pl-10`}
             />
+            <kbd
+              aria-hidden
+              className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 rounded border border-gray-300 px-1.5 text-sm text-gray-600 sm:block"
+            >
+              /
+            </kbd>
           </label>
         )}
       </div>
@@ -165,7 +238,22 @@ export function ManagePage() {
             >
               เฉพาะที่ปิดขาย <Count>{soldOutCount}</Count>
             </Chip>
+
+            <button
+              type="button"
+              aria-pressed={selected !== null}
+              onClick={() => setSelected((prev) => (prev ? null : new Set()))}
+              className={`${button(selected ? 'primary' : 'secondary', 'md')} sm:ml-auto`}
+            >
+              {selected ? 'เลิกเลือก' : 'เลือกหลายเมนู'}
+            </button>
           </div>
+
+          <p className="mt-3 text-sm text-gray-600">
+            <b className="font-semibold text-gray-700">ปิดขาย</b> = ซ่อนจากหน้าลูกค้าชั่วคราว
+            เปิดกลับได้ทุกเมื่อ · วัตถุดิบหมดหลายจาน ใช้{' '}
+            <b className="font-semibold text-gray-700">เลือกหลายเมนู</b> หรือปิดที่แท็บวัตถุดิบทีเดียว
+          </p>
 
           <div className="mt-5">
             {itemsQuery.isError && (
@@ -196,26 +284,57 @@ export function ManagePage() {
             )}
 
             <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
-              {visible.map((item) => {
-                const busy =
-                  setAvailability.isPending &&
-                  setAvailability.variables?.id === item.id
-                return (
-                  <li key={item.id} className="flex">
-                    <MenuCard
-                      item={item}
-                      category={categoryName.get(item.categoryId)}
-                      busy={busy}
-                      onToggle={(next) =>
-                        setAvailability.mutate({ id: item.id, isAvailable: next })
-                      }
-                      onEdit={() => setEditing(item)}
-                    />
-                  </li>
-                )
-              })}
+              {visible.map((item) => (
+                <li key={item.id} className="flex">
+                  <MenuCard
+                    item={item}
+                    category={categoryName.get(item.categoryId)}
+                    busy={busyIds.has(item.id)}
+                    selecting={selected !== null}
+                    selected={selected?.has(item.id) ?? false}
+                    onSelect={() => toggleSelected(item.id)}
+                    onToggle={(next) => applyAvailability([item.id], next)}
+                    onEdit={() => setEditing(item)}
+                  />
+                </li>
+              ))}
             </ul>
           </div>
+
+          {selected && (
+            <div
+              role="region"
+              aria-label="จัดการเมนูที่เลือก"
+              className="fixed inset-x-4 bottom-24 z-30 mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-xl bg-black p-3 text-white shadow-lg"
+            >
+              <p className="mr-auto px-1 text-base font-bold">
+                เลือกแล้ว {selected.size} เมนู
+              </p>
+              <button
+                type="button"
+                onClick={() => setSelected(new Set(visible.map((i) => i.id)))}
+                className="min-h-11 rounded-lg px-3 text-sm font-bold text-white transition hover:bg-white/10"
+              >
+                เลือกทั้งหมดที่เห็น ({visible.length})
+              </button>
+              <button
+                type="button"
+                disabled={selected.size === 0 || busyIds.size > 0}
+                onClick={() => bulkApply(true)}
+                className="min-h-11 rounded-lg border-2 border-white px-4 text-sm font-bold text-white transition hover:bg-white/10 disabled:opacity-50"
+              >
+                เปิดขาย
+              </button>
+              <button
+                type="button"
+                disabled={selected.size === 0 || busyIds.size > 0}
+                onClick={() => bulkApply(false)}
+                className="min-h-11 rounded-lg bg-white px-4 text-sm font-bold text-black transition hover:bg-gray-100 disabled:opacity-50"
+              >
+                {busyIds.size > 0 ? 'กำลังบันทึก...' : 'ปิดขาย'}
+              </button>
+            </div>
+          )}
         </>
       )}
 
@@ -232,6 +351,7 @@ export function ManagePage() {
                   await createOption.mutateAsync({ menuItemId: created.id, input: option })
                 }
                 setEditing(null)
+                toast(`เพิ่มเมนู ${created.name} แล้ว`)
               },
             })
           }
@@ -252,7 +372,12 @@ export function ManagePage() {
           onSubmit={(input) =>
             updateItem.mutate(
               { id: editing.id, input },
-              { onSuccess: () => setEditing(null) },
+              {
+                onSuccess: () => {
+                  setEditing(null)
+                  toast(`บันทึก ${input.name} แล้ว`)
+                },
+              },
             )
           }
         />
@@ -263,7 +388,7 @@ export function ManagePage() {
           title="ลบเมนู"
           subject={deleting.name}
           detail={formatBaht(deleting.price)}
-          consequence="ถ้าเมนูนี้เคยถูกสั่งไปแล้วจะลบไม่ได้ ให้ปิดขายแทนเพื่อซ่อนจากลูกค้า"
+          consequence="ลบแล้วกู้คืนไม่ได้ ถ้าเมนูนี้เคยถูกสั่งไปแล้วจะลบไม่ได้ ให้ปิดขายแทนเพื่อซ่อนจากลูกค้า"
           confirmLabel="ลบเมนู"
           pendingLabel="กำลังลบ..."
           isPending={deleteItem.isPending}
@@ -274,7 +399,10 @@ export function ManagePage() {
           }}
           onConfirm={() =>
             deleteItem.mutate(deleting.id, {
-              onSuccess: () => setDeleting(null),
+              onSuccess: () => {
+                toast(`ลบ ${deleting.name} แล้ว`)
+                setDeleting(null)
+              },
             })
           }
         />
@@ -283,42 +411,65 @@ export function ManagePage() {
   )
 }
 
-/** การ์ดเมนู — งานหลักคือเปิด/ปิดขาย สวิตช์จึงใหญ่และอยู่ตรงกลาง ปุ่มแก้ไขเป็นปุ่มรองด้านล่าง */
+/**
+ * การ์ดเมนู — งานหลักคือเปิด/ปิดขาย สวิตช์จึงใหญ่และอยู่ตรงกลาง ปุ่มแก้ไขเป็นปุ่มรองด้านล่าง
+ * โหมดเลือกหลายเมนู: ทั้งการ์ดกลายเป็นปุ่มเลือก ซ่อนสวิตช์/แก้ไขกันกดผิด
+ */
 function MenuCard({
   item,
   category,
   busy,
+  selecting,
+  selected,
+  onSelect,
   onToggle,
   onEdit,
 }: {
   item: MenuItem
   category: string | undefined
   busy: boolean
+  selecting: boolean
+  selected: boolean
+  onSelect: () => void
   onToggle: (next: boolean) => void
   onEdit: () => void
 }) {
-  const soldOut = !item.isAvailable
+  const soldOut = isSoldOut(item)
+  // ปิดขายเอง กับ วัตถุดิบหลักหมด ต่างกันตรงที่ต้องไปแก้คนละที่ — บอกให้ชัดว่าเพราะอะไร
+  const soldOutLabel = !item.isAvailable
+    ? 'ปิดขาย'
+    : `${item.ingredientsOutOfStock.join(', ')} หมด`
 
-  return (
-    <article
-      className={`flex w-full flex-col overflow-hidden rounded-xl border-2 ${
-        soldOut ? 'border-gray-300 bg-gray-50' : 'border-gray-200 bg-white'
-      }`}
-    >
+  const body = (
+    <>
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-brand-50">
         <FoodImage
           src={item.imageUrl}
-          alt={item.name}
+          alt={selecting ? '' : item.name}
           className={soldOut ? 'opacity-50 grayscale' : ''}
         />
         {soldOut && (
           <span className="absolute top-2 left-2 rounded-full bg-black/85 px-3 py-1 text-sm font-bold text-white">
-            ปิดขาย
+            {soldOutLabel}
+          </span>
+        )}
+        {selecting && (
+          <span
+            aria-hidden
+            className={`absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full border-2 ${
+              selected ? 'border-brand-500 bg-brand-500 text-white' : 'border-white bg-white/90'
+            }`}
+          >
+            {selected && (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="h-4 w-4">
+                <path d="m5 12 5 5 9-10" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
           </span>
         )}
       </div>
 
-      <div className="flex flex-1 flex-col p-3">
+      <div className="flex flex-1 flex-col p-3 text-left">
         <div className="flex items-start justify-between gap-2">
           <h2 className="line-clamp-2 text-base font-bold text-black">{item.name}</h2>
           <p className="shrink-0 text-base font-bold text-black tabular-nums">
@@ -327,32 +478,58 @@ function MenuCard({
         </div>
         {category && <p className="text-sm text-gray-600">{category}</p>}
 
-        <div className="mt-auto pt-3">
-          <div className="flex items-center justify-between gap-2 border-t border-gray-200 pt-2">
-            <span
-              className={`text-sm font-bold ${soldOut ? 'text-danger-ink' : 'text-black'}`}
-            >
-              {busy ? 'กำลังบันทึก...' : soldOut ? 'ปิดขาย' : 'เปิดขาย'}
-            </span>
-            <Switch
-              checked={item.isAvailable}
-              label={`เปิดขาย ${item.name}`}
-              busy={busy}
-              onChange={onToggle}
-            />
-          </div>
+        {!selecting && (
+          <div className="mt-auto pt-3">
+            <div className="flex items-center justify-between gap-2 border-t border-gray-200 pt-2">
+              <span
+                className={`text-sm font-bold ${soldOut ? 'text-danger-ink' : 'text-black'}`}
+              >
+                {busy ? 'กำลังบันทึก...' : soldOut ? soldOutLabel : 'เปิดขาย'}
+              </span>
+              <Switch
+                checked={item.isAvailable}
+                label={`เปิดขาย ${item.name}`}
+                busy={busy}
+                onChange={onToggle}
+              />
+            </div>
 
-          <button
-            type="button"
-            onClick={onEdit}
-            className={`${button('outline', 'sm')} mt-2 w-full`}
-          >
-            แก้ไข
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={onEdit}
+              className={`${button('outline', 'sm')} mt-2 w-full`}
+            >
+              แก้ไข
+            </button>
+          </div>
+        )}
       </div>
-    </article>
+    </>
   )
+
+  const frame = `flex w-full flex-col overflow-hidden rounded-xl border-2 ${
+    selected
+      ? 'border-brand-500 bg-brand-50'
+      : soldOut
+        ? 'border-gray-300 bg-gray-50'
+        : 'border-gray-200 bg-white'
+  }`
+
+  if (selecting) {
+    return (
+      <button
+        type="button"
+        aria-pressed={selected}
+        aria-label={`เลือก ${item.name}${soldOut ? ' (ปิดขายอยู่)' : ''}`}
+        onClick={onSelect}
+        className={`${frame} transition hover:border-brand-400`}
+      >
+        {body}
+      </button>
+    )
+  }
+
+  return <article className={frame}>{body}</article>
 }
 
 function Count({ children }: { children: ReactNode }) {
@@ -411,4 +588,9 @@ function Segment({
       {children}
     </button>
   )
+}
+
+/** สั่งไม่ได้ตอนนี้ — ปิดขายเอง หรือวัตถุดิบหลักหมด */
+function isSoldOut(item: MenuItem) {
+  return !item.isAvailable || item.ingredientsOutOfStock.length > 0
 }

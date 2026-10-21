@@ -32,7 +32,11 @@ export class CreateMenuOptionDto {
   @Min(0)
   price?: number;
 
-  @ApiPropertyOptional({ example: true, default: true })
+  @ApiPropertyOptional({
+    example: true,
+    default: true,
+    description: 'ตัวเลือกที่ผูกวัตถุดิบแล้วปิดไม่ได้ ให้ปิดที่วัตถุดิบแทน',
+  })
   @IsOptional()
   @IsBoolean()
   isAvailable?: boolean;

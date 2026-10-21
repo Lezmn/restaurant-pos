@@ -77,7 +77,7 @@ export function TakeOrderDialog({
   const available = useMemo(() => {
     const keyword = search.trim().toLowerCase()
     return (items ?? [])
-      .filter((i) => i.isAvailable)
+      .filter((i) => i.isAvailable && i.ingredientsOutOfStock.length === 0)
       .filter((i) => !keyword || i.name.toLowerCase().includes(keyword))
   }, [items, search])
 

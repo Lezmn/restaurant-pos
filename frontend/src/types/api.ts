@@ -56,7 +56,7 @@ export interface ApiIngredient {
   id: string
   name: string
   isAvailable: boolean
-  _count?: { menuOptions: number }
+  _count?: { menuOptions: number; menuItems?: number }
 }
 
 export interface ApiMenuItem {
@@ -68,6 +68,11 @@ export interface ApiMenuItem {
   categoryId: string
   category?: { id: string; name: string }
   options?: ApiMenuOption[]
+  /** วัตถุดิบหลักของเมนู — /public/menu ไม่ส่งมา (กรองเมนูที่วัตถุดิบหมดออกให้แล้ว) */
+  ingredients?: {
+    ingredientId: string
+    ingredient: { id: string; name: string; isAvailable: boolean }
+  }[]
 }
 
 export interface ApiCategory {

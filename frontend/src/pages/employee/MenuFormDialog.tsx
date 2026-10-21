@@ -3,7 +3,8 @@ import { ErrorNote } from '@/components/ui/ErrorNote'
 import { Modal } from '@/components/ui/Modal'
 import { useCategories } from '@/features/menu/hooks'
 import type { MenuItemInput, MenuOptionInput } from '@/features/menu/api'
-import type { MenuItem } from '@/types/models'
+import { useIngredients } from '@/features/ingredients/hooks'
+import type { Id, MenuItem } from '@/types/models'
 import { useState } from 'react'
 import { MenuOptionsEditor, PendingOptionsEditor } from './MenuOptionsEditor'
 
@@ -33,7 +34,32 @@ export function MenuFormDialog({
   const [imageUrl, setImageUrl] = useState(item?.imageUrl ?? '')
   const [categoryId, setCategoryId] = useState(item?.categoryId ?? '')
   const [isAvailable, setIsAvailable] = useState(item?.isAvailable ?? true)
+  const [ingredientIds, setIngredientIds] = useState<Id[]>(
+    () => item?.ingredients.map((i) => i.id) ?? [],
+  )
   const [pendingOptions, setPendingOptions] = useState<MenuOptionInput[]>([])
+  /** โชว์ข้อผิดพลาดหลังกดบันทึกครั้งแรกเท่านั้น ไม่ขึ้นแดงตั้งแต่ยังไม่ได้พิมพ์ */
+  const [attempted, setAttempted] = useState(false)
+
+  // เดิมส่งชื่อว่าง/ราคาว่างไปให้ backend ตอบ 400 กลับมาเป็นข้อความรวม ๆ — ตรวจที่ฟอร์มก่อน บอกตรงช่อง
+  const priceNum = Number(price)
+  const errors = {
+    name: name.trim() === '' ? 'กรอกชื่อเมนู' : '',
+    price:
+      price.trim() === ''
+        ? 'กรอกราคา (ใส่ 0 ได้ถ้าแจกฟรี)'
+        : !Number.isFinite(priceNum) || priceNum < 0
+          ? 'ราคาต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป'
+          : '',
+    category:
+      !categoryId && !categories?.length ? 'ยังไม่มีหมวดหมู่ในระบบ' : '',
+    imageUrl:
+      imageUrl.trim() && !/^https?:\/\//.test(imageUrl.trim())
+        ? 'ลิงก์รูปต้องขึ้นต้นด้วย http:// หรือ https://'
+        : '',
+  }
+  const firstError = (Object.keys(errors) as (keyof typeof errors)[]).find((k) => errors[k])
+  const show = (key: keyof typeof errors) => (attempted ? errors[key] : '')
 
   return (
     <Modal
@@ -41,15 +67,23 @@ export function MenuFormDialog({
       onClose={onCancel}
     >
       <form
+        noValidate
         onSubmit={(e) => {
           e.preventDefault()
+          setAttempted(true)
+          if (firstError) {
+            // พาไปช่องแรกที่ผิด ไม่ต้องไล่หาเอง
+            e.currentTarget.querySelector<HTMLElement>(`[name="${firstError}"]`)?.focus()
+            return
+          }
           onSubmit(
             {
-              name,
-                price: Number(price),
+              name: name.trim(),
+              price: priceNum,
               imageUrl: imageUrl.trim() || null,
               categoryId: categoryId || (categories?.[0]?.id ?? ''),
               isAvailable,
+              ingredientIds,
             },
             pendingOptions,
           )
@@ -63,9 +97,13 @@ export function MenuFormDialog({
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
+            name="name"
             placeholder="เช่น ข้าวผัดกะเพรา"
-            className={field}
+            aria-invalid={Boolean(show('name'))}
+            aria-describedby={show('name') ? 'menu-name-error' : undefined}
+            className={`${field} ${show('name') ? 'border-danger' : ''}`}
           />
+          <FieldError id="menu-name-error" message={show('name')} />
         </label>
 
         <div className="grid grid-cols-2 gap-3">
@@ -77,8 +115,13 @@ export function MenuFormDialog({
               step="1"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              className={field}
+              name="price"
+              inputMode="numeric"
+              aria-invalid={Boolean(show('price'))}
+              aria-describedby={show('price') ? 'menu-price-error' : undefined}
+              className={`${field} tabular-nums ${show('price') ? 'border-danger' : ''}`}
             />
+            <FieldError id="menu-price-error" message={show('price')} />
           </label>
 
           <label className="block text-sm">
@@ -86,15 +129,20 @@ export function MenuFormDialog({
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
+              name="category"
+              aria-invalid={Boolean(show('category'))}
               className={field}
             >
-              <option value="">เลือกหมวดหมู่</option>
+              <option value="">
+                {categories?.[0] ? `ไม่เลือก = ${categories[0].name}` : 'เลือกหมวดหมู่'}
+              </option>
               {categories?.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
               ))}
             </select>
+            <FieldError id="menu-category-error" message={show('category')} />
           </label>
         </div>
 
@@ -103,9 +151,14 @@ export function MenuFormDialog({
           <input
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
+            name="imageUrl"
+            inputMode="url"
             placeholder="https://... (ไม่ใส่ก็ได้)"
-            className={field}
+            aria-invalid={Boolean(show('imageUrl'))}
+            aria-describedby={show('imageUrl') ? 'menu-image-error' : undefined}
+            className={`${field} ${show('imageUrl') ? 'border-danger' : ''}`}
           />
+          <FieldError id="menu-image-error" message={show('imageUrl')} />
         </label>
 
         <label className="flex items-center gap-2 text-sm">
@@ -117,6 +170,8 @@ export function MenuFormDialog({
           />
           <span className={fieldLabel}>พร้อมจำหน่าย</span>
         </label>
+
+        <MainIngredientsPicker value={ingredientIds} onChange={setIngredientIds} />
 
         {/* โหมดแก้ไขยิง API ทันที; โหมดเพิ่มเมนูใหม่ยังไม่มี id จึงพักไว้ก่อนแล้วสร้างตามหลัง */}
         {item ? (
@@ -159,5 +214,64 @@ export function MenuFormDialog({
         )}
       </form>
     </Modal>
+  )
+}
+
+/**
+ * วัตถุดิบหลักที่เมนูใช้เสมอ (ข้าวไข่เจียว → ไข่) — วัตถุดิบตัวไหนหมด ทั้งเมนูหายจากหน้าสั่ง
+ * ต่างจากวัตถุดิบของตัวเลือกที่หมดแค่ตัวเลือกนั้น (กะเพรา + ไข่ดาว)
+ */
+function MainIngredientsPicker({
+  value,
+  onChange,
+}: Readonly<{ value: Id[]; onChange: (next: Id[]) => void }>) {
+  const { data: ingredients } = useIngredients()
+
+  return (
+    <fieldset className="text-sm">
+      <legend className={fieldLabel}>วัตถุดิบหลัก</legend>
+      <p className="text-sm text-gray-600">
+        วัตถุดิบที่ต้องใช้ทุกจาน ตัวไหนหมด ทั้งเมนูจะสั่งไม่ได้ (ไม่เลือกก็ได้)
+      </p>
+      {ingredients?.length ? (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {ingredients.map((ing) => {
+            const on = value.includes(ing.id)
+            return (
+              <button
+                key={ing.id}
+                type="button"
+                aria-pressed={on}
+                onClick={() =>
+                  onChange(on ? value.filter((id) => id !== ing.id) : [...value, ing.id])
+                }
+                className={`min-h-10 rounded-full border-2 px-3 text-sm font-semibold ${
+                  on
+                    ? 'border-brand-500 bg-brand-50 text-black'
+                    : 'border-gray-200 bg-white text-gray-700'
+                }`}
+              >
+                {on && <span aria-hidden>✓ </span>}
+                {ing.name}
+                {!ing.isAvailable && <span className="text-danger-ink"> · หมด</span>}
+              </button>
+            )
+          })}
+        </div>
+      ) : (
+        <p className="mt-1 text-sm text-gray-600">
+          ยังไม่มีวัตถุดิบ — เพิ่มได้ที่แท็บ "วัตถุดิบ"
+        </p>
+      )}
+    </fieldset>
+  )
+}
+
+function FieldError({ id, message }: { id: string; message: string }) {
+  if (!message) return null
+  return (
+    <span id={id} role="alert" className="mt-1 block text-sm font-semibold text-danger-ink">
+      {message}
+    </span>
   )
 }
