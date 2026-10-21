@@ -10,7 +10,7 @@ import type {
   MenuOptionGroup,
   TableSession,
 } from '@/types/models'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 
 /** หนึ่งบรรทัดในรายการที่รับ — เมนูเดียวกันคนละตัวเลือก (หมู/ไก่) แยกบรรทัดกัน */
 interface DraftLine {
@@ -64,6 +64,8 @@ export function TakeOrderDialog({
 }) {
   const { data: items, isPending } = useMenuItems()
   const createOrder = useCreateOrder()
+  // isPending ยังไม่ทันเป็น true ตอนกดครั้งที่สอง — ล็อกแบบ sync กันออเดอร์ซ้ำ
+  const sending = useRef(false)
 
   const [lines, setLines] = useState<DraftLine[]>([])
   const [nextKey, setNextKey] = useState(1)
@@ -129,10 +131,14 @@ export function TakeOrderDialog({
   const count = lines.reduce((n, l) => n + l.quantity, 0)
   const incomplete = lines.some((line) => missingRequired(line).length > 0)
 
-  const submit = () =>
+  const submit = () => {
+    if (sending.current) return
+    sending.current = true
     createOrder.mutate(
       {
         tableId: session.tableId,
+        // ถ้าระหว่างที่เปิด dialog อีกเครื่องปิดบิลโต๊ะนี้ไปแล้ว backend จะปฏิเสธ แทนที่จะสร้างออเดอร์ลอย
+        tableSessionId: session.id,
         lines: lines.flatMap((line) => {
           const item = itemById.get(line.menuItemId)
           if (!item) return []
@@ -146,8 +152,14 @@ export function TakeOrderDialog({
           ]
         }),
       },
-      { onSuccess: onClose },
+      {
+        onSuccess: onClose,
+        onSettled: () => {
+          sending.current = false
+        },
+      },
     )
+  }
 
   return (
     <Modal title={`รับออเดอร์ — โต๊ะ ${session.tableName}`} onClose={onClose}>

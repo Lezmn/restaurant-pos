@@ -48,10 +48,12 @@ export interface NewOrderLine {
 
 /**
  * POST /orders @Roles(ADMIN, STAFF) — พนักงานรับออเดอร์แทนลูกค้า
- * หมายเหตุ: endpoint นี้รับ tableId ไม่ใช่ tableSessionId
+ * หมายเหตุ: endpoint นี้รับ tableId เป็นหลัก ส่ง tableSessionId มาด้วยเพื่อให้ backend
+ * ปฏิเสธถ้าบิลรอบนั้นปิดไปแล้ว (ไม่งั้นออเดอร์จะไปเข้าบิลรอบใหม่ของโต๊ะ)
  */
 export async function createOrder(vars: {
   tableId: Id
+  tableSessionId?: Id
   lines: NewOrderLine[]
 }): Promise<Order> {
   const lines = vars.lines.filter((l) => l.quantity > 0)
@@ -61,6 +63,7 @@ export async function createOrder(vars: {
     method: 'POST',
     body: JSON.stringify({
       tableId: vars.tableId,
+      ...(vars.tableSessionId ? { tableSessionId: vars.tableSessionId } : {}),
       items: lines.map((l) => ({
         menuItemId: l.menuItemId,
         quantity: l.quantity,

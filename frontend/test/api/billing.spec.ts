@@ -253,17 +253,32 @@ test('ปิดยอดเงินสด: expected = เงินทอน + �
   expect((await del.text()).length).toBeGreaterThan(0) // web parse JSON ได้
 })
 
-test('walk-in: STAFF รับออเดอร์ให้โต๊ะว่างที่ยังไม่เปิด QR → ต้องเก็บเงินได้ (ไม่ค้างตลอดไป)', async ({ request }) => {
+test('walk-in: STAFF รับออเดอร์ให้โต๊ะที่ยังไม่เปิด → ปฏิเสธ (ออเดอร์ไม่มี session จะเก็บเงินไม่ได้ตลอดไป)', async ({ request }) => {
   const table = await newTable(request, t.ADMIN)
   const created = await call(request, 'POST', '/orders', {
     token: t.STAFF,
     data: { tableId: table.id, items: [{ menuItemId: water.id, quantity: 1 }] },
   })
-  if (created.status() !== 201) return // ปฏิเสธตั้งแต่ต้น = รับได้
-  const order = await created.json()
-  await serve(request, t.KITCHEN, order.id)
-  const pay = await call(request, 'POST', '/payments', { token: t.STAFF, data: { orderIds: [order.id], method: 'CASH' } })
-  expect(pay.status(), `order.tableSessionId=${order.tableSessionId}: ${await pay.text()}`).toBe(201)
+  expectStatus(created, 400)
+  const tables = await ok<{ id: string; status: string }[]>(await call(request, 'GET', '/tables', { token: t.STAFF }))
+  expect(tables.find((x) => x.id === table.id)?.status).toBe('AVAILABLE')
+})
+
+test('STAFF รับออเดอร์ค้างไว้ ระหว่างนั้นบิลโต๊ะถูกปิด → ส่งไม่ได้ ไม่เกิดออเดอร์ลอย', async ({ request }) => {
+  const { session } = await openNewSession(request, t)
+  const data = { tableId: session.tableId, tableSessionId: session.id, items: [{ menuItemId: water.id, quantity: 1 }] }
+
+  // อีกเครื่องปิดบิลโต๊ะนี้ไปแล้ว
+  await ok(await call(request, 'PATCH', `/table-sessions/${session.id}/close`, { token: t.STAFF }))
+  expectStatus(await call(request, 'POST', '/orders', { token: t.STAFF, data }), 400)
+
+  // แล้วโต๊ะเปิดรอบใหม่ให้ลูกค้ากลุ่มถัดไป — ออเดอร์จากหน้าเดิมต้องไม่ไปเข้าบิลรอบใหม่
+  const next = await ok<{ id: string }>(
+    await call(request, 'POST', '/table-sessions', { token: t.STAFF, data: { tableId: session.tableId } }),
+  )
+  expectStatus(await call(request, 'POST', '/orders', { token: t.STAFF, data }), 409)
+  const orders = await ok<unknown[]>(await call(request, 'GET', `/orders?tableSessionId=${next.id}`, { token: t.STAFF }))
+  expect(orders).toHaveLength(0)
 })
 
 test('STAFF เพิ่มรายการเข้าออเดอร์ที่เสิร์ฟแล้ว → ต้องไม่ถูกเก็บเงินโดยครัวไม่เคยเห็น', async ({ request }) => {

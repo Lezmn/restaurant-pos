@@ -8,6 +8,7 @@ import {
 } from '@/features/public/cart-store'
 import { useSession, useSubmitOrder } from '@/features/public/hooks'
 import { formatBaht } from '@/lib/format'
+import { useRef } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 export function CustomerCartPage() {
@@ -18,6 +19,22 @@ export function CustomerCartPage() {
   const setQuantity = useCart((s) => s.setQuantity)
   const clear = useCart((s) => s.clear)
   const submit = useSubmitOrder(token)
+  // isPending ยังไม่ทันเป็น true ตอนแตะครั้งที่สอง (state อัปเดตหลัง render) — ล็อกแบบ sync กันออเดอร์ซ้ำ
+  const sending = useRef(false)
+
+  const send = () => {
+    if (sending.current) return
+    sending.current = true
+    submit.mutate(
+      { token: token as string, lines },
+      {
+        onSuccess: () => navigate(`/t/${token}/status`),
+        onSettled: () => {
+          sending.current = false
+        },
+      },
+    )
+  }
 
   if (lines.length === 0) {
     return (
@@ -109,12 +126,7 @@ export function CustomerCartPage() {
         <button
           type="button"
           disabled={submit.isPending}
-          onClick={() =>
-            submit.mutate(
-              { token: token as string, lines },
-              { onSuccess: () => navigate(`/t/${token}/status`) },
-            )
-          }
+          onClick={send}
           className="w-full rounded-xl bg-white py-3 text-base md:text-lg font-bold text-qty transition disabled:opacity-60"
         >
           {submit.isPending ? 'กำลังส่ง...' : '➤ ส่งรายการเข้าครัว'}

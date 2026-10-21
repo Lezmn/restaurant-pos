@@ -197,12 +197,36 @@ describe('OrdersService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it('โต๊ะไม่มี session เปิดและไม่ว่าง → 400', async () => {
+    it('โต๊ะไม่มี session เปิด → 400 และไม่สร้างออเดอร์', async () => {
       prisma.menuItem.findMany.mockResolvedValue([menuItem()]);
-      prisma.restaurantTable.updateMany.mockResolvedValue({ count: 0 });
       await expect(
         service.create({ tableId: 't1', items: [{ menuItemId: 'm1', quantity: 1 }] }),
       ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.order.create).not.toHaveBeenCalled();
+    });
+
+    it('บิลรอบที่พนักงานเปิดหน้าไว้ถูกปิดแล้ว และโต๊ะเปิดรอบใหม่ → 409 ไม่เอาไปเข้าบิลรอบใหม่', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([menuItem()]);
+      prisma.tableSession.findFirst.mockResolvedValue({ id: 's-new' });
+      await expect(
+        service.create({
+          tableId: 't1',
+          tableSessionId: 's-old',
+          items: [{ menuItemId: 'm1', quantity: 1 }],
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.order.create).not.toHaveBeenCalled();
+    });
+
+    it('ส่ง tableSessionId ตรงกับรอบที่เปิดอยู่ → สร้างออเดอร์ผูก session นั้น', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([menuItem()]);
+      prisma.tableSession.findFirst.mockResolvedValue({ id: 's1' });
+      await service.create({
+        tableId: 't1',
+        tableSessionId: 's1',
+        items: [{ menuItemId: 'm1', quantity: 1 }],
+      });
+      expect(prisma.order.create.mock.calls[0][0].data.tableSessionId).toBe('s1');
     });
 
     /**
