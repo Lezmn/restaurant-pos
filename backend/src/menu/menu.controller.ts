@@ -16,6 +16,7 @@ import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import { CreateMenuOptionDto } from './dto/create-menu-option.dto';
 import { UpdateMenuOptionDto } from './dto/update-menu-option.dto';
+import { SetMenuItemAvailabilityDto } from './dto/set-menu-item-availability.dto';
 
 @ApiTags('menu')
 @ApiBearerAuth()
@@ -57,6 +58,13 @@ export class MenuController {
   @ApiOperation({ summary: 'ดึงเมนูตาม id' })
   findOne(@Param('id') id: string) {
     return this.menuService.findOne(id);
+  }
+
+  @Patch(':id/availability')
+  @Roles(Role.ADMIN, Role.KITCHEN)
+  @ApiOperation({ summary: 'เปิด/ปิดขายเมนู (ครัวใช้ตอนของหมด)' })
+  setAvailability(@Param('id') id: string, @Body() dto: SetMenuItemAvailabilityDto) {
+    return this.menuService.update(id, { isAvailable: dto.isAvailable });
   }
 
   @Patch(':id')

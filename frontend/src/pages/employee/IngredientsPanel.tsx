@@ -17,8 +17,10 @@ import { useState } from 'react'
  *
  * วัตถุดิบเป็นของกลางของร้าน (หมู ไก่ ไข่ ...) ผูกกับ "ตัวเลือกเมนู" ได้หลายอัน
  * ปิดที่นี่ทีเดียว ตัวเลือกที่ผูกไว้จะสั่งไม่ได้ทุกเมนูทันที — ไม่ต้องไล่ปิดทีละเมนู
+ *
+ * canEdit = เพิ่ม/ลบวัตถุดิบได้ (ADMIN) — ครัวสลับมีของ/หมดได้อย่างเดียว
  */
-export function IngredientsPanel() {
+export function IngredientsPanel({ canEdit }: { canEdit: boolean }) {
   const { data: ingredients, isPending } = useIngredients()
   const create = useCreateIngredient()
   const update = useUpdateIngredient()
@@ -61,29 +63,31 @@ export function IngredientsPanel() {
     <div className="mt-6">
       <ErrorNote error={create.error ?? update.error ?? remove.error} />
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          submit()
-        }}
-        className="flex max-w-xl flex-wrap gap-2"
-      >
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="ชื่อวัตถุดิบ เช่น หมู, ไก่, ไข่"
-          aria-label="ชื่อวัตถุดิบ"
-          aria-invalid={Boolean(invalid)}
-          className={`${field} mt-0 min-w-0 flex-1`}
-        />
-        <button
-          type="submit"
-          disabled={create.isPending}
-          className={`${button('primary', 'lg')} shrink-0`}
+      {canEdit && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            submit()
+          }}
+          className="flex max-w-xl flex-wrap gap-2"
         >
-          {create.isPending ? 'กำลังเพิ่ม...' : 'เพิ่มวัตถุดิบ'}
-        </button>
-      </form>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="ชื่อวัตถุดิบ เช่น หมู, ไก่, ไข่"
+            aria-label="ชื่อวัตถุดิบ"
+            aria-invalid={Boolean(invalid)}
+            className={`${field} mt-0 min-w-0 flex-1`}
+          />
+          <button
+            type="submit"
+            disabled={create.isPending}
+            className={`${button('primary', 'lg')} shrink-0`}
+          >
+            {create.isPending ? 'กำลังเพิ่ม...' : 'เพิ่มวัตถุดิบ'}
+          </button>
+        </form>
+      )}
 
       {invalid && (
         <p role="alert" className="mt-2 text-sm font-semibold text-danger-ink">
@@ -93,14 +97,14 @@ export function IngredientsPanel() {
 
       <p className="mt-3 max-w-2xl text-sm text-gray-600">
         ปิดวัตถุดิบที่หมด → ตัวเลือกเมนูที่ผูกไว้จะหายจากหน้าลูกค้าทุกเมนูทันที
-        (ผูกวัตถุดิบเข้ากับตัวเลือกได้ที่ปุ่ม “แก้ไข” ของแต่ละเมนู)
+        {canEdit && ' (ผูกวัตถุดิบเข้ากับตัวเลือกได้ที่ปุ่ม “แก้ไข” ของแต่ละเมนู)'}
       </p>
 
       {isPending && <p className="mt-6 text-sm text-gray-600">กำลังโหลด...</p>}
 
       {!isPending && (ingredients?.length ?? 0) === 0 && (
         <div className="mt-6 rounded-xl border-2 border-gray-200 p-10 text-center text-base text-gray-600">
-          ยังไม่มีวัตถุดิบ — เพิ่มอันแรกด้านบนได้เลย
+          {canEdit ? 'ยังไม่มีวัตถุดิบ — เพิ่มอันแรกด้านบนได้เลย' : 'ยังไม่มีวัตถุดิบ'}
         </div>
       )}
 
@@ -135,14 +139,16 @@ export function IngredientsPanel() {
                 {item.isAvailable ? 'มีของ' : 'ของหมด'}
               </span>
 
-              <button
-                type="button"
-                disabled={remove.isPending}
-                onClick={() => setDeleting(item)}
-                className={button('danger-outline', 'sm')}
-              >
-                ลบ
-              </button>
+              {canEdit && (
+                <button
+                  type="button"
+                  disabled={remove.isPending}
+                  onClick={() => setDeleting(item)}
+                  className={button('danger-outline', 'sm')}
+                >
+                  ลบ
+                </button>
+              )}
             </div>
           </article>
         ))}

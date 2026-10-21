@@ -8,6 +8,7 @@ import {
   OrderStatus,
   TableStatus,
   MenuItem,
+  MenuOptionGroup,
   Prisma,
   TableSessionStatus,
 } from '@prisma/client';
@@ -185,6 +186,10 @@ export class OrdersService {
   async addItem(orderId: string, dto: OrderItemInputDto) {
     const order = await this.findOne(orderId);
     this.assertOrderIsEditable(order.status);
+    // เสิร์ฟแล้ว = ครัวเอาออกจากคิวไปแล้ว ของชิ้นใหม่จะเข้าบิลโดยไม่มีใครทำ
+    if (order.status === OrderStatus.SERVED) {
+      throw new BadRequestException('ออเดอร์นี้เสิร์ฟแล้ว — สั่งเพิ่มเป็นออเดอร์ใหม่แทน');
+    }
 
     const menuItem = await this.prisma.menuItem.findUnique({
       where: { id: dto.menuItemId },
@@ -218,6 +223,10 @@ export class OrdersService {
     const hasItem = order.items.some((i: { id: string }) => i.id === orderItemId);
     if (!hasItem) {
       throw new NotFoundException(`ไม่พบรายการ id: ${orderItemId} ในออเดอร์นี้`);
+    }
+    // ออเดอร์เปล่าจะค้างในบิล 0 บาทและบนบอร์ดครัว — ให้ยกเลิกทั้งออเดอร์แทน
+    if (order.items.length === 1) {
+      throw new BadRequestException('ลบรายการสุดท้ายไม่ได้ — ยกเลิกทั้งออเดอร์แทน');
     }
 
     await this.prisma.orderItem.delete({ where: { id: orderItemId } });
@@ -380,6 +389,22 @@ export class OrdersService {
       }
       return option;
     });
+
+    // กติกาเดียวกับหน้าลูกค้า/พนักงาน (frontend lib/map.ts): เนื้อสัตว์เลือกได้อย่างเดียว
+    // และต้องเลือกถ้ายังมีเนื้อสัตว์ที่สั่งได้ — ถ้าหมดทุกตัว กลุ่มนี้หายจากหน้าจอ ไม่บังคับ
+    const proteins = selected.filter((o) => o.group === MenuOptionGroup.PROTEIN);
+    if (proteins.length > 1) {
+      throw new BadRequestException(`"${menuItem.name}" เลือกเนื้อสัตว์ได้อย่างเดียว`);
+    }
+    const proteinOrderable = menuItem.options.some(
+      (o) =>
+        o.group === MenuOptionGroup.PROTEIN &&
+        o.isAvailable &&
+        (!o.ingredient || o.ingredient.isAvailable),
+    );
+    if (proteinOrderable && proteins.length === 0) {
+      throw new BadRequestException(`"${menuItem.name}" ต้องเลือกเนื้อสัตว์ 1 อย่าง`);
+    }
 
     return selected.map((option) => ({
       menuOptionId: option.id,

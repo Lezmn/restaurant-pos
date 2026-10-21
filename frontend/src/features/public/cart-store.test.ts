@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { MAX_ITEM_QUANTITY } from '@/lib/config'
-import { cartCount, cartTotal, lineTotal, lineUnitPrice, useCart } from './cart-store'
+import type { MenuItem } from '@/types/models'
+import { cartCount, cartTotal, lineTotal, lineUnitPrice, repriceLines, useCart } from './cart-store'
 
 const kaprao = {
   menuItemId: 'm1',
@@ -84,5 +85,58 @@ describe('cart-store', () => {
     const saved = JSON.parse(localStorage.getItem('restaurant.cart') ?? '{}')
     expect(saved.state.lines).toHaveLength(1)
     expect(saved.state.token).toBe('t1')
+  })
+
+  describe('syncPrices (ราคาเมนูเปลี่ยนระหว่างอยู่ในตะกร้า)', () => {
+    const option = (id: string, name: string, price: number) => ({
+      id,
+      name,
+      price,
+      group: 'EXTRA' as MenuItem['optionGroups'][number]['options'][number]['group'],
+      isAvailable: true,
+      ingredientId: null,
+      ingredientName: null,
+      ingredientOutOfStock: false,
+    })
+    const menu = (price: number, eggPrice: number): MenuItem[] => [
+      {
+        id: 'm1',
+        categoryId: 'c1',
+        name: 'กะเพรา',
+        price,
+        imageUrl: null,
+        isAvailable: true,
+        optionGroups: [
+          {
+            id: 'g',
+            name: 'เพิ่มเติม',
+            selectType: 'multiple',
+            required: false,
+            options: [option('pork', 'หมู', 0), option('egg', 'ไข่ดาว', eggPrice)],
+          },
+        ],
+        ingredients: [],
+        ingredientsOutOfStock: [],
+      },
+    ]
+
+    it('ราคาเมนู/ตัวเลือกเปลี่ยน → ตะกร้าใช้ราคาใหม่ และบอกชื่อเมนูที่เปลี่ยน', () => {
+      state().add({ ...kaprao, quantity: 2 })
+      expect(state().syncPrices(menu(65, 15))).toEqual(['กะเพรา'])
+      expect(lineUnitPrice(state().lines[0])).toBe(80)
+      expect(cartTotal(state().lines)).toBe(160)
+    })
+
+    it('ราคาเท่าเดิม → ไม่เปลี่ยนอะไร (กัน effect วนลูป)', () => {
+      state().add(kaprao)
+      const before = state().lines
+      expect(state().syncPrices(menu(60, 10))).toEqual([])
+      expect(state().lines).toBe(before)
+    })
+
+    it('เมนูหายจากเมนูลูกค้า → คงบรรทัดเดิมไว้', () => {
+      const lines = [{ ...kaprao, lineId: 'x' }]
+      expect(repriceLines(lines, []).lines).toBe(lines)
+    })
   })
 })

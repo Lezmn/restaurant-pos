@@ -6,9 +6,9 @@ import {
   lineTotal,
   useCart,
 } from '@/features/public/cart-store'
-import { useSession, useSubmitOrder } from '@/features/public/hooks'
+import { usePublicMenu, useSession, useSubmitOrder } from '@/features/public/hooks'
 import { formatBaht } from '@/lib/format'
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 export function CustomerCartPage() {
@@ -18,7 +18,17 @@ export function CustomerCartPage() {
   const lines = useCart((s) => s.lines)
   const setQuantity = useCart((s) => s.setQuantity)
   const clear = useCart((s) => s.clear)
+  const syncPrices = useCart((s) => s.syncPrices)
   const submit = useSubmitOrder(token)
+  // เมนู refetch เองเมื่อมี menu.updated — ราคาในตะกร้าต้องตามให้ตรงกับที่ backend จะคิดจริง
+  const { data: menu } = usePublicMenu()
+  const [repriced, setRepriced] = useState<string[]>([])
+
+  useEffect(() => {
+    if (!menu) return
+    const changed = syncPrices(menu)
+    if (changed.length) setRepriced((prev) => [...new Set([...prev, ...changed])])
+  }, [menu, lines, syncPrices])
   // isPending ยังไม่ทันเป็น true ตอนแตะครั้งที่สอง (state อัปเดตหลัง render) — ล็อกแบบ sync กันออเดอร์ซ้ำ
   const sending = useRef(false)
 
@@ -69,6 +79,15 @@ export function CustomerCartPage() {
             ยกเลิกทั้งหมด
           </button>
         </div>
+
+        {repriced.length > 0 && (
+          <p
+            role="status"
+            className="mt-4 rounded-xl border-2 border-brand-300 bg-brand-50 px-4 py-3 text-sm md:text-base font-semibold text-text"
+          >
+            ราคา {repriced.join(', ')} มีการเปลี่ยนแปลง — ยอดด้านล่างเป็นราคาล่าสุดแล้ว
+          </p>
+        )}
 
         <ul className="mt-4 space-y-3">
           {lines.map((line) => (

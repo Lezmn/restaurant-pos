@@ -143,6 +143,45 @@ test('แตะ "ส่งรายการเข้าครัว" สอง�
   await customer.context().close()
 })
 
+test('แอดมินเปลี่ยนราคาระหว่างที่อยู่ในตะกร้า → ตะกร้าแสดงราคาใหม่ (ตรงกับที่คิดเงินจริง) และบอกลูกค้า', async ({
+  browser,
+  request,
+}) => {
+  const { token } = await openFreshTable(request)
+  const admin = await loginViaApi(request, 'admin', SEED_PASSWORD)
+  const headers = { Authorization: `Bearer ${admin.accessToken}` }
+  const menu = await (await request.get(`${API_URL}/public/menu`)).json()
+  const water = menu
+    .flatMap((c: { menuItems: { id: string; name: string; price: string | number }[] }) => c.menuItems)
+    .find((m: { name: string }) => m.name === 'น้ำเปล่า')
+  const oldPrice = Number(water.price)
+  const newPrice = oldPrice + 7
+
+  const customer = await phone(browser)
+  try {
+    await customer.goto(`/t/${token}`)
+    await customer.getByRole('link', { name: /^น้ำเปล่า น้ำเปล่า/ }).click()
+    await customer.getByRole('button', { name: /เพิ่มรายการ/ }).click()
+
+    // กดเพิ่มแล้วอยู่หน้าตะกร้าอยู่แล้ว — ราคาต้องเปลี่ยนเองตาม menu.updated โดยลูกค้าไม่ต้อง refresh
+    await expect(customer.getByRole('heading', { name: 'รายการอาหาร' })).toBeVisible()
+    const res = await request.patch(`${API_URL}/menu/${water.id}`, { headers, data: { price: newPrice } })
+    expect(res.ok()).toBe(true)
+
+    await expect(customer.getByRole('status')).toContainText('น้ำเปล่า')
+    const totalRow = customer.getByText('ยอดรวมรายการอาหาร').locator('..')
+    await expect(totalRow).toContainText(String(newPrice))
+
+    await customer.getByRole('button', { name: '➤ ส่งรายการเข้าครัว' }).click()
+    await expect(customer.getByRole('heading', { name: 'ติดตามสถานะออเดอร์' })).toBeVisible()
+    const [order] = await (await request.get(`${API_URL}/public/sessions/${token}/orders`)).json()
+    expect(Number(order.items[0].unitPrice)).toBe(newPrice)
+  } finally {
+    await request.patch(`${API_URL}/menu/${water.id}`, { headers, data: { price: oldPrice } })
+    await customer.context().close()
+  }
+})
+
 test('ลูกค้าที่ยังไม่ได้สั่งอะไร ต้องเรียกพนักงานได้ (เช่น ถามเมนู/ขอช้อนส้อม)', async ({ browser, request }) => {
   const { token } = await openFreshTable(request)
   const customer = await phone(browser)

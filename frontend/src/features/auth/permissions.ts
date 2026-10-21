@@ -7,7 +7,10 @@ import { Role } from '@/types/enums'
  * order   → PATCH /orders/:id/status   @Roles(ADMIN, KITCHEN)
  * check   → /service-requests, /table-sessions, /payments
  *                                      @Roles(ADMIN, STAFF)
- * manage  → POST/PATCH/DELETE /menu    @Roles(ADMIN)
+ * manage  → PATCH /menu/:id/availability, PATCH /ingredients/:id
+ *                                      @Roles(ADMIN, KITCHEN)
+ * editMenu → POST/PATCH/DELETE /menu, POST/DELETE /ingredients
+ *                                      @Roles(ADMIN)
  * users   → ทั้ง controller            @Roles(ADMIN)
  *
  * หมายเหตุ: นี่เป็นการกัน UI เท่านั้น ไม่ใช่ security จริง
@@ -17,6 +20,7 @@ type PageKey =
   | 'order'
   | 'check'
   | 'manage'
+  | 'editMenu'
   | 'orders'
   | 'tables'
   | 'requests'
@@ -30,6 +34,8 @@ export const pageRoles: Record<PageKey, Role[]> = {
   order: [Role.ADMIN, Role.KITCHEN],
   check: [Role.ADMIN, Role.STAFF],
   manage: [Role.ADMIN, Role.KITCHEN],
+  /** ในหน้า Manage: เพิ่ม/แก้/ลบเมนู และเพิ่ม/ลบวัตถุดิบ — ครัวเปิด/ปิดขายได้อย่างเดียว */
+  editMenu: [Role.ADMIN],
   orders: [Role.ADMIN, Role.STAFF],
   tables: [Role.ADMIN, Role.STAFF],
   requests: [Role.ADMIN, Role.STAFF],

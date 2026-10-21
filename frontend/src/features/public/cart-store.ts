@@ -1,5 +1,5 @@
 import { MAX_ITEM_QUANTITY } from '@/lib/config'
-import type { Id } from '@/types/models'
+import type { Id, MenuItem } from '@/types/models'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
@@ -31,6 +31,34 @@ interface CartState {
   setQuantity: (lineId: string, quantity: number) => void
   remove: (lineId: string) => void
   clear: () => void
+  /** อัปเดตราคาในตะกร้าให้ตรงเมนูล่าสุด — คืนชื่อเมนูที่ราคาเปลี่ยน */
+  syncPrices: (menu: MenuItem[]) => string[]
+}
+
+/**
+ * ตะกร้าจำราคา ณ ตอนกดเพิ่ม แต่ backend คิดเงินจากราคาปัจจุบันเสมอ
+ * ถ้าแอดมินเปลี่ยนราคาระหว่างนั้น ต้องอัปเดตตาม ไม่งั้นลูกค้าเห็นยอดหนึ่งแต่โดนคิดอีกยอด
+ * เมนูที่หายจากเมนูลูกค้า (ปิดขาย) ปล่อยราคาเดิมไว้ — backend จะปฏิเสธตอนส่งอยู่แล้ว
+ */
+export function repriceLines(lines: CartLine[], menu: MenuItem[]) {
+  const byId = new Map(menu.map((m) => [m.id, m]))
+  const changed: string[] = []
+  const next = lines.map((line) => {
+    const item = byId.get(line.menuItemId)
+    if (!item) return line
+    const optionPrice = new Map(
+      item.optionGroups.flatMap((g) => g.options).map((o) => [o.id, o.price]),
+    )
+    const options = line.options.map((o) => ({
+      ...o,
+      price: optionPrice.get(o.id) ?? o.price,
+    }))
+    const repriced = { ...line, basePrice: item.price, options }
+    if (lineUnitPrice(repriced) === lineUnitPrice(line)) return line
+    changed.push(line.name)
+    return repriced
+  })
+  return { lines: changed.length ? next : lines, changed }
 }
 
 // เรียง option id ก่อนต่อเป็น key เพื่อให้เลือกตัวเลือกชุดเดียวกันคนละลำดับได้ id เดียวกัน
@@ -57,7 +85,7 @@ export const cartCount = (lines: CartLine[]) =>
 // จึงใช้ zustand + persist ไม่ใช่ TanStack Query
 export const useCart = create<CartState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       token: null,
       lines: [],
 
@@ -99,6 +127,12 @@ export const useCart = create<CartState>()(
         })),
 
       clear: () => set({ lines: [] }),
+
+      syncPrices: (menu) => {
+        const { lines, changed } = repriceLines(get().lines, menu)
+        if (changed.length) set({ lines })
+        return changed
+      },
     }),
     { name: 'restaurant.cart' },
   ),
