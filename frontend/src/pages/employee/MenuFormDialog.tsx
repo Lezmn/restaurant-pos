@@ -13,12 +13,15 @@ export function MenuFormDialog({
   item,
   isSaving,
   error,
+  defaultCategoryId,
   onCancel,
   onDelete,
   onSubmit,
 }: {
   /** ไม่ส่งมา = โหมดเพิ่มเมนูใหม่ */
   item?: MenuItem
+  /** โหมดเพิ่มเมนู: หมวดที่กำลังกรองอยู่ในหน้า Manage — ตั้งให้เป็นค่าเริ่มต้น */
+  defaultCategoryId?: string
   isSaving: boolean
   error: unknown
   onCancel: () => void
@@ -32,7 +35,7 @@ export function MenuFormDialog({
   const [name, setName] = useState(item?.name ?? '')
   const [price, setPrice] = useState(String(item?.price ?? ''))
   const [imageUrl, setImageUrl] = useState(item?.imageUrl ?? '')
-  const [categoryId, setCategoryId] = useState(item?.categoryId ?? '')
+  const [categoryId, setCategoryId] = useState(item?.categoryId ?? defaultCategoryId ?? '')
   const [isAvailable, setIsAvailable] = useState(item?.isAvailable ?? true)
   const [ingredientIds, setIngredientIds] = useState<Id[]>(
     () => item?.ingredients.map((i) => i.id) ?? [],
@@ -40,6 +43,18 @@ export function MenuFormDialog({
   const [pendingOptions, setPendingOptions] = useState<MenuOptionInput[]>([])
   /** โชว์ข้อผิดพลาดหลังกดบันทึกครั้งแรกเท่านั้น ไม่ขึ้นแดงตั้งแต่ยังไม่ได้พิมพ์ */
   const [attempted, setAttempted] = useState(false)
+  /** แถวเพิ่มตัวเลือกมีข้อความค้างที่ยังไม่ได้กด "+ เพิ่ม" — กันหายเงียบ ๆ ตอนบันทึก/ปิด */
+  const [optionDraftDirty, setOptionDraftDirty] = useState(false)
+  /** กดปิดทั้งที่ตัวเลือกค้างอยู่ 1 ครั้ง = เตือน กดซ้ำ = ปิดจริง */
+  const [closeWarned, setCloseWarned] = useState(false)
+
+  const requestClose = () => {
+    if (optionDraftDirty && !closeWarned) {
+      setCloseWarned(true)
+      return
+    }
+    onCancel()
+  }
 
   // เดิมส่งชื่อว่าง/ราคาว่างไปให้ backend ตอบ 400 กลับมาเป็นข้อความรวม ๆ — ตรวจที่ฟอร์มก่อน บอกตรงช่อง
   const priceNum = Number(price)
@@ -51,8 +66,16 @@ export function MenuFormDialog({
         : !Number.isFinite(priceNum) || priceNum < 0
           ? 'ราคาต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป'
           : '',
-    category:
-      !categoryId && !categories?.length ? 'ยังไม่มีหมวดหมู่ในระบบ' : '',
+    // บังคับเลือก — เดิมไม่เลือกแล้วเมนูไปตกหมวดแรก (ของหวาน) เงียบ ๆ
+    category: categoryId
+      ? ''
+      : categories?.length
+        ? 'เลือกหมวดหมู่'
+        : 'ยังไม่มีหมวดหมู่ในระบบ',
+    options:
+      !item && optionDraftDirty
+        ? 'ตัวเลือกที่พิมพ์ไว้ยังไม่ได้เพิ่ม กด "+ เพิ่ม" หรือลบข้อความออกก่อน'
+        : '',
     imageUrl:
       imageUrl.trim() && !/^https?:\/\//.test(imageUrl.trim())
         ? 'ลิงก์รูปต้องขึ้นต้นด้วย http:// หรือ https://'
@@ -64,7 +87,8 @@ export function MenuFormDialog({
   return (
     <Modal
       title={item ? `แก้ไข ${item.name}` : 'เพิ่มเมนูใหม่'}
-      onClose={onCancel}
+      onClose={requestClose}
+      size="lg"
     >
       <form
         noValidate
@@ -73,7 +97,11 @@ export function MenuFormDialog({
           setAttempted(true)
           if (firstError) {
             // พาไปช่องแรกที่ผิด ไม่ต้องไล่หาเอง
-            e.currentTarget.querySelector<HTMLElement>(`[name="${firstError}"]`)?.focus()
+            const target =
+              firstError === 'options'
+                ? '[data-option-draft]'
+                : `[name="${firstError}"]`
+            e.currentTarget.querySelector<HTMLElement>(target)?.focus()
             return
           }
           onSubmit(
@@ -81,7 +109,7 @@ export function MenuFormDialog({
               name: name.trim(),
               price: priceNum,
               imageUrl: imageUrl.trim() || null,
-              categoryId: categoryId || (categories?.[0]?.id ?? ''),
+              categoryId,
               isAvailable,
               ingredientIds,
             },
@@ -131,10 +159,11 @@ export function MenuFormDialog({
               onChange={(e) => setCategoryId(e.target.value)}
               name="category"
               aria-invalid={Boolean(show('category'))}
-              className={field}
+              aria-describedby={show('category') ? 'menu-category-error' : undefined}
+              className={`${field} ${show('category') ? 'border-danger' : ''}`}
             >
-              <option value="">
-                {categories?.[0] ? `ไม่เลือก = ${categories[0].name}` : 'เลือกหมวดหมู่'}
+              <option value="" disabled>
+                เลือกหมวดหมู่
               </option>
               {categories?.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -173,17 +202,22 @@ export function MenuFormDialog({
 
         <MainIngredientsPicker value={ingredientIds} onChange={setIngredientIds} />
 
-        {/* โหมดแก้ไขยิง API ทันที; โหมดเพิ่มเมนูใหม่ยังไม่มี id จึงพักไว้ก่อนแล้วสร้างตามหลัง */}
-        {item ? (
-          <MenuOptionsEditor menuItemId={item.id} />
-        ) : (
-          <PendingOptionsEditor options={pendingOptions} onChange={setPendingOptions} />
+        {/* โหมดเพิ่มเมนูใหม่ยังไม่มี id จึงพักตัวเลือกไว้ในฟอร์ม แล้วสร้างตามหลังตอนกดบันทึก */}
+        {!item && (
+          <>
+            <PendingOptionsEditor
+              options={pendingOptions}
+              onChange={setPendingOptions}
+              onDraftChange={setOptionDraftDirty}
+            />
+            <FieldError id="menu-options-error" message={show('options')} />
+          </>
         )}
 
         <div className="grid grid-cols-2 gap-3 pt-2">
           <button
             type="button"
-            onClick={onCancel}
+            onClick={requestClose}
             className={button('secondary', 'lg')}
           >
             ยกเลิก
@@ -193,13 +227,34 @@ export function MenuFormDialog({
             disabled={isSaving}
             className={button('primary', 'lg')}
           >
-            {isSaving ? 'กำลังบันทึก...' : 'บันทึก'}
+            {isSaving ? 'กำลังบันทึก...' : item ? 'บันทึกข้อมูลเมนู' : 'บันทึก'}
           </button>
         </div>
+        {item && (
+          <p className="text-center text-sm text-gray-600">
+            ปุ่มบันทึกนี้ใช้กับข้อมูลด้านบนเท่านั้น ตัวเลือกด้านล่างบันทึกทันทีที่กด
+          </p>
+        )}
+
+      </form>
+
+      {/* โหมดแก้ไข: ตัวเลือกเป็น resource แยกใน backend บันทึกทันทีที่กด จึงแยกออกจากฟอร์มให้ชัด
+          เดิมอยู่ในฟอร์มเดียวกับปุ่มยกเลิก/บันทึก ผู้ใช้เข้าใจว่ากดยกเลิกแล้วจะย้อนได้ */}
+      {item && (
+        <div className="mt-6 border-t-2 border-gray-200 pt-4">
+          <MenuOptionsEditor menuItemId={item.id} onDraftChange={setOptionDraftDirty} />
+        </div>
+      )}
+
+      {closeWarned && optionDraftDirty && (
+        <p role="alert" className="mt-3 rounded-lg bg-danger/5 px-3 py-2 text-sm font-semibold text-danger-ink">
+          ตัวเลือกที่พิมพ์ไว้ยังไม่ได้เพิ่ม กด "+ เพิ่ม" ก่อน หรือกดปิดอีกครั้งเพื่อทิ้ง
+        </p>
+      )}
 
         {/* แยกโซนอันตรายไว้ล่างสุด ห่างจากปุ่มบันทึก */}
         {item && onDelete && (
-          <div className="mt-2 border-t border-gray-200 pt-4">
+          <div className="mt-6 border-t border-gray-200 pt-4">
             <button
               type="button"
               onClick={onDelete}
@@ -212,7 +267,6 @@ export function MenuFormDialog({
             </p>
           </div>
         )}
-      </form>
     </Modal>
   )
 }
@@ -251,7 +305,11 @@ function MainIngredientsPicker({
                     : 'border-gray-200 bg-white text-gray-700'
                 }`}
               >
-                {on && <span aria-hidden>✓ </span>}
+                {on && (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden className="mr-1 inline h-3.5 w-3.5 align-[-2px]">
+                    <path d="m5 12 5 5 9-10" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
                 {ing.name}
                 {!ing.isAvailable && <span className="text-danger-ink"> · หมด</span>}
               </button>

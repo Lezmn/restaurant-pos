@@ -340,6 +340,7 @@ export function ManagePage() {
 
       {editing === 'new' && (
         <MenuFormDialog
+          defaultCategoryId={categoryId || undefined}
           isSaving={createItem.isPending}
           error={createItem.error}
           onCancel={() => setEditing(null)}

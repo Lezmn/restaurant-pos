@@ -12,7 +12,7 @@ import { useIngredients } from '@/features/ingredients/hooks'
 import { formatBaht } from '@/lib/format'
 import { MenuOptionGroupKind } from '@/types/enums'
 import type { Id, MenuOption } from '@/types/models'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 const GROUP_LABEL: Record<MenuOptionGroupKind, string> = {
   [MenuOptionGroupKind.PROTEIN]: 'เนื้อสัตว์ (เลือกได้ 1)',
@@ -20,7 +20,7 @@ const GROUP_LABEL: Record<MenuOptionGroupKind, string> = {
 }
 
 const inputClass =
-  'min-h-10 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-400/25'
+  'min-h-11 rounded-lg border border-gray-300 bg-white px-3 py-2 text-base outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-400/25'
 
 /**
  * จัดการตัวเลือกของเมนู (หมู/ไก่/ไข่ดาว) — เพิ่ม, แก้, ลบ
@@ -28,7 +28,14 @@ const inputClass =
  * ทุกปุ่มยิง API ทันที ไม่รอปุ่ม "บันทึก" ของฟอร์มเมนู เพราะตัวเลือกเป็น resource แยกใน backend
  * อ่านข้อมูลสดจาก useMenuItem ไม่ใช่ prop เพราะหลังเพิ่ม/แก้ต้องเห็นผลทันทีโดยไม่ปิด dialog
  */
-export function MenuOptionsEditor({ menuItemId }: { menuItemId: Id }) {
+export function MenuOptionsEditor({
+  menuItemId,
+  onDraftChange,
+}: {
+  menuItemId: Id
+  /** แถวเพิ่มตัวเลือกมีข้อความค้างหรือไม่ — ฟอร์มใช้เตือนก่อนปิด */
+  onDraftChange?: (dirty: boolean) => void
+}) {
   const { data: item } = useMenuItem(menuItemId)
   const createOption = useCreateMenuOption()
   const updateOption = useUpdateMenuOption()
@@ -46,9 +53,16 @@ export function MenuOptionsEditor({ menuItemId }: { menuItemId: Id }) {
   const error = createOption.error ?? updateOption.error ?? deleteOption.error
 
   return (
-    <section className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-      <h3 className="text-sm font-bold text-gray-800">ตัวเลือกของเมนู</h3>
-      <p className="mt-0.5 text-sm text-gray-600">
+    <section aria-labelledby="options-heading">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 id="options-heading" className="text-base font-bold text-black">
+          ตัวเลือกของเมนู
+        </h3>
+        <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-sm font-semibold text-gray-700">
+          บันทึกทันทีทุกครั้งที่กด
+        </span>
+      </div>
+      <p className="mt-1 text-sm text-gray-600">
         ของหมดให้ปิดที่แท็บ "วัตถุดิบ" ที่เดียว ตัวเลือกที่ผูกไว้จะหายทุกเมนู ·
         ตัวเลือกที่ไม่ผูกวัตถุดิบ (เช่น พิเศษ) เปิดขายตลอด
       </p>
@@ -88,6 +102,7 @@ export function MenuOptionsEditor({ menuItemId }: { menuItemId: Id }) {
         disabled={busy}
         onAdd={(input) => createOption.mutate({ menuItemId, input })}
         usedIngredientIds={proteinIngredientIds(options)}
+        onDraftChange={onDraftChange}
       />
 
       {deleting && (
@@ -126,9 +141,11 @@ export function MenuOptionsEditor({ menuItemId }: { menuItemId: Id }) {
 export function PendingOptionsEditor({
   options,
   onChange,
+  onDraftChange,
 }: {
   options: MenuOptionInput[]
   onChange: (next: MenuOptionInput[]) => void
+  onDraftChange?: (dirty: boolean) => void
 }) {
   return (
     <section className="rounded-xl border border-gray-200 bg-gray-50 p-3">
@@ -159,8 +176,9 @@ export function PendingOptionsEditor({
                   </span>
                   <button
                     type="button"
+                    aria-label={`ลบตัวเลือก ${o.name}`}
                     onClick={() => onChange(options.filter((_, i) => i !== index))}
-                    className="text-sm font-semibold text-danger-ink hover:underline"
+                    className={button('danger-outline', 'sm')}
                   >
                     ลบ
                   </button>
@@ -179,6 +197,7 @@ export function PendingOptionsEditor({
         disabled={false}
         onAdd={(input) => onChange([...options, input])}
         usedIngredientIds={proteinIngredientIds(options)}
+        onDraftChange={onDraftChange}
       />
     </section>
   )
@@ -264,6 +283,7 @@ function OptionRow({
         <select
           value={group}
           onChange={(e) => setGroup(e.target.value as MenuOptionGroupKind)}
+          aria-label="กลุ่มตัวเลือก"
           className={inputClass}
         >
           <option value={MenuOptionGroupKind.PROTEIN}>เนื้อสัตว์</option>
@@ -367,6 +387,7 @@ function OptionRow({
         type="button"
         disabled={disabled}
         onClick={() => setEditing(true)}
+        aria-label={`แก้ไขตัวเลือก ${option.name}`}
         className={button('outline', 'sm')}
       >
         แก้ไข
@@ -375,6 +396,7 @@ function OptionRow({
         type="button"
         disabled={disabled}
         onClick={onDelete}
+        aria-label={`ลบตัวเลือก ${option.name}`}
         className={button('danger-outline', 'sm')}
       >
         ลบ
@@ -394,10 +416,12 @@ function NewOptionRow({
   onAdd,
   /** วัตถุดิบที่เป็นเนื้อสัตว์ในเมนูนี้แล้ว ใช้กันเลือกซ้ำ */
   usedIngredientIds = [],
+  onDraftChange,
 }: Readonly<{
   disabled: boolean
   onAdd: (input: MenuOptionInput) => void
   usedIngredientIds?: readonly Id[]
+  onDraftChange?: (dirty: boolean) => void
 }>) {
   const { data: ingredients } = useIngredients()
   const [name, setName] = useState('')
@@ -413,6 +437,12 @@ function NewOptionRow({
   const canSubmit = isProtein
     ? Boolean(chosen && !usedIngredientIds.includes(chosen.id))
     : Boolean(name.trim())
+
+  // พิมพ์/เลือกค้างไว้แต่ยังไม่กด "+ เพิ่ม" — เดิมหายเงียบ ๆ ตอนบันทึกเมนูหรือปิดกล่อง
+  const dirty = Boolean(name.trim() || price.trim() || ingredientId)
+  useEffect(() => {
+    onDraftChange?.(dirty)
+  }, [dirty, onDraftChange])
 
   const submit = () => {
     if (!canSubmit) return
@@ -442,6 +472,7 @@ function NewOptionRow({
         <select
           value={group}
           onChange={(e) => setGroup(e.target.value as MenuOptionGroupKind)}
+          aria-label="กลุ่มตัวเลือก"
           className={inputClass}
         >
           <option value={MenuOptionGroupKind.PROTEIN}>เนื้อสัตว์</option>
@@ -453,8 +484,10 @@ function NewOptionRow({
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={onEnter}
+            data-option-draft
+            aria-label="ชื่อตัวเลือกใหม่"
             className={`${inputClass} min-w-0 flex-1`}
-            placeholder="เพิ่มตัวเลือก เช่น ไข่ดาว"
+            placeholder="เช่น ไข่ดาว"
           />
         )}
         <IngredientSelect
@@ -471,6 +504,7 @@ function NewOptionRow({
           value={price}
           onChange={(e) => setPrice(e.target.value)}
           onKeyDown={onEnter}
+          aria-label="ราคาเพิ่ม (บาท)"
           className={`${inputClass} w-20`}
           placeholder="+บาท"
         />
@@ -483,6 +517,12 @@ function NewOptionRow({
           + เพิ่ม
         </button>
       </div>
+
+      {dirty && (
+        <p className="mt-2 text-sm font-semibold text-amber-800">
+          ยังไม่ได้เพิ่ม — กด "+ เพิ่ม" หรือ Enter
+        </p>
+      )}
 
       {isProtein && proteinChoices.length === 0 && (
         <p className="mt-2 text-sm text-gray-600">

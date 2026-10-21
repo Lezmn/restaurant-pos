@@ -99,7 +99,10 @@ export function CheckPage() {
   useSlashFocus(searchRef)
   const [target, setTarget] = useState<PayTarget | null>(null)
   /** ใบเสร็จที่เพิ่งออก — เปิดให้พิมพ์ทันทีหลังรับเงิน */
-  const [receipt, setReceipt] = useState<Payment | null>(null)
+  const [receipt, setReceipt] = useState<{
+    payment: Payment
+    tendered: number | null
+  } | null>(null)
   /** โต๊ะที่กำลังจะปิด — ยืนยันใน popup แบบเดียวกับหน้าอื่น (เดิมใช้ confirm() ของเบราว์เซอร์) */
   const [closing, setClosing] = useState<{
     session: TableSession
@@ -337,7 +340,11 @@ export function CheckPage() {
       )}
 
       {receipt && (
-        <ReceiptDialog payment={receipt} onClose={() => setReceipt(null)} />
+        <ReceiptDialog
+          payment={receipt.payment}
+          tendered={receipt.tendered}
+          onClose={() => setReceipt(null)}
+        />
       )}
 
       {target && (
@@ -350,7 +357,7 @@ export function CheckPage() {
             setTarget(null)
           }}
           canOverrideSlip={isAdmin}
-          onSubmit={({ method, note, amount, slip }) =>
+          onSubmit={({ method, note, amount, slip, tendered }) =>
             createPayment.mutate(
               {
                 tableSessionId: target.sessionId,
@@ -369,12 +376,10 @@ export function CheckPage() {
                 amount: amount === target.amountDue ? undefined : amount,
               },
               {
+                // ยืนยันผลด้วยแถบบนใบเสร็จ (รับเงิน/ทอน) แทน toast ที่จะจมใต้กล่องใบเสร็จ
                 onSuccess: (payment) => {
-                  toast(
-                    `รับเงินโต๊ะ ${target.tableName} ${formatBaht(payment.amount)} แล้ว`,
-                  )
                   setTarget(null)
-                  setReceipt(payment)
+                  setReceipt({ payment, tendered })
                 },
               },
             )
@@ -517,6 +522,8 @@ function PaymentDialog({
     note: string
     amount: number
     slip: SlipInput
+    /** เงินที่ลูกค้ายื่นมา (เงินสด) — ไว้โชว์เงินทอนบนใบเสร็จ ไม่ได้บันทึก */
+    tendered: number | null
   }) => void
 }) {
   /**
@@ -530,6 +537,9 @@ function PaymentDialog({
   // โต๊ะที่ลูกค้าไม่ได้กดเช็คบิลจาก QR ต้องให้พนักงานเลือกวิธีจ่ายเอง
   const [method, setMethod] = useState<PaymentMethod>(target.method)
   const [slip, setSlip] = useState<SlipInput>(emptySlipInput)
+  /** ส่วนลดซ่อนไว้หลังปุ่ม "ให้ส่วนลด" — กันกรอกผิดช่องตอนรีบ และใช้ไม่บ่อย */
+  const [discountOpen, setDiscountOpen] = useState(false)
+  const [discountReason, setDiscountReason] = useState('')
 
   const isPromptPay = method === PaymentMethod.PROMPTPAY
   const chargedNum = Number(charged)
@@ -539,9 +549,15 @@ function PaymentDialog({
     chargedNum >= 0 &&
     chargedNum <= target.amountDue
   const discount = target.amountDue - chargedNum
+  const hasDiscount = chargedValid && discount > 0
+  const receivedNum = Number(received) || 0
   // PromptPay ต้องมีสลิปให้ตรวจ (หรือ ADMIN ยืนยันเอง) — backend ก็บังคับไว้อีกชั้น
-  const canSubmit = chargedValid && (!isPromptPay || isSlipReady(slip))
-  const change = (Number(received) || 0) - chargedNum
+  // ลดราคาต้องมีเหตุผลเสมอ เหมือนยกเลิกบิล
+  const canSubmit =
+    chargedValid &&
+    (!isPromptPay || isSlipReady(slip)) &&
+    (!hasDiscount || discountReason.trim() !== '')
+  const change = receivedNum - chargedNum
 
   // QR ผูกยอดเงินไว้ด้วย ลูกค้าจึงไม่ต้องกรอกยอดเอง
   const qrPayload = useMemo(
@@ -557,7 +573,18 @@ function PaymentDialog({
         onSubmit={(e) => {
           e.preventDefault()
           if (!canSubmit) return
-          onSubmit({ method, note: note.trim(), amount: chargedNum, slip })
+          // เหตุผลส่วนลดเก็บรวมในหมายเหตุของบิล (backend มีช่อง note ช่องเดียว) — พิมพ์ลงใบเสร็จและดูย้อนหลังได้
+          const parts = [
+            hasDiscount ? `ส่วนลด ${formatBaht(discount)}: ${discountReason.trim()}` : '',
+            note.trim(),
+          ].filter(Boolean)
+          onSubmit({
+            method,
+            note: parts.join(' · '),
+            amount: chargedNum,
+            slip,
+            tendered: !isPromptPay && receivedNum > 0 ? receivedNum : null,
+          })
         }}
       >
         <div className="flex items-baseline justify-between rounded-lg bg-brand-50 px-4 py-3">
@@ -620,60 +647,33 @@ function PaymentDialog({
           </div>
         )}
 
-        <label className="mt-4 block">
-          <span className={fieldLabel}>ราคาที่เก็บจริง</span>
-          <span className="ml-1 text-sm text-gray-600">(ลดให้ได้ ไม่เกินยอดบิล)</span>
-          <input
-            type="number"
-            inputMode="decimal"
-            min="0"
-            max={target.amountDue}
-            step="0.01"
-            value={charged}
-            onChange={(e) => setCharged(e.target.value)}
-            className={`${field} tabular-nums`}
-          />
-        </label>
-
-        {/* ลดให้ลูกค้าได้ แต่เก็บเกินยอดบิลไม่ได้ (backend ก็กันไว้อีกชั้น) */}
-        {chargedNum > target.amountDue && (
-          <p className="mt-1 text-sm font-semibold text-danger-ink">
-            เก็บเกินยอดบิลไม่ได้ สูงสุด {formatBaht(target.amountDue)}
-          </p>
-        )}
-        {chargedValid && discount > 0 && (
-          <p className="mt-1 text-right text-sm font-semibold text-danger-ink">
-            ส่วนลด {formatBaht(discount)} (บันทึกลงใบเสร็จ)
-          </p>
-        )}
-
-        {/* เงินสด: กรอกเงินที่ลูกค้ายื่นมาเพื่อให้ช่วยคิดเงินทอน ไม่ได้บันทึกลงระบบ */}
+        {/* เงินสด: งานหลักคือรับเงินแล้วทอน — ช่องรับเงินกับปุ่มแบงก์ขึ้นก่อนเสมอ ส่วนลดอยู่หลังปุ่มแยก */}
         {!isPromptPay && (
           <div className="mt-4">
-          <label className="block">
-            <span className={fieldLabel}>รับเงินมา</span>
-            <span className="ml-1 text-sm text-gray-600">(ไว้คิดเงินทอน ไม่บันทึก)</span>
-            <input
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="0.01"
-              value={received}
-              onChange={(e) => setReceived(e.target.value)}
-              placeholder="ไม่กรอกก็ได้"
-              className={`${field} tabular-nums`}
-            />
-          </label>
+            <label className="block">
+              <span className={fieldLabel}>รับเงินมา</span>
+              <span className="ml-1 text-sm text-gray-600">(ไว้คิดเงินทอน ไม่บันทึก)</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                value={received}
+                onChange={(e) => setReceived(e.target.value)}
+                placeholder="ไม่กรอกก็ได้"
+                className={`${field} tabular-nums`}
+              />
+            </label>
             {chargedValid && chargedNum > 0 && (
               <div role="group" aria-label="จำนวนเงินที่รับมา" className="mt-2 flex flex-wrap gap-2">
                 {quickCash(chargedNum).map((amount, i) => (
                   <button
                     key={amount}
                     type="button"
-                    aria-pressed={Number(received) === amount}
+                    aria-pressed={receivedNum === amount}
                     onClick={() => setReceived(String(amount))}
                     className={`min-h-11 flex-1 rounded-lg border-2 px-3 text-sm font-bold tabular-nums transition ${
-                      Number(received) === amount
+                      receivedNum === amount
                         ? 'border-brand-500 bg-brand-50 text-brand-500'
                         : 'border-gray-300 bg-white text-black hover:bg-gray-50'
                     }`}
@@ -684,27 +684,99 @@ function PaymentDialog({
               </div>
             )}
             {/* ยังบันทึกได้ (ช่องนี้ไว้คิดเงินทอนเฉย ๆ) แต่ต้องเตือนให้เห็น จะได้ไม่ปล่อยลูกค้าไปทั้งที่เงินขาด */}
-            {Number(received) > 0 && change < 0 && (
-              <span className="mt-1 block text-right text-sm font-semibold text-danger-ink">
+            {receivedNum > 0 && change < 0 && (
+              <p className="mt-2 text-right text-sm font-semibold text-danger-ink">
                 รับเงินมาไม่พอ ขาดอีก {formatBaht(-change)}
-              </span>
+              </p>
             )}
             {change > 0 && (
-              <span className="mt-1 block text-right text-lg font-bold text-brand-500 tabular-nums">
-                เงินทอน {formatBaht(change)}
-              </span>
+              <p className="mt-2 flex items-baseline justify-between rounded-lg bg-gray-100 px-4 py-2">
+                <span className="text-sm font-semibold text-gray-700">เงินทอน</span>
+                <span className="text-2xl font-bold text-black tabular-nums">
+                  {formatBaht(change)}
+                </span>
+              </p>
             )}
           </div>
         )}
 
+        {/* ส่วนลด: ซ่อนไว้จนกว่าจะกดเปิด และต้องมีเหตุผลทุกครั้ง — เงินต้องตรวจสอบย้อนหลังได้ */}
+        {discountOpen ? (
+          <fieldset className="mt-4 rounded-lg border-2 border-gray-200 p-3">
+            <legend className={`${fieldLabel} px-1`}>ส่วนลด</legend>
+            <label className="block">
+              <span className={fieldLabel}>ราคาที่เก็บจริง</span>
+              <span className="ml-1 text-sm text-gray-600">(ไม่เกิน {formatBaht(target.amountDue)})</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                min="0"
+                max={target.amountDue}
+                step="0.01"
+                value={charged}
+                onChange={(e) => setCharged(e.target.value)}
+                aria-invalid={chargedNum > target.amountDue}
+                className={`${field} tabular-nums`}
+              />
+            </label>
+            {/* เก็บเกินยอดบิลไม่ได้ (backend ก็กันไว้อีกชั้น) */}
+            {chargedNum > target.amountDue && (
+              <p className="mt-1 text-sm font-semibold text-danger-ink">
+                เก็บเกินยอดบิลไม่ได้ สูงสุด {formatBaht(target.amountDue)}
+              </p>
+            )}
+            {hasDiscount && (
+              <>
+                <p className="mt-1 text-right text-sm font-semibold text-danger-ink">
+                  ลด {formatBaht(discount)}
+                </p>
+                <label className="mt-2 block">
+                  <span className={fieldLabel}>
+                    เหตุผลที่ลด<span className="ml-1 text-danger-ink">*</span>
+                  </span>
+                  <input
+                    value={discountReason}
+                    onChange={(e) => setDiscountReason(e.target.value)}
+                    maxLength={200}
+                    required
+                    aria-invalid={!discountReason.trim()}
+                    placeholder="เช่น ลูกค้าประจำ / อาหารมีปัญหา"
+                    className={field}
+                  />
+                </label>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setCharged(String(target.amountDue))
+                setDiscountReason('')
+                setDiscountOpen(false)
+              }}
+              className={`${button('secondary', 'sm')} mt-3`}
+            >
+              ไม่ลดแล้ว
+            </button>
+          </fieldset>
+        ) : (
+          <button
+            type="button"
+            aria-expanded={false}
+            onClick={() => setDiscountOpen(true)}
+            className={`${button('secondary', 'sm')} mt-4`}
+          >
+            ให้ส่วนลด
+          </button>
+        )}
+
         <label className="mt-4 block">
           <span className={fieldLabel}>หมายเหตุ</span>
-          <span className="ml-1 text-sm text-gray-600">(พิมพ์ลงใบเสร็จ)</span>
+          <span className="ml-1 text-sm text-gray-600">(พิมพ์ลงใบเสร็จ ไม่กรอกก็ได้)</span>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
-            maxLength={500}
+            maxLength={300}
             className={`${field} resize-none`}
           />
         </label>
@@ -723,13 +795,19 @@ function PaymentDialog({
               : `รับเงิน ${formatBaht(chargedValid ? chargedNum : target.amountDue)}`}
           </button>
         </div>
+        {hasDiscount && !discountReason.trim() && (
+          <p className="mt-2 text-center text-sm text-danger-ink">ใส่เหตุผลที่ลดก่อนรับเงิน</p>
+        )}
       </form>
     </Modal>
   )
 }
 
-/** ปุ่มเงินด่วน: ยอดพอดี + แบงก์ที่ปัดขึ้นถัดไป (100 / 500 / 1000) ไม่ซ้ำกัน สูงสุด 4 ปุ่ม */
+/**
+ * ปุ่มเงินด่วน: ยอดพอดี + ยอดที่ปัดขึ้นเป็นแบงก์ถัดไป (50 / 100 / 500 / 1000) ไม่ซ้ำกัน สูงสุด 4 ปุ่ม
+ * เช่น ฿120 → พอดี ฿120, ฿150, ฿200, ฿500
+ */
 function quickCash(amount: number) {
-  const steps = [100, 500, 1000].map((note) => Math.ceil(amount / note) * note)
+  const steps = [50, 100, 500, 1000].map((note) => Math.ceil(amount / note) * note)
   return [...new Set([amount, ...steps])].filter((v) => v >= amount).slice(0, 4)
 }
