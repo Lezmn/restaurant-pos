@@ -67,7 +67,7 @@ function LedgerRow({
  * - ปิดยอดวันนี้: นับเงินในลิ้นชักเทียบกับยอดที่ระบบคาดไว้ วันละครั้ง
  */
 export function CashDrawerBar() {
-  const { data: preview, isPending, isError, refetch } = useCashClosePreview()
+  const { data: preview, isPending, isError, error, refetch } = useCashClosePreview()
   const [dialog, setDialog] = useState<'expense' | 'close' | null>(null)
 
   if (isPending) {
@@ -75,7 +75,7 @@ export function CashDrawerBar() {
   }
 
   if (!preview) {
-    return isError ? <LoadError what="ยอดลิ้นชัก" onRetry={() => refetch()} /> : null
+    return isError ? <LoadError what="ยอดลิ้นชัก" error={error} onRetry={() => refetch()} /> : null
   }
 
   const closed = preview.alreadyClosed

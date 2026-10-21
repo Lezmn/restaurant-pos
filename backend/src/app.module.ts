@@ -35,7 +35,7 @@ import { EventsModule } from './events/events.module';
           {
             name: 'default',
             ttl: 60_000,
-            limit: Number(config.get('THROTTLE_LIMIT') ?? 300),
+            limit: Number(config.get('THROTTLE_LIMIT') ?? 600),
             getTracker: createIdentityTracker(jwt),
           },
           {

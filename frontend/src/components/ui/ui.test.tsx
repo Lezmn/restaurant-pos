@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { useRef } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSlashFocus } from '@/lib/use-slash-focus'
+import { ApiError } from '@/lib/api-client'
+import { LoadError } from './LoadError'
 import { QuantityStepper } from './QuantityStepper'
 import { toast, useToasts } from './toast'
 
@@ -93,5 +95,18 @@ describe('useSlashFocus', () => {
     const { unmount } = renderHook(() => useSlashFocus({ current: null }))
     unmount()
     expect(spy).toHaveBeenCalledWith('keydown', expect.any(Function))
+  })
+})
+
+describe('LoadError', () => {
+  it('429 บอกให้รอ ไม่บอกให้ตรวจเน็ต', () => {
+    render(<LoadError what="รายการเมนู" error={new ApiError(429, 'x')} onRetry={() => {}} />)
+    expect(screen.getByRole('alert')).toHaveTextContent('ระบบพักรับคำขอชั่วคราว')
+    expect(screen.getByRole('alert')).not.toHaveTextContent('ตรวจการเชื่อมต่อ')
+  })
+
+  it('error อื่นยังบอกให้ตรวจการเชื่อมต่อเหมือนเดิม', () => {
+    render(<LoadError what="รายการเมนู" error={new ApiError(500, 'x')} onRetry={() => {}} />)
+    expect(screen.getByRole('alert')).toHaveTextContent('ตรวจการเชื่อมต่ออินเทอร์เน็ต')
   })
 })

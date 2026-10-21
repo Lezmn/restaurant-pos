@@ -241,6 +241,7 @@ export function CheckPage() {
               <LoadError
                 what="รายการโต๊ะ"
                 stale={Boolean(sessions)}
+                error={sessionsQuery.error}
                 onRetry={() => sessionsQuery.refetch()}
               />
             )}
@@ -249,6 +250,7 @@ export function CheckPage() {
               <LoadError
                 what="สถานะออเดอร์"
                 stale={Boolean(orders)}
+                error={ordersQuery.error}
                 onRetry={() => ordersQuery.refetch()}
               />
             )}

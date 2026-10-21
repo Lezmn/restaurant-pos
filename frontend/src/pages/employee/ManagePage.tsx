@@ -302,6 +302,7 @@ export function ManagePage() {
               <LoadError
                 what="รายการเมนู"
                 stale={Boolean(items)}
+                error={itemsQuery.error}
                 onRetry={() => itemsQuery.refetch()}
               />
             )}

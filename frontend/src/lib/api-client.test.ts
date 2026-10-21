@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Role } from '@/types/enums'
-import { ApiError, apiClient } from './api-client'
+import { ApiError, RATE_LIMIT_MESSAGE, apiClient, isRateLimited } from './api-client'
 import { authStorage } from './auth-storage'
 
 const json = (status: number, body: unknown) =>
@@ -33,6 +33,17 @@ describe('apiClient', () => {
   afterEach(() => {
     Object.defineProperty(window, 'location', { configurable: true, value: originalLocation })
     vi.unstubAllGlobals()
+  })
+
+  it('429 → ApiError บอกให้รอ ไม่ใช่ข้อความ ThrottlerException จาก backend', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(json(429, { statusCode: 429, message: 'ThrottlerException: Too Many Requests' })),
+    )
+    const error = await apiClient('/menu').catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(ApiError)
+    expect(isRateLimited(error)).toBe(true)
+    expect((error as ApiError).message).toBe(RATE_LIMIT_MESSAGE)
   })
 
   it('แนบ Bearer token เมื่อ login อยู่', async () => {
