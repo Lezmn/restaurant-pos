@@ -3,10 +3,10 @@ import { SlipStatus } from '@/types/enums'
 import type { PaymentSlip } from '@/types/models'
 
 const label: Record<SlipStatus, string> = {
-  [SlipStatus.VERIFIED]: '✓ ตรวจสลิปแล้ว',
-  [SlipStatus.PENDING]: '⏳ รอตรวจสลิป',
-  [SlipStatus.FAILED]: '✗ สลิปไม่ผ่าน',
-  [SlipStatus.MANUAL]: '✋ ยืนยันเอง',
+  [SlipStatus.VERIFIED]: 'ตรวจสลิปแล้ว',
+  [SlipStatus.PENDING]: 'รอตรวจสลิป',
+  [SlipStatus.FAILED]: 'สลิปไม่ผ่าน',
+  [SlipStatus.MANUAL]: 'ยืนยันเอง',
 }
 
 const tone: Record<SlipStatus, BadgeTone> = {

@@ -3,6 +3,7 @@ import { ErrorNote } from '@/components/ui/ErrorNote'
 import { LoadError } from '@/components/ui/LoadError'
 import { Modal } from '@/components/ui/Modal'
 import { button, field, fieldLabel } from '@/components/ui/styles'
+import { toast } from '@/components/ui/toast'
 import { pageRoles } from '@/features/auth/permissions'
 import { useOrders } from '@/features/orders/hooks'
 import { useAuth } from '@/features/auth/use-auth'
@@ -13,6 +14,7 @@ import { IS_DEMO_PROMPTPAY, PROMPTPAY_ID } from '@/lib/config'
 import { formatBaht, formatTime } from '@/lib/format'
 import { LIVE_POLL_MS } from '@/lib/live'
 import { buildPromptPayPayload } from '@/lib/promptpay'
+import { useSlashFocus } from '@/lib/use-slash-focus'
 import {
   OrderStatus,
   PaymentMethod,
@@ -33,7 +35,7 @@ import {
   type SlipInput,
 } from './SlipScanField'
 import { QRCodeSVG } from 'qrcode.react'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 const POLL_MS = LIVE_POLL_MS
@@ -93,6 +95,8 @@ export function CheckPage() {
   const canOpenTable = Boolean(user && pageRoles.openTable.includes(user.role))
   const closeSession = useCloseSession()
   const [search, setSearch] = useState('')
+  const searchRef = useRef<HTMLInputElement>(null)
+  useSlashFocus(searchRef)
   const [target, setTarget] = useState<PayTarget | null>(null)
   /** ใบเสร็จที่เพิ่งออก — เปิดให้พิมพ์ทันทีหลังรับเงิน */
   const [receipt, setReceipt] = useState<Payment | null>(null)
@@ -197,18 +201,33 @@ export function CheckPage() {
                   )}
                 </p>
               )}
+              {sessionsQuery.dataUpdatedAt > 0 && (
+                <p className="mt-0.5 text-sm text-gray-600">
+                  อัปเดตเองอัตโนมัติ · ล่าสุด{' '}
+                  <span className="tabular-nums">
+                    {new Date(sessionsQuery.dataUpdatedAt).toLocaleTimeString('th-TH')}
+                  </span>
+                </p>
+              )}
             </div>
 
             {rows.length > 4 && (
-              <label className="w-full sm:w-56">
-                <span className="sr-only">ค้นหาเลขโต๊ะ</span>
+              <label className="relative w-full sm:w-56">
+                <span className="sr-only">ค้นหาเลขโต๊ะ (กด / เพื่อค้นหา)</span>
+                <kbd
+                  aria-hidden
+                  className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 rounded border border-gray-300 px-1.5 text-sm text-gray-600 sm:block"
+                >
+                  /
+                </kbd>
                 <input
+                  ref={searchRef}
                   type="search"
                   inputMode="numeric"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="ค้นหาเลขโต๊ะ"
-                  className={`${field} mt-0`}
+                  className={`${field} mt-0 pr-10`}
                 />
               </label>
             )}
@@ -308,7 +327,10 @@ export function CheckPage() {
           }}
           onConfirm={() =>
             closeSession.mutate(closing.session.id, {
-              onSuccess: () => setClosing(null),
+              onSuccess: () => {
+                toast(`ปิดโต๊ะ ${closing.session.tableName} แล้ว โต๊ะกลับเป็นว่าง`)
+                setClosing(null)
+              },
             })
           }
         />
@@ -348,6 +370,9 @@ export function CheckPage() {
               },
               {
                 onSuccess: (payment) => {
+                  toast(
+                    `รับเงินโต๊ะ ${target.tableName} ${formatBaht(payment.amount)} แล้ว`,
+                  )
                   setTarget(null)
                   setReceipt(payment)
                 },
@@ -597,6 +622,7 @@ function PaymentDialog({
 
         <label className="mt-4 block">
           <span className={fieldLabel}>ราคาที่เก็บจริง</span>
+          <span className="ml-1 text-sm text-gray-600">(ลดให้ได้ ไม่เกินยอดบิล)</span>
           <input
             type="number"
             inputMode="decimal"
@@ -623,7 +649,8 @@ function PaymentDialog({
 
         {/* เงินสด: กรอกเงินที่ลูกค้ายื่นมาเพื่อให้ช่วยคิดเงินทอน ไม่ได้บันทึกลงระบบ */}
         {!isPromptPay && (
-          <label className="mt-4 block">
+          <div className="mt-4">
+          <label className="block">
             <span className={fieldLabel}>รับเงินมา</span>
             <span className="ml-1 text-sm text-gray-600">(ไว้คิดเงินทอน ไม่บันทึก)</span>
             <input
@@ -636,6 +663,26 @@ function PaymentDialog({
               placeholder="ไม่กรอกก็ได้"
               className={`${field} tabular-nums`}
             />
+          </label>
+            {chargedValid && chargedNum > 0 && (
+              <div role="group" aria-label="จำนวนเงินที่รับมา" className="mt-2 flex flex-wrap gap-2">
+                {quickCash(chargedNum).map((amount, i) => (
+                  <button
+                    key={amount}
+                    type="button"
+                    aria-pressed={Number(received) === amount}
+                    onClick={() => setReceived(String(amount))}
+                    className={`min-h-11 flex-1 rounded-lg border-2 px-3 text-sm font-bold tabular-nums transition ${
+                      Number(received) === amount
+                        ? 'border-brand-500 bg-brand-50 text-brand-500'
+                        : 'border-gray-300 bg-white text-black hover:bg-gray-50'
+                    }`}
+                  >
+                    {i === 0 ? `พอดี ${formatBaht(amount)}` : formatBaht(amount)}
+                  </button>
+                ))}
+              </div>
+            )}
             {/* ยังบันทึกได้ (ช่องนี้ไว้คิดเงินทอนเฉย ๆ) แต่ต้องเตือนให้เห็น จะได้ไม่ปล่อยลูกค้าไปทั้งที่เงินขาด */}
             {Number(received) > 0 && change < 0 && (
               <span className="mt-1 block text-right text-sm font-semibold text-danger-ink">
@@ -647,7 +694,7 @@ function PaymentDialog({
                 เงินทอน {formatBaht(change)}
               </span>
             )}
-          </label>
+          </div>
         )}
 
         <label className="mt-4 block">
@@ -679,4 +726,10 @@ function PaymentDialog({
       </form>
     </Modal>
   )
+}
+
+/** ปุ่มเงินด่วน: ยอดพอดี + แบงก์ที่ปัดขึ้นถัดไป (100 / 500 / 1000) ไม่ซ้ำกัน สูงสุด 4 ปุ่ม */
+function quickCash(amount: number) {
+  const steps = [100, 500, 1000].map((note) => Math.ceil(amount / note) * note)
+  return [...new Set([amount, ...steps])].filter((v) => v >= amount).slice(0, 4)
 }
