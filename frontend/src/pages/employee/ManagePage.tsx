@@ -19,9 +19,15 @@ import { IngredientsPanel } from './IngredientsPanel'
 import { MenuFormDialog } from './MenuFormDialog'
 import { formatBaht } from '@/lib/format'
 import { useSlashFocus } from '@/lib/use-slash-focus'
-import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 type Tab = 'menu' | 'ingredient'
+
+/**
+ * กดสวิตช์เปิด/ปิดขายรัว ๆ — สวิตช์เปลี่ยนทันที แต่รอให้หยุดกดเท่านี้ก่อนค่อยบันทึกสถานะสุดท้ายครั้งเดียว
+ * เดิมกดทีละครั้งยิง API ทุกครั้ง กดถี่ ๆ จนโดน rate limit (429) แล้วทั้งหน้าโหลดเมนูไม่ได้ไปเกือบนาที
+ */
+const TOGGLE_DELAY_MS = 600
 
 export function ManagePage() {
   const itemsQuery = useMenuItems()
@@ -45,6 +51,9 @@ export function ManagePage() {
   const [selected, setSelected] = useState<Set<Id> | null>(null)
   /** เมนูที่กำลังบันทึกสถานะอยู่ — ล็อกเฉพาะตัวเหล่านี้ */
   const [busyIds, setBusyIds] = useState<Set<Id>>(new Set())
+  /** สถานะที่กดไว้แต่ยังรอบันทึก (ระหว่าง TOGGLE_DELAY_MS) — สวิตช์โชว์ค่านี้ก่อนค่าจาก server */
+  const [draftAvailability, setDraftAvailability] = useState<Map<Id, boolean>>(new Map())
+  const toggleTimers = useRef(new Map<Id, ReturnType<typeof setTimeout>>())
   /** null = ปิดฟอร์ม, 'new' = เพิ่มใหม่, object = แก้ไขเมนูนั้น */
   const [editing, setEditing] = useState<MenuItem | 'new' | null>(null)
   /** เมนูที่กำลังถามยืนยันว่าจะลบ — null = ไม่มีกล่องเปิดอยู่ */
@@ -110,6 +119,39 @@ export function ManagePage() {
       label: 'เลิกทำ',
       run: () => applyAvailability(done, !next),
     })
+  }
+
+  // ออกจากหน้าระหว่างรอ = ทิ้งที่ยังไม่บันทึก ไม่ยิง API หลังหน้าถูกปิดไปแล้ว
+  useEffect(() => {
+    const timers = toggleTimers.current
+    return () => {
+      for (const timer of timers.values()) clearTimeout(timer)
+    }
+  }, [])
+
+  const clearDraft = (id: Id) =>
+    setDraftAvailability((prev) => {
+      const rest = new Map(prev)
+      rest.delete(id)
+      return rest
+    })
+
+  /** สวิตช์ของการ์ดเมนู — เปลี่ยนให้เห็นทันที แล้วบันทึกเฉพาะสถานะสุดท้ายเมื่อหยุดกด */
+  const queueToggle = (item: MenuItem, next: boolean) => {
+    setDraftAvailability((prev) => new Map(prev).set(item.id, next))
+    clearTimeout(toggleTimers.current.get(item.id))
+    toggleTimers.current.set(
+      item.id,
+      setTimeout(() => {
+        toggleTimers.current.delete(item.id)
+        // กดกลับมาที่เดิม = ไม่มีอะไรเปลี่ยน ไม่ต้องยิง
+        if (next === item.isAvailable) {
+          clearDraft(item.id)
+          return
+        }
+        void applyAvailability([item.id], next).finally(() => clearDraft(item.id))
+      }, TOGGLE_DELAY_MS),
+    )
   }
 
   const toggleSelected = (id: Id) =>
@@ -284,20 +326,23 @@ export function ManagePage() {
             )}
 
             <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
-              {visible.map((item) => (
-                <li key={item.id} className="flex">
-                  <MenuCard
-                    item={item}
-                    category={categoryName.get(item.categoryId)}
-                    busy={busyIds.has(item.id)}
-                    selecting={selected !== null}
-                    selected={selected?.has(item.id) ?? false}
-                    onSelect={() => toggleSelected(item.id)}
-                    onToggle={(next) => applyAvailability([item.id], next)}
-                    onEdit={() => setEditing(item)}
-                  />
-                </li>
-              ))}
+              {visible.map((item) => {
+                const draft = draftAvailability.get(item.id)
+                return (
+                  <li key={item.id} className="flex">
+                    <MenuCard
+                      item={draft === undefined ? item : { ...item, isAvailable: draft }}
+                      category={categoryName.get(item.categoryId)}
+                      busy={busyIds.has(item.id)}
+                      selecting={selected !== null}
+                      selected={selected?.has(item.id) ?? false}
+                      onSelect={() => toggleSelected(item.id)}
+                      onToggle={(next) => queueToggle(item, next)}
+                      onEdit={() => setEditing(item)}
+                    />
+                  </li>
+                )
+              })}
             </ul>
           </div>
 
