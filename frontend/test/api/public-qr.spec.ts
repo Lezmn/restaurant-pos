@@ -140,3 +140,19 @@ test('หลังจ่ายครบ token เดิมสั่งเพิ�
   )
   expect(pending).toHaveLength(0)
 })
+
+test('สั่งเมนูที่ปิดขาย → 400 พร้อมชื่อเมนู ไม่ใช่ uuid', async ({ request }) => {
+  const { session } = await openNewSession(request, t)
+  await ok(await call(request, 'PATCH', `/menu/${water.id}/availability`, { token: t.KITCHEN, data: { isAvailable: false } }))
+  try {
+    const res = await call(request, 'POST', '/public/orders', {
+      data: { sessionToken: session.token, items: [{ menuItemId: water.id, quantity: 1 }] },
+    })
+    expect(res.status()).toBe(400)
+    const { message } = await res.json()
+    expect(message).toContain('น้ำเปล่า')
+    expect(message).not.toContain(water.id)
+  } finally {
+    await ok(await call(request, 'PATCH', `/menu/${water.id}/availability`, { token: t.KITCHEN, data: { isAvailable: true } }))
+  }
+})

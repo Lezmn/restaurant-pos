@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   ArrayUnique,
   IsArray,
@@ -13,6 +14,8 @@ import {
 
 export class CreateMenuItemDto {
   @ApiProperty({ example: 'ผัดไทยกุ้งสด' })
+  // trim ก่อน validate — ไม่งั้นชื่อช่องว่างล้วนผ่าน IsNotEmpty
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsNotEmpty()
   name: string;

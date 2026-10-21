@@ -151,7 +151,8 @@ export function EmployeeLayout() {
         <Outlet />
       </main>
 
-      <CallStaffAlert />
+      {/* GET /service-requests เป็น @Roles(ADMIN, STAFF) — ครัว mount แล้วจะยิงโดน 403 ทุก event */}
+      {user && pageRoles.requests.includes(user.role) && <CallStaffAlert />}
       <Toaster />
 
       {/* แถบล่าง 4 ปุ่มตามดีไซน์ — active เป็นบล็อกส้มเต็ม */}

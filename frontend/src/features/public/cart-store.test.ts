@@ -1,7 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { MAX_ITEM_QUANTITY } from '@/lib/config'
 import type { MenuItem } from '@/types/models'
-import { cartCount, cartTotal, lineTotal, lineUnitPrice, repriceLines, useCart } from './cart-store'
+import {
+  cartCount,
+  cartTotal,
+  lineTotal,
+  lineUnitPrice,
+  repriceLines,
+  unavailableLineIds,
+  useCart,
+} from './cart-store'
 
 const kaprao = {
   menuItemId: 'm1',
@@ -20,7 +28,7 @@ const state = () => useCart.getState()
 
 describe('cart-store', () => {
   beforeEach(() => {
-    useCart.setState({ token: null, lines: [] })
+    useCart.setState({ token: null, lines: [], repriced: [] })
   })
 
   it('ราคา/บรรทัด = (ราคาเมนู + ตัวเลือก) × จำนวน และยอดรวม/จำนวนรวม', () => {
@@ -122,7 +130,8 @@ describe('cart-store', () => {
 
     it('ราคาเมนู/ตัวเลือกเปลี่ยน → ตะกร้าใช้ราคาใหม่ และบอกชื่อเมนูที่เปลี่ยน', () => {
       state().add({ ...kaprao, quantity: 2 })
-      expect(state().syncPrices(menu(65, 15))).toEqual(['กะเพรา'])
+      state().syncPrices(menu(65, 15))
+      expect(state().repriced).toEqual(['กะเพรา'])
       expect(lineUnitPrice(state().lines[0])).toBe(80)
       expect(cartTotal(state().lines)).toBe(160)
     })
@@ -130,13 +139,21 @@ describe('cart-store', () => {
     it('ราคาเท่าเดิม → ไม่เปลี่ยนอะไร (กัน effect วนลูป)', () => {
       state().add(kaprao)
       const before = state().lines
-      expect(state().syncPrices(menu(60, 10))).toEqual([])
+      state().syncPrices(menu(60, 10))
+      expect(state().repriced).toEqual([])
       expect(state().lines).toBe(before)
     })
 
     it('เมนูหายจากเมนูลูกค้า → คงบรรทัดเดิมไว้', () => {
       const lines = [{ ...kaprao, lineId: 'x' }]
       expect(repriceLines(lines, []).lines).toBe(lines)
+    })
+
+    it('บรรทัดที่สั่งไม่ได้แล้ว: เมนูหาย / ตัวเลือกที่เลือกไว้หมด — ที่เหลือสั่งได้ปกติ', () => {
+      const ok = { ...kaprao, lineId: 'ok', options: [{ id: 'pork', name: 'หมู', price: 0 }] }
+      const optionGone = { ...kaprao, lineId: 'egg', options: [{ id: 'gone', name: 'ปู', price: 0 }] }
+      const itemGone = { ...kaprao, lineId: 'gone', menuItemId: 'm-off' }
+      expect([...unavailableLineIds([ok, optionGone, itemGone], menu(60, 10))]).toEqual(['egg', 'gone'])
     })
   })
 })

@@ -25,7 +25,6 @@ export function CustomerStatusPage() {
   const { token } = useParams()
   const { data: session } = useSession(token)
   const { data: orders, isPending } = useSessionOrders(token)
-  const callStaff = useCallStaff()
 
   if (isPending) return <p className="text-sm md:text-base text-gray-500">กำลังโหลด...</p>
 
@@ -44,15 +43,19 @@ export function CustomerStatusPage() {
       </p>
 
       {!latest ? (
-        <div className="mt-6 rounded-2xl border-2 border-brand-75 bg-white px-4 py-10 text-center">
-          <p className="text-sm md:text-base text-gray-500">ไม่มีออเดอร์</p>
-          <Link
-            to={`/t/${token}`}
-            className="mt-4 inline-block rounded-full bg-brand-300 px-6 py-2.5 text-sm md:text-base font-bold text-white"
-          >
-            เลือกเมนู
-          </Link>
-        </div>
+        <>
+          <div className="mt-6 rounded-2xl border-2 border-brand-75 bg-white px-4 py-10 text-center">
+            <p className="text-sm md:text-base text-gray-500">ไม่มีออเดอร์</p>
+            <Link
+              to={`/t/${token}`}
+              className="mt-4 inline-block rounded-full bg-brand-300 px-6 py-2.5 text-sm md:text-base font-bold text-white"
+            >
+              เลือกเมนู
+            </Link>
+          </div>
+          {/* ยังไม่สั่งก็ต้องเรียกพนักงานได้ (ถามเมนู ขอช้อนส้อม แพ้อาหาร) */}
+          <CallStaff token={token as string} />
+        </>
       ) : (
         <>
           {/* ครัวยกเลิกออเดอร์ = ลูกค้าต้องรู้ทันที ไม่ใช่นั่งรอของที่ไม่มีวันมา */}
@@ -130,20 +133,7 @@ export function CustomerStatusPage() {
           </div>
           )}
 
-          <button
-            type="button"
-            disabled={callStaff.isPending || callStaff.isSuccess}
-            onClick={() => callStaff.mutate({ token: token as string })}
-            className="mt-4 w-full rounded-xl border-2 border-brand-400 py-3 text-sm md:text-base font-bold text-brand-400 transition disabled:opacity-60"
-          >
-            📞 เรียกพนักงานเพื่อสอบถาม
-          </button>
-
-          {callStaff.isSuccess && (
-            <p className="mt-4 rounded-xl bg-success/10 py-3 text-center text-sm md:text-base font-semibold text-success">
-              กรุณารอพนักงานสักครู่
-            </p>
-          )}
+          <CallStaff token={token as string} />
 
           {/* รายการทั้งหมด */}
           <h2 className="mt-6 text-sm md:text-base font-semibold text-gray-700">
@@ -219,5 +209,28 @@ export function CustomerStatusPage() {
         </>
       )}
     </div>
+  )
+}
+
+/** ปุ่มเรียกพนักงาน — ใช้ทั้งตอนยังไม่มีออเดอร์และตอนมีแล้ว */
+function CallStaff({ token }: { token: string }) {
+  const callStaff = useCallStaff()
+  return (
+    <>
+      <button
+        type="button"
+        disabled={callStaff.isPending || callStaff.isSuccess}
+        onClick={() => callStaff.mutate({ token })}
+        className="mt-4 w-full rounded-xl border-2 border-brand-400 py-3 text-sm md:text-base font-bold text-brand-400 transition disabled:opacity-60"
+      >
+        📞 เรียกพนักงานเพื่อสอบถาม
+      </button>
+
+      {callStaff.isSuccess && (
+        <p className="mt-4 rounded-xl bg-success/10 py-3 text-center text-sm md:text-base font-semibold text-success">
+          กรุณารอพนักงานสักครู่
+        </p>
+      )}
+    </>
   )
 }

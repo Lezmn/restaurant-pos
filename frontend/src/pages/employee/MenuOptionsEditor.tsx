@@ -102,6 +102,7 @@ export function MenuOptionsEditor({
         disabled={busy}
         onAdd={(input) => createOption.mutate({ menuItemId, input })}
         usedIngredientIds={proteinIngredientIds(options)}
+        usedNames={options.map((o) => o.name)}
         onDraftChange={onDraftChange}
       />
 
@@ -197,6 +198,7 @@ export function PendingOptionsEditor({
         disabled={false}
         onAdd={(input) => onChange([...options, input])}
         usedIngredientIds={proteinIngredientIds(options)}
+        usedNames={options.map((o) => o.name)}
         onDraftChange={onDraftChange}
       />
     </section>
@@ -416,11 +418,14 @@ function NewOptionRow({
   onAdd,
   /** วัตถุดิบที่เป็นเนื้อสัตว์ในเมนูนี้แล้ว ใช้กันเลือกซ้ำ */
   usedIngredientIds = [],
+  /** ชื่อตัวเลือกที่มีในเมนูนี้แล้ว — ชื่อซ้ำลูกค้า/ครัวแยกไม่ออก (backend ตอบ 409) */
+  usedNames = [],
   onDraftChange,
 }: Readonly<{
   disabled: boolean
   onAdd: (input: MenuOptionInput) => void
   usedIngredientIds?: readonly Id[]
+  usedNames?: readonly string[]
   onDraftChange?: (dirty: boolean) => void
 }>) {
   const { data: ingredients } = useIngredients()
@@ -434,9 +439,11 @@ function NewOptionRow({
     (ing) => !usedIngredientIds.includes(ing.id),
   )
   const chosen = ingredients?.find((ing) => ing.id === ingredientId)
-  const canSubmit = isProtein
-    ? Boolean(chosen && !usedIngredientIds.includes(chosen.id))
-    : Boolean(name.trim())
+  const draftName = (isProtein ? (chosen?.name ?? '') : name).trim().toLowerCase()
+  const duplicate = Boolean(draftName) && usedNames.some((n) => n.trim().toLowerCase() === draftName)
+  const canSubmit =
+    !duplicate &&
+    (isProtein ? Boolean(chosen && !usedIngredientIds.includes(chosen.id)) : Boolean(name.trim()))
 
   // พิมพ์/เลือกค้างไว้แต่ยังไม่กด "+ เพิ่ม" — เดิมหายเงียบ ๆ ตอนบันทึกเมนูหรือปิดกล่อง
   const dirty = Boolean(name.trim() || price.trim() || ingredientId)
@@ -518,10 +525,16 @@ function NewOptionRow({
         </button>
       </div>
 
-      {dirty && (
-        <p className="mt-2 text-sm font-semibold text-amber-800">
-          ยังไม่ได้เพิ่ม — กด "+ เพิ่ม" หรือ Enter
+      {duplicate ? (
+        <p role="alert" className="mt-2 text-sm font-semibold text-danger-ink">
+          เมนูนี้มีตัวเลือกชื่อนี้แล้ว
         </p>
+      ) : (
+        dirty && (
+          <p className="mt-2 text-sm font-semibold text-amber-800">
+            ยังไม่ได้เพิ่ม — กด "+ เพิ่ม" หรือ Enter
+          </p>
+        )
       )}
 
       {isProtein && proteinChoices.length === 0 && (

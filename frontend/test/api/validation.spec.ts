@@ -160,3 +160,19 @@ test('ชื่อที่เป็นช่องว่างล้วน/ว�
   }
   expect(created).toEqual([])
 })
+
+test('ตัวเลือกชื่อซ้ำในเมนูเดียวกัน → 409 (ตัวพิมพ์เล็ก/ใหญ่ และช่องว่างหัวท้ายถือว่าซ้ำ)', async ({ request }) => {
+  const name = `ทดสอบซ้ำ ${Date.now()}`
+  const first = await ok<{ id: string }>(
+    await call(request, 'POST', `/menu/${friedRice.id}/options`, { token: t.ADMIN, data: { name, price: 5 } }),
+  )
+  try {
+    const again = await call(request, 'POST', `/menu/${friedRice.id}/options`, {
+      token: t.ADMIN,
+      data: { name: `  ${name}  `, price: 5 },
+    })
+    expect(again.status()).toBe(409)
+  } finally {
+    await call(request, 'DELETE', `/menu/${friedRice.id}/options/${first.id}`, { token: t.ADMIN })
+  }
+})

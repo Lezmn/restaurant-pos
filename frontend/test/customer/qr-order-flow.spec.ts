@@ -182,6 +182,36 @@ test('แอดมินเปลี่ยนราคาระหว่าง�
   }
 })
 
+test('เมนูถูกปิดขายระหว่างอยู่ในตะกร้า → ขึ้น "หมดชั่วคราว" ส่งไม่ได้จนกว่าจะเอาออก', async ({ browser, request }) => {
+  const { token } = await openFreshTable(request)
+  const kitchen = await loginViaApi(request, 'kitchen', SEED_PASSWORD)
+  const headers = { Authorization: `Bearer ${kitchen.accessToken}` }
+  const menu = await (await request.get(`${API_URL}/public/menu`)).json()
+  const water = menu
+    .flatMap((c: { menuItems: { id: string; name: string }[] }) => c.menuItems)
+    .find((m: { name: string }) => m.name === 'น้ำเปล่า')
+
+  const customer = await phone(browser)
+  try {
+    await customer.goto(`/t/${token}`)
+    await customer.getByRole('link', { name: /^น้ำเปล่า น้ำเปล่า/ }).click()
+    await customer.getByRole('button', { name: /เพิ่มรายการ/ }).click()
+    await expect(customer.getByRole('heading', { name: 'รายการอาหาร' })).toBeVisible()
+
+    const off = await request.patch(`${API_URL}/menu/${water.id}/availability`, { headers, data: { isAvailable: false } })
+    expect(off.ok()).toBe(true)
+
+    // ครัวปิดขาย → menu.updated → ตะกร้ารู้เองโดยไม่ refresh
+    await expect(customer.getByText('หมดชั่วคราว', { exact: true })).toBeVisible()
+    await expect(customer.getByRole('button', { name: '➤ ส่งรายการเข้าครัว' })).toBeDisabled()
+    await customer.getByRole('button', { name: 'เอาออก' }).click()
+    await expect(customer.getByText('ยังไม่มีรายการที่เลือก')).toBeVisible()
+  } finally {
+    await request.patch(`${API_URL}/menu/${water.id}/availability`, { headers, data: { isAvailable: true } })
+    await customer.context().close()
+  }
+})
+
 test('ลูกค้าที่ยังไม่ได้สั่งอะไร ต้องเรียกพนักงานได้ (เช่น ถามเมนู/ขอช้อนส้อม)', async ({ browser, request }) => {
   const { token } = await openFreshTable(request)
   const customer = await phone(browser)
@@ -190,6 +220,8 @@ test('ลูกค้าที่ยังไม่ได้สั่งอะ�
   // ทั้งหน้าเมนูและหน้าสถานะ ต้องมีทางเรียกพนักงานอย่างน้อยหนึ่งทาง
   const onMenu = await customer.getByRole('button', { name: /เรียกพนักงาน/ }).count()
   await customer.goto(`/t/${token}/status`)
+  // count() ไม่รอ — ต้องรอให้หน้าโหลดเสร็จก่อน ไม่งั้นนับตอนยัง "กำลังโหลด..."
+  await expect(customer.getByRole('heading', { name: 'ติดตามสถานะออเดอร์' })).toBeVisible()
   const onStatus = await customer.getByRole('button', { name: /เรียกพนักงาน/ }).count()
   expect(onMenu + onStatus).toBeGreaterThan(0)
   await customer.context().close()

@@ -123,3 +123,18 @@ test('KITCHEN เข้าหน้า Manage ได้: เปิด/ปิด�
   await expect(page.getByRole('button', { name: 'เพิ่มวัตถุดิบ' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'ลบ', exact: true })).toHaveCount(0)
 })
+
+test('จอครัวไม่ยิง /service-requests (ADMIN/STAFF เท่านั้น) — ไม่มี 403 เต็ม console', async ({ page, request }) => {
+  const hits: number[] = []
+  page.on('response', (res) => {
+    // นับเฉพาะ API — Vite เสิร์ฟไฟล์ /src/features/service-requests/* ชื่อคล้ายกัน
+    if (res.url().startsWith(`${API_URL}/service-requests`)) hits.push(res.status())
+  })
+  await loginAsKitchen(page, request)
+  await page.goto('/employee/order')
+  await expect(page.getByRole('heading', { name: 'รอคิว' })).toBeVisible()
+  // มีออเดอร์ใหม่เข้า = socket event ที่เคยทำให้ refetch service-requests
+  await freshOrder(request)
+  await page.waitForTimeout(2000)
+  expect(hits).toEqual([])
+})

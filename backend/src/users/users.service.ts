@@ -80,8 +80,10 @@ export class UsersService {
     if (id === currentUserId) {
       throw new BadRequestException('ลบบัญชีของตัวเองไม่ได้');
     }
-    await this.findOne(id);
+    const user = await this.findOne(id);
     await this.prisma.user.delete({ where: { id } });
+    // คืนผู้ใช้ที่ลบไป (ไม่มี password) — ตอบ body ว่างแล้ว client ที่ parse JSON จะพัง
+    return user;
   }
 
   private mapPrismaError(e: unknown): Error {

@@ -350,7 +350,8 @@ export class OrdersService {
         throw new BadRequestException(`ไม่พบเมนู id: ${item.menuItemId}`);
       }
       if (!menuItem.isAvailable) {
-        throw new BadRequestException(`เมนู id: ${item.menuItemId} ไม่พร้อมขายตอนนี้`);
+        // ลูกค้าเห็นข้อความนี้ตรง ๆ — ต้องเป็นชื่อเมนู ไม่ใช่ uuid
+        throw new BadRequestException(`"${menuItem.name}" ปิดขายชั่วคราว — ลบออกจากตะกร้าก่อนสั่ง`);
       }
       this.assertMenuIngredientsAvailable(menuItem);
     }

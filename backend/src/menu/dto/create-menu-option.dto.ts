@@ -1,9 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MenuOptionGroup } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsEnum,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -13,7 +14,10 @@ import {
 
 export class CreateMenuOptionDto {
   @ApiProperty({ example: 'ไข่ดาว' })
+  // trim ก่อน validate — ไม่งั้น "   " ผ่าน IsNotEmpty แล้วกลายเป็นชื่อว่าง
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
+  @IsNotEmpty()
   name: string;
 
   @ApiPropertyOptional({
