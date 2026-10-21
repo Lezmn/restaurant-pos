@@ -1,6 +1,5 @@
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ErrorNote } from '@/components/ui/ErrorNote'
-import { Switch } from '@/components/ui/Switch'
 import { button } from '@/components/ui/styles'
 import {
   useCreateMenuOption,
@@ -24,7 +23,8 @@ const inputClass =
   'min-h-10 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-400/25'
 
 /**
- * จัดการตัวเลือกของเมนู (หมู/ไก่/ไข่ดาว) — เพิ่ม, แก้, เปิด-ปิดให้เลือก, ลบ
+ * จัดการตัวเลือกของเมนู (หมู/ไก่/ไข่ดาว) — เพิ่ม, แก้, ลบ
+ * ไม่มีสวิตช์เปิด/ปิดรายตัวเลือก ของหมดให้ปิดที่วัตถุดิบที่เดียว
  * ทุกปุ่มยิง API ทันที ไม่รอปุ่ม "บันทึก" ของฟอร์มเมนู เพราะตัวเลือกเป็น resource แยกใน backend
  * อ่านข้อมูลสดจาก useMenuItem ไม่ใช่ prop เพราะหลังเพิ่ม/แก้ต้องเห็นผลทันทีโดยไม่ปิด dialog
  */
@@ -37,7 +37,10 @@ export function MenuOptionsEditor({ menuItemId }: { menuItemId: Id }) {
   /** ตัวเลือกที่กำลังถามยืนยันว่าจะลบ */
   const [deleting, setDeleting] = useState<MenuOption | null>(null)
 
-  const options = item?.optionGroups.flatMap((g) => g.options) ?? []
+  // isAvailable = false คือตัวเลือกที่ลบไปแล้วแต่เคยถูกสั่ง (เก็บไว้ให้ประวัติออเดอร์) ไม่ต้องโชว์
+  const options = (item?.optionGroups.flatMap((g) => g.options) ?? []).filter(
+    (o) => o.isAvailable,
+  )
   const busy =
     createOption.isPending || updateOption.isPending || deleteOption.isPending
   const error = createOption.error ?? updateOption.error ?? deleteOption.error
@@ -46,8 +49,8 @@ export function MenuOptionsEditor({ menuItemId }: { menuItemId: Id }) {
     <section className="rounded-xl border border-gray-200 bg-gray-50 p-3">
       <h3 className="text-sm font-bold text-gray-800">ตัวเลือกของเมนู</h3>
       <p className="mt-0.5 text-sm text-gray-600">
-        ผูกวัตถุดิบไว้ = เปิด/ปิดที่แท็บ "วัตถุดิบ" ที่เดียว ของหมดทีเดียวหายทุกเมนู ·
-        ไม่ผูก = ใช้สวิตช์ของตัวเลือกเอง
+        ของหมดให้ปิดที่แท็บ "วัตถุดิบ" ที่เดียว ตัวเลือกที่ผูกไว้จะหายทุกเมนู ·
+        ตัวเลือกที่ไม่ผูกวัตถุดิบ (เช่น พิเศษ) เปิดขายตลอด
       </p>
 
       <div className="mt-2">
@@ -66,13 +69,6 @@ export function MenuOptionsEditor({ menuItemId }: { menuItemId: Id }) {
                   key={option.id}
                   option={option}
                   disabled={busy}
-                  onToggle={(isAvailable) =>
-                    updateOption.mutate({
-                      menuItemId,
-                      optionId: option.id,
-                      input: { isAvailable },
-                    })
-                  }
                   onSave={(input) =>
                     updateOption.mutate({ menuItemId, optionId: option.id, input })
                   }
@@ -103,8 +99,8 @@ export function MenuOptionsEditor({ menuItemId }: { menuItemId: Id }) {
           }
           consequence={
             deleting.ingredientId
-              ? 'ถ้าตัวเลือกนี้เคยถูกสั่งไปแล้วจะลบไม่ได้ — ถ้าแค่ของหมด ให้ปิดที่แท็บ "วัตถุดิบ" แทน'
-              : 'ถ้าตัวเลือกนี้เคยถูกสั่งไปแล้วจะลบไม่ได้ — ให้ปิดสวิตช์แทนเพื่อซ่อนจากลูกค้า'
+              ? 'ตัวเลือกจะหายจากเมนูนี้ (ประวัติออเดอร์ยังอยู่ครบ) — ถ้าแค่ของหมด ให้ปิดที่แท็บ "วัตถุดิบ" แทน'
+              : 'ตัวเลือกจะหายจากเมนูนี้ (ประวัติออเดอร์ยังอยู่ครบ)'
           }
           confirmLabel="ลบตัวเลือก"
           pendingLabel="กำลังลบ..."
@@ -237,13 +233,11 @@ function IngredientSelect({
 function OptionRow({
   option,
   disabled,
-  onToggle,
   onSave,
   onDelete,
 }: {
   option: MenuOption
   disabled: boolean
-  onToggle: (isAvailable: boolean) => void
   onSave: (input: {
     name: string
     price: number
@@ -329,7 +323,7 @@ function OptionRow({
     )
   }
 
-  const closed = linked ? option.ingredientOutOfStock : !option.isAvailable
+  const closed = linked && option.ingredientOutOfStock
 
   return (
     <li
@@ -351,13 +345,10 @@ function OptionRow({
         {option.price > 0 && (
           <span className="ml-1 text-sm text-gray-600">+{formatBaht(option.price)}</span>
         )}
-        {!linked && !option.isAvailable && (
-          <span className="ml-2 text-sm font-semibold text-danger-ink">ปิดอยู่</span>
-        )}
       </span>
 
-      {/* ผูกวัตถุดิบ = เปิด/ปิดที่แท็บวัตถุดิบที่เดียว ตรงนี้บอกสถานะอย่างเดียว ไม่มีสวิตช์ซ้อน */}
-      {linked ? (
+      {/* เปิด/ปิดที่แท็บวัตถุดิบที่เดียว ตรงนี้บอกสถานะอย่างเดียว */}
+      {linked && (
         <span
           title='เปิด/ปิดที่แท็บ "วัตถุดิบ"'
           className={`shrink-0 rounded-full px-2.5 py-1 text-sm font-semibold ${
@@ -370,13 +361,6 @@ function OptionRow({
           {option.ingredientName !== option.name && `${option.ingredientName} · `}
           {option.ingredientOutOfStock ? 'หมด' : 'มีของ'}
         </span>
-      ) : (
-        <Switch
-          checked={option.isAvailable}
-          label={`เปิดให้เลือก ${option.name}`}
-          busy={disabled}
-          onChange={onToggle}
-        />
       )}
 
       <button

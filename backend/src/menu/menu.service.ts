@@ -153,6 +153,10 @@ export class MenuService {
     }
   }
 
+  /**
+   * ลบตัวเลือก — ที่เคยถูกสั่งแล้วลบจริงไม่ได้ (order_item_options อ้างอยู่)
+   * จึงซ่อนแทน: ปิดขาย + ปลดวัตถุดิบ หน้าจัดการ/ลูกค้าจะไม่เห็นอีก ประวัติออเดอร์ยังอยู่ครบ
+   */
   async removeOption(menuItemId: string, optionId: string) {
     await this.findOptionOrThrow(menuItemId, optionId);
     try {
@@ -160,7 +164,18 @@ export class MenuService {
         await this.prisma.menuOption.delete({ where: { id: optionId } }),
       );
     } catch (e) {
-      throw this.mapOptionDeleteError(e);
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2003'
+      ) {
+        return this.notifyMenuChanged(
+          await this.prisma.menuOption.update({
+            where: { id: optionId },
+            data: { isAvailable: false, ingredientId: null },
+          }),
+        );
+      }
+      throw e;
     }
   }
 
@@ -208,18 +223,6 @@ export class MenuService {
     ) {
       return new BadRequestException(
         'ลบไม่ได้: เมนูนี้ถูกสั่งไปแล้วในออเดอร์ที่มีอยู่ ให้ปิด "พร้อมจำหน่าย" แทนการลบ',
-      );
-    }
-    return e as Error;
-  }
-
-  private mapOptionDeleteError(e: unknown): Error {
-    if (
-      e instanceof Prisma.PrismaClientKnownRequestError &&
-      e.code === 'P2003'
-    ) {
-      return new BadRequestException(
-        'ลบไม่ได้: ตัวเลือกนี้ถูกใช้ในออเดอร์ที่มีอยู่แล้ว ให้ปิดขาย (isAvailable: false) แทนการลบ',
       );
     }
     return e as Error;
