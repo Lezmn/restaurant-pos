@@ -1,5 +1,10 @@
 import { defineConfig, devices } from '@playwright/test'
 
+// ค่าเริ่มต้นเหมือนเดิม (เว็บ 5173 / API 3000) — override ได้ด้วย env เวลาต้องรันชุดทดสอบ
+// แยกจาก dev server ที่เปิดค้างอยู่ เช่น E2E_BASE_URL=http://localhost:5273 E2E_API_URL=http://localhost:3100
+const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:5173'
+const SLOW_MO = Number(process.env.E2E_SLOWMO ?? 1000)
+
 export default defineConfig({
   testDir: './test',
   fullyParallel: true,
@@ -7,12 +12,13 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:5173',
-    trace: 'on-first-retry',
+    baseURL: BASE_URL,
+    trace: process.env.E2E_TRACE === 'on' ? 'retain-on-failure' : 'on-first-retry',
+    screenshot: 'only-on-failure',
     // หน่วงระหว่างแต่ละ action (ms) ให้ดูทันตอนรันแบบ --headed
     // ไม่กระทบตอนรันแบบ headless/CI เพราะเห็นผลแค่ตอนมี browser window จริง
     launchOptions: {
-      slowMo: 1000,
+      slowMo: SLOW_MO,
     },
   },
   projects: [
@@ -22,7 +28,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:5173',
+    url: BASE_URL,
     reuseExistingServer: !process.env.CI,
   },
 })
