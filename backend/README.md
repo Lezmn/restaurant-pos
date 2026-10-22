@@ -148,28 +148,23 @@ npm run start:dev
 
 ค่าลับทั้งหมดอ่านจาก `.env` (ไม่ commit) — `docker-compose.yml` ไม่มีรหัสจริงอยู่ในไฟล์
 
-## ก่อนขึ้น production (ยังไม่พร้อม)
+## Production
 
-**สิ่งที่ยังขาด**
+ใช้ `docker-compose.prod.yml` ที่โฟลเดอร์ราก repo — ขั้นตอนเต็มอยู่ที่ [`../docs/DEPLOY.md`](../docs/DEPLOY.md)
 
-- `Dockerfile` ยังเป็น dev: ติดตั้ง devDependencies และ `CMD` รัน `npm run start:dev` — ต้องมี stage ที่ `npm run build` แล้วรัน `npm run start:prod` (`node dist/main`)
-- `docker-compose.yml` mount `./src` / `./prisma` เข้า container, และเปิด port Postgres ที่ 127.0.0.1 — ต้องมี compose แยกสำหรับ prod ที่ไม่มีสิ่งเหล่านี้
-- ยังไม่มี reverse proxy / HTTPS
+- `Dockerfile` มี 3 target: `dev` (compose ไฟล์นี้), `build` (migrate + seed:prod), `prod` (`node dist/main` ไม่มี devDependencies)
+- Caddy ทำ HTTPS อัตโนมัติ + reverse proxy, API ตั้ง `TRUST_PROXY=true` ให้เอง
+- `GET /health` เช็ค DB — ใช้กับ HEALTHCHECK / uptime monitor
+- สำรองข้อมูลทุกวัน + กู้ข้อมูล: [`../docs/OPERATIONS.md`](../docs/OPERATIONS.md)
 
-**เช็คลิสต์ `.env` เมื่อพร้อม deploy**
+สร้าง ADMIN คนแรก (ห้ามใช้ `prisma:seed` ที่เป็นข้อมูล demo):
 
-1. `cp .env.example .env` แล้วตั้งค่า:
-   - `JWT_SECRET` — สุ่มใหม่ `openssl rand -base64 48`
-   - `POSTGRES_PASSWORD` — รหัส DB ใหม่ (ถ้าเปลี่ยนหลังสร้าง volume แล้ว ต้องลบ volume หรือ `ALTER USER` เอง)
-   - `NODE_ENV=production`
-   - `CORS_ORIGIN` = โดเมนจริงของ frontend
-   - `TRUST_PROXY=true` ถ้าอยู่หลัง nginx (ไม่งั้น rate limit จะเห็นทุกคนเป็น IP เดียว)
-2. สร้าง ADMIN คนแรก (ห้ามใช้ `prisma:seed` ที่เป็นข้อมูล demo):
-   ```bash
-   ADMIN_EMAIL=owner@ร้าน.com ADMIN_PASSWORD=รหัสจริง TABLE_COUNT=8 npm run prisma:seed:prod
-   ```
-   รันซ้ำได้ ไม่ทับข้อมูลเดิม (มี user/โต๊ะอยู่แล้วจะข้าม)
-3. เพิ่มพนักงานคนอื่นผ่าน `POST /users` หรือหน้าจัดการพนักงานใน frontend
+```bash
+docker compose -f docker-compose.prod.yml run --rm -e ADMIN_EMAIL=owner@restaurant.local -e ADMIN_PASSWORD='<รหัสชั่วคราว>' -e TABLE_COUNT=8 migrate npm run prisma:seed:prod
+```
+
+ADMIN คนแรกต้องตั้งรหัสใหม่ตอน login ครั้งแรก (`ADMIN_MUST_CHANGE_PASSWORD=false` ถ้าเจ้าของร้านพิมพ์รหัสเอง) — รันซ้ำได้ ไม่ทับข้อมูลเดิม
+แล้วเพิ่มบัญชีกลางของครัว/หน้าร้านที่หน้า "บัญชีผู้ใช้"
 
 ## WebSocket (realtime)
 
