@@ -1,0 +1,143 @@
+# CI — ทุก PR และทุก push เข้า main: typecheck + unit test + build + build Docker image
+# E2E (Playwright) รันเฉพาะตอนกดเอง (Actions → CI → Run workflow) เพราะช้า (~7 นาที)
+# ตกลงกันไว้ว่าระหว่างทำฟีเจอร์ไม่รัน E2E ทุกครั้ง — รันครบก่อนส่งมอบ
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      e2e:
+        description: รัน E2E (Playwright) ทั้งชุดด้วย
+        type: boolean
+        default: true
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.json
+      - name: Unit tests
+        run: npx jest --ci
+      - name: Build
+        run: npm run build
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests
+        run: npm test
+      - name: Production build (tsc + vite, ตรวจ CSP/https guard ด้วย)
+        run: npm run build
+        env:
+          VITE_API_URL: https://api.example.com
+
+  docker:
+    # Dockerfile พังจะรู้ตั้งแต่ PR ไม่ใช่ตอน deploy จริงที่ร้าน
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build API image (target prod)
+        run: docker build --target prod -t restaurant-api:ci backend
+      - name: Build migrate image (target build)
+        run: docker build --target build -t restaurant-migrate:ci backend
+      - name: Build web image
+        run: docker build --build-arg VITE_API_URL=https://api.example.com -t restaurant-web:ci frontend
+
+  e2e:
+    if: github.event_name == 'workflow_dispatch' && inputs.e2e
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: restaurant
+          POSTGRES_PASSWORD: ci-password
+          POSTGRES_DB: restaurant_e2e
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U restaurant -d restaurant_e2e"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://restaurant:ci-password@localhost:5432/restaurant_e2e?schema=public
+      TZ: Asia/Bangkok
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Backend — migrate + seed demo data
+        working-directory: backend
+        run: |
+          npm ci
+          npx prisma migrate deploy
+          npm run prisma:seed
+          npm run build
+      - name: Start API (port 3000, login limit เปิดกว้างเพราะเทสต์ login ทุกเคส)
+        working-directory: backend
+        env:
+          PORT: 3000
+          JWT_SECRET: ci-only-secret-not-for-production
+          CORS_ORIGIN: http://localhost:5173
+          LOGIN_THROTTLE_LIMIT: 1000
+          SLIPOK_MOCK: 'true'
+        run: |
+          nohup node dist/main > ../api.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:3000/health && break; sleep 2; done
+      - name: Frontend deps + browser
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install-deps chromium
+      - name: Playwright
+        working-directory: frontend
+        env:
+          CI: 'true'
+          E2E_SLOWMO: 0
+          VITE_API_URL: http://localhost:3000
+        run: npx playwright test --workers=1 --reporter=line
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+            api.log
+          retention-days: 7
