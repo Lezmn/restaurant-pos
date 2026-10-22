@@ -28,13 +28,22 @@ describe('AuthService', () => {
 
   it('login สำเร็จ: คืน JWT ที่มี sub/role และไม่คืน password', async () => {
     prisma.user.findUnique.mockResolvedValue({
-      id: 'u1', name: 'A', email: 'a@x', role: Role.STAFF, password: hash,
+      id: 'u1', name: 'A', email: 'a@x', role: Role.STAFF, password: hash, isActive: true,
     });
     const r = await service.login({ email: 'a@x', password: 'correct-password' });
     expect(r.user).toEqual({ id: 'u1', name: 'A', email: 'a@x', role: Role.STAFF });
     expect(JSON.stringify(r)).not.toContain(hash);
     const payload = jwt.verify(r.accessToken);
     expect(payload).toMatchObject({ sub: 'u1', role: Role.STAFF });
+  });
+
+  it('บัญชีที่ปิดใช้งาน → 401 แม้รหัสถูก', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'u1', name: 'A', email: 'a@x', role: Role.STAFF, password: hash, isActive: false,
+    });
+    const e = await service.login({ email: 'a@x', password: 'correct-password' }).catch((x) => x);
+    expect(e).toBeInstanceOf(UnauthorizedException);
+    expect(e.message).toContain('ปิดใช้งาน');
   });
 
   it('รหัสผิด → 401 ข้อความเดียวกับไม่พบอีเมล (ไม่บอกว่ามีอีเมลนี้)', async () => {
@@ -47,11 +56,11 @@ describe('AuthService', () => {
     expect(wrong.message).toBe(missing.message);
   });
 
-  it('changePassword: รหัสเดิมผิด → 401, รหัสใหม่ซ้ำเดิม → 400, สำเร็จ → hash ใหม่', async () => {
+  it('changePassword: รหัสเดิมผิด → 400 (ไม่ใช่ 401 ที่ทำให้หน้าเว็บเด้ง logout), รหัสใหม่ซ้ำเดิม → 400, สำเร็จ → hash ใหม่', async () => {
     prisma.user.findUnique.mockResolvedValue({ id: 'u1', password: hash });
     await expect(
       service.changePassword('u1', { currentPassword: 'nope-nope', newPassword: 'new-password-1' }),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
       service.changePassword('u1', { currentPassword: 'correct-password', newPassword: 'correct-password' }),
     ).rejects.toBeInstanceOf(BadRequestException);

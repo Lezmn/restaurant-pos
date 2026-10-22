@@ -84,6 +84,9 @@ model User {
   email     String   @unique
   password  String
   role      Role     @default(STAFF)
+  /// false = ปิดใช้งาน (พนักงานลาออก) — login ไม่ได้ และ token ที่ถืออยู่ใช้ต่อไม่ได้ทันที
+  /// ใช้แทนการลบ เพราะคนที่เคยปิดยอด/เบิกเงินมีประวัติผูกอยู่ ลบแล้วประวัติจะไม่รู้ว่าใครทำ
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

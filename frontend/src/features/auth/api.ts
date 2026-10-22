@@ -36,3 +36,14 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
 
   return { accessToken: data.accessToken, user: mapUser(data.user) }
 }
+
+/** PATCH /auth/password — ทุก role เปลี่ยนรหัสของตัวเองได้ ต้องใส่รหัสเดิม (กันคนหยิบเครื่องที่ login ค้างไปเปลี่ยน) */
+export async function changePassword(vars: {
+  currentPassword: string
+  newPassword: string
+}): Promise<void> {
+  await apiClient<unknown>('/auth/password', {
+    method: 'PATCH',
+    body: JSON.stringify(vars),
+  })
+}

@@ -44,9 +44,13 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'แก้ไขข้อมูลพนักงาน (เปลี่ยนรหัสผ่านได้ด้วย)' })
-  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
-    return this.usersService.update(id, dto);
+  @ApiOperation({ summary: 'แก้ไขข้อมูลพนักงาน (ตั้งรหัสผ่านใหม่ / ปิดใช้งานได้ด้วย)' })
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserDto,
+    @Req() request: { user: AuthenticatedUser },
+  ) {
+    return this.usersService.update(id, dto, request.user.id);
   }
 
   @Delete(':id')
