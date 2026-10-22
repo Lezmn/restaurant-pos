@@ -34,7 +34,8 @@ test('cashier เก็บเงินสดสำเร็จ เห็นใ�
   const dialog = page.getByRole('dialog', { name: `รับเงิน โต๊ะ ${tableName}` })
   await expect(dialog).toBeVisible()
   await expect(dialog.getByRole('button', { name: 'เงินสด' })).toHaveAttribute('aria-pressed', 'true')
-  await expect(dialog.getByLabel('ราคาที่เก็บจริง')).toHaveValue('50')
+  // หน้า Check ใหม่ซ่อนช่องราคาไว้หลังปุ่ม 'ให้ส่วนลด' — ยอดเต็มแสดงเป็น 'ยอดที่ต้องจ่าย'
+  await expect(dialog.getByText(/ยอดที่ต้องจ่าย\s*฿50/)).toBeVisible()
 
   // ปุ่มยืนยันบอกยอดในตัว: "รับเงิน ฿50"
   await dialog.getByRole('button', { name: 'รับเงิน ฿50' }).click()

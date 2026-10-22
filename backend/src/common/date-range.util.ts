@@ -40,8 +40,23 @@ export function resolveDateRange(params: {
 
   if (!params.from && !params.to) return undefined;
 
-  return {
-    ...(params.from ? { gte: new Date(params.from) } : {}),
-    ...(params.to ? { lte: new Date(params.to) } : {}),
-  };
+  // 'YYYY-MM-DD' ล้วน: new Date() ตีเป็นเที่ยงคืน UTC (= 07:00 เวลาไทย) — ต้องอ่านเป็นวันตามเวลาร้าน
+  // และ to แบบวันล้วนหมายถึง "ถึงสิ้นวันนั้น" จึงใช้ lt ต้นวันถัดไป
+  const from = params.from
+    ? { gte: isDateOnly(params.from) ? localDate(params.from) : new Date(params.from) }
+    : {};
+  const to = params.to
+    ? isDateOnly(params.to)
+      ? { lt: addDays(localDate(params.to), 1) }
+      : { lte: new Date(params.to) }
+    : {};
+  return { ...from, ...to };
+}
+
+const isDateOnly = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+/** 'YYYY-MM-DD' → 00:00 ของวันนั้นตามเวลาเครื่อง */
+function localDate(value: string) {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day);
 }

@@ -1,4 +1,4 @@
-import type { Id } from '@/types/models'
+import type { Id, MenuItem } from '@/types/models'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createMenuItem,
@@ -36,7 +36,12 @@ export function useSetMenuItemAvailability() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: setMenuItemAvailability,
-    onSuccess: () => qc.invalidateQueries({ queryKey: menuKeys.items }),
+    // ใช้ผลจาก PATCH อัปเดตรายการเลย ไม่ต้องดึงทั้งรายการใหม่ — socket menu.updated จะดึงให้อีกรอบเดียว
+    // (เดิม invalidate ซ้อนกับ socket = GET /menu 2 ครั้งต่อการกด 1 ครั้ง)
+    onSuccess: (updated) =>
+      qc.setQueryData<MenuItem[]>(menuKeys.items, (list) =>
+        list?.map((item) => (item.id === updated.id ? updated : item)),
+      ),
   })
 }
 

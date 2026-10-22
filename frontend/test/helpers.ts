@@ -1,6 +1,7 @@
 import { expect, type APIRequestContext, type Page } from '@playwright/test'
 
-const API_URL = 'http://localhost:3000'
+// ชี้ API อื่นได้ด้วย E2E_API_URL (เช่น API ทดสอบที่ต่อ DB restaurant_test)
+export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:3000'
 const LOGIN_EMAIL_DOMAIN = 'restaurant.local'
 
 /** กรอกฟอร์ม login แล้วกดส่ง — ใช้ร่วมกันทุกเคสที่ต้อง submit จริง */
@@ -100,9 +101,13 @@ export async function openTableAndPlaceOrder(
   const tableCardText = (await availableTable.locator('p.text-xl').innerText()).trim()
 
   await availableTable.getByRole('button', { name: 'เปิดโต๊ะ + สร้าง QR' }).click()
-  await page.keyboard.press('Escape') // ปิด QR dialog ที่เด้งขึ้นมาเองหลังเปิดโต๊ะสำเร็จ
+  // ปิด QR dialog ที่เด้งขึ้นมาเองหลังเปิดโต๊ะสำเร็จ — รอให้ขึ้นก่อน ไม่งั้น Escape ไปก่อน dialog (ตอนไม่มี slowMo)
+  const qrDialog = page.getByRole('dialog', { name: /^QR โต๊ะ/ })
+  await expect(qrDialog).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(qrDialog).toHaveCount(0)
 
-  const openedTable = page.locator('article', { hasText: tableCardText })
+  const openedTable = tablesPageCard(page, tableCardText)
   await openedTable.getByRole('button', { name: 'รับออเดอร์แทนลูกค้า' }).click()
 
   // TakeOrderDialog: กด "+ เพิ่ม" ที่เมนู → ได้บรรทัดใหม่ด้านล่าง (เลือกตัวเลือก/จำนวน/หมายเหตุรายบรรทัด)
@@ -165,6 +170,16 @@ export function checkTableTile(page: Page, tableName: string) {
   return page
     .locator('article')
     .filter({ has: page.getByRole('heading', { name: `โต๊ะ ${tableName}`, exact: true }) })
+}
+
+/**
+ * การ์ดโต๊ะในหน้า /employee/tables แบบตรงตัว — hasText: 'โต๊ะ 1' จะไปชน 'โต๊ะ 10', 'โต๊ะ 11' ...
+ * เมื่อร้านมีโต๊ะเกิน 9 ตัว จึงเทียบหัวการ์ด (p.text-xl) แบบเต็มข้อความ
+ */
+export function tablesPageCard(page: Page, tableCardText: string) {
+  return page
+    .locator('article')
+    .filter({ has: page.locator('p.text-xl').getByText(tableCardText, { exact: true }) })
 }
 
 /** ตาราง "บิลที่เก็บแล้ววันนี้" ในหน้า Check (section มี aria-labelledby จึงเป็น region) */

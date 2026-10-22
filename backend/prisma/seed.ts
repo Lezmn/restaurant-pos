@@ -40,7 +40,18 @@ async function upsertMenuItem(data: {
   name: string;
   price: number;
   imageUrl?: string;
+  /** วัตถุดิบหลักที่เมนูใช้เสมอ (ข้าวไข่เจียว → ไข่) ต้อง upsert วัตถุดิบไว้ก่อน */
+  ingredientNames?: string[];
 }) {
+  const ingredients = await prisma.ingredient.findMany({
+    where: { name: { in: data.ingredientNames ?? [] } },
+    select: { id: true },
+  });
+  const ingredientLinks = {
+    deleteMany: {},
+    create: ingredients.map((i) => ({ ingredientId: i.id })),
+  };
+
   const existing = await prisma.menuItem.findFirst({
     where: {
       categoryId: data.categoryId,
@@ -55,6 +66,7 @@ async function upsertMenuItem(data: {
         price: data.price,
         imageUrl: data.imageUrl,
         isAvailable: true,
+        ingredients: ingredientLinks,
       },
     });
   }
@@ -66,6 +78,7 @@ async function upsertMenuItem(data: {
       price: data.price,
       imageUrl: data.imageUrl,
       isAvailable: true,
+      ingredients: { create: ingredientLinks.create },
     },
   });
 }
@@ -83,25 +96,31 @@ async function upsertMenuOption(
   name: string,
   price = 0,
   group: MenuOptionGroup = MenuOptionGroup.EXTRA,
+  /** วัตถุดิบที่ใช้ ถ้าชื่อไม่ตรงกับตัวเลือก (ไข่ดาว → ไข่) */
+  ingredientName = name,
+  /** ใช้วัตถุดิบกี่หน่วยต่อจาน (0 = ผูกไว้ให้หมดตามอย่างเดียว ไม่ตัดสต็อกเพิ่ม) */
+  usageQty = 1,
 ) {
   const existing = await prisma.menuOption.findFirst({
     where: { menuItemId, name },
   });
 
-  // ตัวเลือกที่ชื่อตรงกับวัตถุดิบ (หมู/ไก่/กุ้ง/ไข่ดาว) ผูกให้อัตโนมัติ
+  // ตัวเลือกที่ชื่อตรงกับวัตถุดิบ (หมู/ไก่/กุ้ง) หรือระบุวัตถุดิบไว้ (ไข่ดาว → ไข่) ผูกให้อัตโนมัติ
   // ของหมดทีเดียวหายทุกเมนู ไม่ต้องไล่ปิดเอง
-  const ingredient = await prisma.ingredient.findUnique({ where: { name } });
+  const ingredient = await prisma.ingredient.findUnique({
+    where: { name: ingredientName },
+  });
   const ingredientId = ingredient?.id ?? null;
 
   if (existing) {
     return prisma.menuOption.update({
       where: { id: existing.id },
-      data: { price, group, isAvailable: true, ingredientId },
+      data: { price, group, isAvailable: true, ingredientId, usageQty },
     });
   }
 
   return prisma.menuOption.create({
-    data: { menuItemId, name, price, group, isAvailable: true, ingredientId },
+    data: { menuItemId, name, price, group, isAvailable: true, ingredientId, usageQty },
   });
 }
 
@@ -110,6 +129,13 @@ async function upsertTable(number: number, seats = 4) {
     where: { number },
     update: { seats, status: TableStatus.AVAILABLE },
     create: { number, seats, status: TableStatus.AVAILABLE },
+  });
+}
+
+async function expireOtherOpenSessions(tableId: string, keepToken: string) {
+  await prisma.tableSession.updateMany({
+    where: { tableId, status: TableSessionStatus.OPEN, token: { not: keepToken } },
+    data: { status: TableSessionStatus.EXPIRED },
   });
 }
 
@@ -277,7 +303,7 @@ async function main() {
 
   // ต้องมาก่อนตัวเลือกเมนู เพราะ upsertMenuOption จะไปหาวัตถุดิบชื่อเดียวกันมาผูกให้
   await Promise.all(
-    ['หมู', 'ไก่', 'หมูกรอบ', 'กุ้ง', 'ไข่ดาว', 'ไข่เจียว'].map(upsertIngredient),
+    ['หมู', 'ไก่', 'หมูกรอบ', 'กุ้ง', 'ไข่'].map(upsertIngredient),
   );
 
   const [riceCategory, noodleCategory, drinkCategory] = await Promise.all([
@@ -298,6 +324,7 @@ async function main() {
       categoryId: riceCategory.id,
       name: 'ข้าวไข่เจียว',
       price: 40,
+      ingredientNames: ['ไข่'],
       imageUrl: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38',
     }),
     upsertMenuItem({
@@ -328,19 +355,20 @@ async function main() {
     upsertMenuOption(gaprao.id, 'ไก่', 0, PROTEIN),
     upsertMenuOption(gaprao.id, 'หมูกรอบ', 10, PROTEIN),
     upsertMenuOption(gaprao.id, 'กุ้ง', 20, PROTEIN),
-    upsertMenuOption(gaprao.id, 'ไข่ดาว', 10, EXTRA),
-    upsertMenuOption(gaprao.id, 'ไข่เจียว', 10, EXTRA),
+    upsertMenuOption(gaprao.id, 'ไข่ดาว', 10, EXTRA, 'ไข่'),
+    upsertMenuOption(gaprao.id, 'ไข่เจียว', 10, EXTRA, 'ไข่'),
     upsertMenuOption(gaprao.id, 'พิเศษ', 10, EXTRA),
   ]);
 
   await Promise.all([
-    upsertMenuOption(omeletRice.id, 'ไข่ 1 ฟอง', 0, EXTRA),
-    upsertMenuOption(omeletRice.id, 'ไข่ 2 ฟอง', 10, EXTRA),
+    // ตัวเมนูตัดไข่ 1 ฟองแล้ว — "ไข่ 1 ฟอง" ไม่ตัดเพิ่ม, "ไข่ 2 ฟอง" ตัดอีก 1
+    upsertMenuOption(omeletRice.id, 'ไข่ 1 ฟอง', 0, EXTRA, 'ไข่', 0),
+    upsertMenuOption(omeletRice.id, 'ไข่ 2 ฟอง', 10, EXTRA, 'ไข่'),
     upsertMenuOption(omeletRice.id, 'หมูสับ', 10, PROTEIN),
     upsertMenuOption(friedRice.id, 'หมู', 0, PROTEIN),
     upsertMenuOption(friedRice.id, 'ไก่', 0, PROTEIN),
     upsertMenuOption(friedRice.id, 'กุ้ง', 20, PROTEIN),
-    upsertMenuOption(friedRice.id, 'ไข่ดาว', 10, EXTRA),
+    upsertMenuOption(friedRice.id, 'ไข่ดาว', 10, EXTRA, 'ไข่'),
     upsertMenuOption(friedRice.id, 'พิเศษ', 10, EXTRA),
     upsertMenuOption(padSeeEw.id, 'หมู', 0, PROTEIN),
     upsertMenuOption(padSeeEw.id, 'ไก่', 0, PROTEIN),
@@ -357,6 +385,8 @@ async function main() {
     upsertTable(6, 8),
   ]);
 
+  // โต๊ะเปิด session ได้ทีละใบ (unique index) — seed ซ้ำบน DB ที่เคยเปิดโต๊ะ demo ไว้ ต้องปิดใบอื่นก่อน
+  await expireOtherOpenSessions(tables[1].id, 'demo-table-2-session');
   const demoSession = await prisma.tableSession.upsert({
     where: { token: 'demo-table-2-session' },
     update: {
@@ -490,6 +520,7 @@ async function main() {
 
   // A second open session (table 4) whose orders are all SERVED, so the
   // Check/checkout screen has a table that's actually ready to pay.
+  await expireOtherOpenSessions(tables[3].id, 'demo-table-4-ready-session');
   const demoReadySession = await prisma.tableSession.upsert({
     where: { token: 'demo-table-4-ready-session' },
     update: {

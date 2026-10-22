@@ -24,10 +24,13 @@ const modalStack: symbol[] = []
 export function Modal({
   title,
   onClose,
+  size = 'md',
   children,
 }: Readonly<{
   title: string
   onClose: () => void
+  /** lg = ฟอร์มยาวที่มีหลายส่วน (แก้ไขเมนู) กว้างขึ้นบนแท็บเล็ต */
+  size?: 'md' | 'lg'
   children: ReactNode
 }>) {
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -86,7 +89,11 @@ export function Modal({
       }}
       className="print-shell m-0 h-full max-h-none w-full max-w-none items-center justify-center bg-transparent p-4 backdrop:bg-black/40 open:flex"
     >
-      <div className="print-shell max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-lg border-2 border-gray-300 bg-white p-5 shadow-xl">
+      <div
+        className={`print-shell max-h-[90dvh] w-full overflow-y-auto rounded-lg border-2 border-gray-300 bg-white p-5 shadow-xl ${
+          size === 'lg' ? 'max-w-md sm:max-w-2xl' : 'max-w-md'
+        }`}
+      >
         <h2 className="mb-4 text-center text-lg font-bold text-black print:hidden">
           {title}
         </h2>

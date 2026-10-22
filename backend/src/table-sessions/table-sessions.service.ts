@@ -16,7 +16,7 @@ import { randomBytes } from 'node:crypto';
 import { EventsGateway } from '../events/events.gateway';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTableSessionDto } from './dto/create-table-session.dto';
-import { countUnpaidOrders } from './session-settlement';
+import { countUnpaidOrders, isUniqueViolation } from './session-settlement';
 
 const DEFAULT_SESSION_TTL_MS = 3 * 60 * 60 * 1000;
 
@@ -78,14 +78,21 @@ export class TableSessionsService {
       // ถ้าโต๊ะค้างเป็น OCCUPIED ทั้งที่ไม่มี session เปิด แปลว่าสถานะค้างจากรอบก่อน
       // ปล่อยให้เปิดใบใหม่ได้เลย ไม่งั้นโต๊ะจะติดค้างถาวรจนต้องไปแก้ DB มือ
 
-      const session = await tx.tableSession.create({
-        data: {
-          tableId: dto.tableId,
-          token: this.generateToken(),
-          expiresAt,
-        },
-        include: { table: true },
-      });
+      const session = await tx.tableSession
+        .create({
+          data: {
+            tableId: dto.tableId,
+            token: this.generateToken(),
+            expiresAt,
+          },
+          include: { table: true },
+        })
+        .catch((e: unknown) => {
+          // อีกเครื่องเปิดโต๊ะนี้ไปพร้อมกันพอดี — ผ่านเช็คด้านบนทั้งคู่ แต่ unique index ของ DB กันไว้
+          throw isUniqueViolation(e)
+            ? new ConflictException('โต๊ะนี้มี QR session ที่เปิดอยู่แล้ว')
+            : e;
+        });
 
       await tx.restaurantTable.update({
         where: { id: dto.tableId },

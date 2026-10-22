@@ -27,8 +27,9 @@ type ServerEvent =
 /** event ไหนกระทบ query key ไหนบ้าง (ฝั่งพนักงาน) */
 const STAFF_INVALIDATIONS: Record<ServerEvent, readonly string[][]> = {
   // ออเดอร์ใหม่/เปลี่ยนสถานะ → ยอดค้างจ่ายของ session และสถานะโต๊ะ (ยกเลิกแล้วโต๊ะอาจว่าง) เปลี่ยนตาม
-  'order.created': [['orders'], ['table-sessions'], ['tables']],
-  'order.updated': [['orders'], ['table-sessions'], ['tables']],
+  // ออเดอร์ตัด/คืนสต็อกวัตถุดิบด้วย → ยอดคงเหลือในแท็บวัตถุดิบเปลี่ยนตาม
+  'order.created': [['orders'], ['table-sessions'], ['tables'], ['ingredients']],
+  'order.updated': [['orders'], ['table-sessions'], ['tables'], ['ingredients']],
   // session summary มี checkoutRequest ติดมาด้วย
   'service-request.created': [['service-requests'], ['table-sessions']],
   'service-request.updated': [['service-requests'], ['table-sessions']],

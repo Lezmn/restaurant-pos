@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAsAdmin, loginAsCashier, openTableAndPlaceOrder } from '../helpers'
+import { loginAsAdmin, loginAsCashier, openTableAndPlaceOrder, tablesPageCard } from '../helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data ที่ localhost:3000
 // ทดสอบ business rule ฝั่ง backend: ปิดโต๊ะไม่ได้ถ้ายังมีออเดอร์ที่ไม่ใช่ PAID/CANCELLED ค้างอยู่
@@ -40,7 +40,7 @@ test('ปิดโต๊ะที่มีลูกค้าสั่งอา�
 
   // ลองปิดโต๊ะทั้งที่ลูกค้าเพิ่งสั่งไปและออเดอร์ยังไม่ถูกเสิร์ฟ/จ่าย
   // ปิดโต๊ะมี popup ยืนยันก่อน (ConfirmDialog) — error จาก backend ขึ้นในกล่องนั้น
-  const openedTable = page.locator('article', { hasText: tableCardText })
+  const openedTable = tablesPageCard(page, tableCardText)
   await openedTable.getByRole('button', { name: 'ปิดโต๊ะ' }).click()
   const confirmClose = page.getByRole('dialog', { name: 'ปิดโต๊ะ' })
   await confirmClose.getByRole('button', { name: 'ปิดโต๊ะ' }).click()
@@ -71,16 +71,14 @@ test('ยกเลิกออเดอร์แล้วปิดโต๊ะ�
   await expect(confirmCancel).not.toBeVisible()
 
   await page.getByRole('link', { name: 'โต๊ะ / QR' }).click()
-  await page
-    .locator('article', { hasText: tableCardText })
+  await tablesPageCard(page, tableCardText)
     .getByRole('button', { name: 'ปิดโต๊ะ' })
     .click()
   await page.getByRole('dialog', { name: 'ปิดโต๊ะ' }).getByRole('button', { name: 'ปิดโต๊ะ' }).click()
 
   // ไม่มีออเดอร์ค้างแล้ว (CANCELLED ไม่นับ) ปิดโต๊ะสำเร็จ โต๊ะกลับมาโชว์ปุ่มเปิดโต๊ะใหม่
   await expect(
-    page
-      .locator('article', { hasText: tableCardText })
+    tablesPageCard(page, tableCardText)
       .getByRole('button', { name: 'เปิดโต๊ะ + สร้าง QR' }),
   ).toBeVisible()
 })

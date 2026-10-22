@@ -1,4 +1,5 @@
 import { CallStaffAlert } from '@/components/CallStaffAlert'
+import { Toaster } from '@/components/ui/Toaster'
 import { pageRoles } from '@/features/auth/permissions'
 import { useAuth } from '@/features/auth/use-auth'
 import { useStaffLiveEvents } from '@/features/live/hooks'
@@ -150,7 +151,9 @@ export function EmployeeLayout() {
         <Outlet />
       </main>
 
-      <CallStaffAlert />
+      {/* GET /service-requests เป็น @Roles(ADMIN, STAFF) — ครัว mount แล้วจะยิงโดน 403 ทุก event */}
+      {user && pageRoles.requests.includes(user.role) && <CallStaffAlert />}
+      <Toaster />
 
       {/* แถบล่าง 4 ปุ่มตามดีไซน์ — active เป็นบล็อกส้มเต็ม */}
       <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">

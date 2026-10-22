@@ -138,7 +138,7 @@ npm run start:dev
 |---|---|
 | รหัสผ่าน | bcrypt cost 12 |
 | JWT | หมดอายุตาม `JWT_EXPIRES_IN` (default 8h) ตรวจ role ทุก endpoint ด้วย `RolesGuard` |
-| Rate limit | ทั้งแอป `THROTTLE_LIMIT` ครั้ง/นาที/IP (default 100) · `/auth/login` 5 ครั้ง/นาที/IP · เกินตอบ `429` |
+| Rate limit | ทั้งแอป `THROTTLE_LIMIT` ครั้ง/นาที/คน (พนักงาน/QR โต๊ะ, default 600) · รวมต่อ IP `THROTTLE_IP_LIMIT` (default 1000) · `/auth/login` 5 ครั้ง/นาที/IP · เกินตอบ `429` |
 | Security headers | `helmet` (ปิด CSP ให้ Swagger UI) |
 | Swagger | dev เปิดเสมอ · `NODE_ENV=production` ปิด เปิดชั่วคราวด้วย `SWAGGER_ENABLED=true` |
 | WebSocket | ต้องมี JWT หรือ QR session token ตอน handshake ไม่งั้นตัดทิ้ง |

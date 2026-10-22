@@ -13,6 +13,16 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * API ตอบ 429 = เครื่องนี้/บัญชีนี้ส่งคำขอเกินเพดานต่อนาที — ไม่ใช่เน็ตหลุด รอแล้วหายเอง
+ * ต้องแยกบอกให้ชัด ไม่งั้นหน้าขึ้น "ตรวจการเชื่อมต่ออินเทอร์เน็ต" แล้วผู้ใช้กดลองใหม่รัว ๆ ยิ่งนานขึ้น
+ */
+export const RATE_LIMIT_MESSAGE =
+  'ส่งคำขอถี่เกินไป ระบบพักรับคำขอชั่วคราว — รอสักครู่ (ไม่เกิน 1 นาที) แล้วจะกลับมาเอง'
+
+export const isRateLimited = (error: unknown) =>
+  error instanceof ApiError && error.status === 429
+
 /** หน้า login รวมของทุก role — ใช้ตอน token หมดอายุแล้วต้องเด้งออก */
 const LOGIN_PATH = '/login'
 
@@ -40,6 +50,10 @@ export async function apiClient<T>(
     throw new ApiError(401, 'ยังไม่ได้เข้าสู่ระบบ')
   }
 
+  if (res.status === 429) {
+    throw new ApiError(429, RATE_LIMIT_MESSAGE)
+  }
+
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as {
       message?: string | string[]
@@ -50,6 +64,7 @@ export async function apiClient<T>(
     throw new ApiError(res.status, message)
   }
 
-  if (res.status === 204) return undefined as T
-  return (await res.json()) as T
+  // 204 หรือ 200 ที่ไม่มี body (endpoint ที่ไม่ return อะไร) = สำเร็จ ไม่ใช่ error ตอน parse
+  const text = await res.text()
+  return (text ? JSON.parse(text) : undefined) as T
 }

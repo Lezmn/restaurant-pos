@@ -31,7 +31,10 @@ export class OrdersController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'ดึงรายการออเดอร์ทั้งหมด (filter ได้)' })
+  @ApiOperation({
+    summary:
+      'ดึงรายการออเดอร์ — ไม่ส่ง filter = เฉพาะโต๊ะที่เปิดอยู่ ออเดอร์ที่ยังไม่จบ และของวันนี้',
+  })
   findAll(@Query() query: FindOrdersQueryDto) {
     return this.ordersService.findAll(query);
   }

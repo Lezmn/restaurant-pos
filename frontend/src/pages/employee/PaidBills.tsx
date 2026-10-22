@@ -35,7 +35,7 @@ const isToday = (iso: string) =>
  * ยกเลิกแล้ว backend จะคืนออเดอร์เป็นเสิร์ฟแล้วและเปิดโต๊ะกลับ → โต๊ะจะกลับมาโผล่ในตารางด้านบน
  */
 export function PaidBills() {
-  const { data: payments, isPending, isError, refetch } = useTodayPayments()
+  const { data: payments, isPending, isError, error, refetch } = useTodayPayments()
   const voidPayment = useVoidPayment()
 
   const [viewId, setViewId] = useState<Id | null>(null)
@@ -59,7 +59,12 @@ export function PaidBills() {
       </h2>
 
       {isError && (
-        <LoadError what="บิลวันนี้" stale={Boolean(payments)} onRetry={() => refetch()} />
+        <LoadError
+          what="บิลวันนี้"
+          stale={Boolean(payments)}
+          error={error}
+          onRetry={() => refetch()}
+        />
       )}
       <ErrorNote error={voidPayment.error} />
 

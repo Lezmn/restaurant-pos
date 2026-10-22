@@ -11,6 +11,14 @@ import {
  * ทุกฟังก์ชันรับ tx เพื่อให้อยู่ในทรานแซกชันเดียวกับงานที่เรียก
  */
 
+/**
+ * ชน unique index — ใช้จับ "table_sessions_one_open_per_table" (โต๊ะเปิด session ได้ทีละใบ)
+ * ตอนเปิด/เปิดกลับ session ซึ่ง index อื่นของตารางนี้มีแค่ token ที่สุ่มใหม่ทุกครั้ง
+ */
+export function isUniqueViolation(e: unknown) {
+  return e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002';
+}
+
 /** ออเดอร์ที่ยังต้องเก็บเงิน = ไม่ยกเลิก และยังไม่ผูกกับ payment */
 export function countUnpaidOrders(
   tx: Prisma.TransactionClient,
