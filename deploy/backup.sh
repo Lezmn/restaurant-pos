@@ -3,13 +3,20 @@
 #   - สำรอง 1 ครั้งตอน container เริ่ม (เช็คได้ทันทีว่าใช้งานได้) แล้วทุกวันตอน BACKUP_HOUR นาฬิกา (เวลาไทย)
 #   - "once" = สำรองครั้งเดียวแล้วจบ (ก่อนอัปเดตระบบ)
 #   - เก็บย้อนหลัง BACKUP_KEEP_DAYS วัน ไฟล์เก่ากว่านั้นลบทิ้ง
-#   - ไฟล์อยู่ที่ ./backups บนเครื่อง host — ต้องคัดลอกออกไปเก็บนอกเครื่องอีกชั้น (ดู docs/OPERATIONS.md)
+#   - ไฟล์อยู่ที่ ./backups บนเครื่อง host — service "offsite" คัดลอกออกนอกเครื่องอีกชั้น (ดู docs/OPERATIONS.md)
+#   - สำเร็จ/ล้ม → ping BACKUP_PING_URL (healthchecks.io) ถ้าไม่มี ping ภายในวัน จะมีอีเมลเตือน
 # ต่อ DB ด้วย PGHOST/PGUSER/PGPASSWORD/PGDATABASE จาก docker-compose.prod.yml
 set -eu
 
 BACKUP_DIR=/backups
 HOUR="${BACKUP_HOUR:-03}"
 KEEP_DAYS="${BACKUP_KEEP_DAYS:-14}"
+
+# ไม่ตั้ง URL = ข้าม / ping ล้ม (เน็ตหลุด) ไม่ทำให้การสำรองล้มตาม
+ping() {
+  [ -n "${BACKUP_PING_URL:-}" ] || return 0
+  wget -q -T 10 -O /dev/null "$BACKUP_PING_URL$1" || echo "[backup] ping $BACKUP_PING_URL$1 ไม่สำเร็จ" >&2
+}
 
 backup() {
   stamp=$(date +%Y-%m-%d_%H%M)
@@ -18,9 +25,11 @@ backup() {
   if pg_dump --format=custom --no-owner --file="$file.tmp"; then
     mv "$file.tmp" "$file"
     echo "[backup] $(date '+%F %T') ok $(du -h "$file" | cut -f1) $file"
+    ping ""
   else
     rm -f "$file.tmp"
     echo "[backup] $(date '+%F %T') FAILED" >&2
+    ping "/fail"
   fi
   find "$BACKUP_DIR" -name "${PGDATABASE}_*.dump" -mtime +"$KEEP_DAYS" -delete
 }

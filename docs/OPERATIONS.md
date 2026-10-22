@@ -16,29 +16,102 @@ dc logs backup --tail 20        # ดูว่าสำรองสำเร็�
 dc run --rm backup once         # สำรองเองทันที — ทำก่อนอัปเดตระบบ / แก้ข้อมูลใหญ่ทุกครั้ง
 ```
 
-**ต้องคัดลอกออกนอกเครื่องด้วย** — ไฟล์สำรองอยู่เครื่องเดียวกับฐานข้อมูล ถ้าเครื่องพัง/ถูกขโมย หายพร้อมกัน
-เช่น ตั้ง cron ทุกวัน 04:00 ส่งเข้า Google Drive / S3 ด้วย `rclone`:
+### สำรองนอกเครื่อง (service `offsite`)
 
-```bash
-0 4 * * * rclone copy /path/to/restaurant-pos/backups remote:restaurant-backups --max-age 48h
-```
+ไฟล์ใน `./backups` อยู่เครื่องเดียวกับฐานข้อมูล — เครื่องพัง/ถูกขโมย/ดิสก์เสีย หายพร้อมกัน
+service `offsite` คัดลอกไฟล์สำรองขึ้น cloud ทุกชั่วโมงด้วย rclone (ไฟล์ที่ขึ้นไปแล้วไม่อัปโหลดซ้ำ)
+เก็บบน cloud `OFFSITE_KEEP_DAYS` วัน (ค่าเริ่มต้น 90) — ลบไฟล์ในเครื่องไม่ลามไปลบบน cloud
 
-**กู้ข้อมูล** (ทับข้อมูลปัจจุบันทั้งหมด — สคริปต์จะหยุด API ระหว่างกู้และถามยืนยัน):
+ตั้งค่าครั้งแรก (ตัวอย่าง Google Drive ของร้าน — ใช้บัญชีของร้าน ไม่ใช่บัญชีส่วนตัวพนักงาน):
+
+1. สร้าง remote ชื่อ `gdrive` — เครื่อง server ไม่มีเบราว์เซอร์ rclone จะให้ไปกดอนุญาตบนคอมที่มีเบราว์เซอร์:
+   ```bash
+   docker run --rm -it -v ./deploy/rclone:/config/rclone rclone/rclone:1.68 config
+   # n (new remote) → name: gdrive → storage: drive → client_id/secret: เว้นว่าง
+   # scope: 3 (drive.file = เห็นเฉพาะไฟล์ที่ rclone สร้าง ไม่เห็นไฟล์อื่นใน Drive)
+   # Use web browser to automatically authenticate? → n
+   #   → บนคอมที่มีเบราว์เซอร์ (ติดตั้ง rclone) รันคำสั่ง rclone authorize "drive" ที่มันบอก
+   #   → ล็อกอิน Google ของร้าน → คัดลอก token กลับมาวาง
+   # Configure as Shared Drive? → n → y (ยืนยัน) → q
+   ```
+   ได้ไฟล์ `deploy/rclone/rclone.conf` (มี token — อยู่นอก git แล้ว อย่าส่งต่อ)
+2. ใน `.env`: `COMPOSE_PROFILES=offsite` และ `RCLONE_REMOTE=gdrive:restaurant-backups`
+3. เปิดและดูผล:
+   ```bash
+   dc up -d offsite
+   dc logs offsite --tail 5      # ต้องเห็น "[offsite] ... ok — ปลายทางมี N ไฟล์"
+   ```
+
+ใช้ S3 / OneDrive / Dropbox / เครื่อง NAS (sftp) ได้เหมือนกัน — เลือก storage อื่นตอน `config` แล้วเปลี่ยน `RCLONE_REMOTE`
+
+### กู้ข้อมูล
+
+ทับข้อมูลปัจจุบันทั้งหมด — สคริปต์จะหยุด API ระหว่างกู้และถามยืนยัน:
 
 ```bash
 sh deploy/restore.sh backups/restaurant_db_2026-10-22_0300.dump
 ```
 
-ควรซ้อมกู้ข้อมูลลงฐานข้อมูลทดสอบอย่างน้อยเดือนละครั้ง ไฟล์สำรองที่ไม่เคยลองกู้ = ไม่รู้ว่าใช้ได้จริงไหม
+### ซ้อมกู้ข้อมูล (เดือนละครั้ง)
+
+ไฟล์สำรองที่ไม่เคยลองกู้ = ไม่รู้ว่าใช้ได้จริงไหม `restore-drill.sh` กู้ลงฐานข้อมูลชั่วคราวแล้วลบทิ้ง
+**ไม่แตะข้อมูลจริง ไม่ต้องหยุดระบบ** รันระหว่างร้านเปิดได้:
+
+```bash
+sh deploy/restore-drill.sh            # ไฟล์ล่าสุดใน ./backups
+```
+
+ผลที่ถูกต้อง: จำนวนผู้ใช้/โต๊ะ/เมนูตรงกับของจริง ออเดอร์/บิลน้อยกว่าหรือเท่ากับ และ `last_payment` ใกล้เวลาสำรองล่าสุด
+
+ซ้อมกู้จาก **ไฟล์บน cloud** ด้วย (กรณีเครื่องหายทั้งเครื่อง จะเหลือแค่ไฟล์นี้):
+
+```bash
+docker run --rm -v ./deploy/rclone:/config/rclone rclone/rclone:1.68 lsf gdrive:restaurant-backups | tail -3
+docker run --rm -v ./deploy/rclone:/config/rclone -v ./offsite-check:/data rclone/rclone:1.68 \
+  copy gdrive:restaurant-backups/restaurant_db_2026-10-22_0300.dump /data
+sh deploy/restore-drill.sh offsite-check/restaurant_db_2026-10-22_0300.dump
+```
+
+จดผลซ้อมทุกครั้ง (วันที่ / ไฟล์ / ผ่านหรือไม่) — ถ้าล้ม แก้ทันที อย่ารอวันที่ต้องใช้จริง
 
 ## การเฝ้าระวังระบบ
 
 `GET https://API_DOMAIN/health` ตอบ `200 {"status":"ok","db":"ok"}` เมื่อ API และฐานข้อมูลพร้อม, `503` เมื่อฐานข้อมูลล่ม
 
-- ตั้ง uptime monitor ภายนอก (เช่น UptimeRobot / Better Stack แบบฟรี) ยิง URL นี้ทุก 1–5 นาที
-  แจ้งเตือนเข้า LINE / อีเมล / SMS ของเจ้าของร้าน
 - endpoint นี้ไม่ต้อง login และไม่นับ rate limit
 - ใน Docker: `dc ps` ดูคอลัมน์ STATUS ของ api ต้องเป็น `(healthy)`
+
+ตัวเฝ้าต้องอยู่ **นอกเครื่อง** — ถ้าเครื่องดับ/เน็ตร้านหลุด ตัวเฝ้าบนเครื่องเดียวกันก็ดับไปด้วย ไม่มีใครแจ้ง
+ตั้ง 2 อย่าง (ฟรีทั้งคู่ ใช้อีเมลเจ้าของร้านสมัคร):
+
+### 1. ระบบล่ม → UptimeRobot (uptimerobot.com)
+
+| Monitor | ชนิด | URL | ตั้งค่า |
+|---|---|---|---|
+| API + ฐานข้อมูล | **Keyword** | `https://API_DOMAIN/health` | keyword `"db":"ok"` → แจ้งเมื่อ **ไม่พบ** keyword, ทุก 5 นาที |
+| หน้าเว็บ | HTTP(s) | `https://APP_DOMAIN` | ทุก 5 นาที |
+
+- ใช้ Keyword ไม่ใช่ HTTP ธรรมดา: ตอนฐานข้อมูลล่ม `/health` ตอบ 503 ก็จริง แต่ keyword จับได้ชัดกว่าถ้ามี proxy ตอบแทน
+- Alert contacts: อีเมลเจ้าของร้าน + ติดตั้งแอป UptimeRobot บนมือถือ (push) — เพิ่ม Telegram/Discord ได้ในหน้า Integrations
+- เปิด **SSL expiry reminder** ใน monitor หน้าเว็บ — เตือนก่อนใบรับรอง HTTPS หมดอายุ (ปกติ Caddy ต่ออายุเอง ถ้าเตือนแปลว่าต่อไม่สำเร็จ)
+- แจ้ง "Down" ซ้ำหลายครั้งติดกัน → ทำตาม "แผนสำรองเมื่อระบบใช้ไม่ได้" ด้านล่าง แล้วดู `dc ps` / `dc logs api`
+
+### 2. สำรองข้อมูลหยุดเงียบ ๆ → Healthchecks.io
+
+การสำรองล้มไม่มีใครเห็น จนวันที่ต้องกู้ — ให้สคริปต์ "รายงานตัว" ทุกครั้งที่ทำสำเร็จ ถ้าเงียบเกินเวลา ระบบส่งอีเมลเตือน
+
+1. สมัคร healthchecks.io → สร้าง 2 checks:
+   - `restaurant-backup` — Period **1 day**, Grace **2 hours**
+   - `restaurant-offsite` — Period **1 hour**, Grace **1 hour**
+2. คัดลอก Ping URL ของแต่ละตัวใส่ `.env`:
+   ```
+   BACKUP_PING_URL=https://hc-ping.com/<uuid ของ restaurant-backup>
+   OFFSITE_PING_URL=https://hc-ping.com/<uuid ของ restaurant-offsite>
+   ```
+3. `dc up -d backup offsite` — ping แรกเกิดทันทีตอน container เริ่ม (หน้า healthchecks ขึ้นสีเขียว)
+
+สคริปต์ ping `<url>` เมื่อสำเร็จ และ `<url>/fail` เมื่อล้ม (แจ้งเตือนทันทีไม่ต้องรอหมดเวลา)
+ping ไม่สำเร็จ (เน็ตหลุด) ไม่ทำให้การสำรองล้มตาม
 
 ```bash
 dc ps                      # สถานะทุก service
