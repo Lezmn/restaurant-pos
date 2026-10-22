@@ -19,6 +19,10 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
     const passwordMatches = user && await bcrypt.compare(dto.password, user.password);
     if (!passwordMatches || !user) throw new UnauthorizedException('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+    // บอกเฉพาะคนที่ใส่รหัสถูกแล้ว — คนเดารหัสจะไม่รู้ว่าบัญชีนี้มีอยู่จริง
+    if (!user.isActive) {
+      throw new UnauthorizedException('บัญชีนี้ถูกปิดใช้งาน — ติดต่อเจ้าของร้าน');
+    }
 
     return {
       accessToken: await this.jwt.signAsync({ sub: user.id, role: user.role }),
@@ -32,8 +36,10 @@ export class AuthService {
     if (!user) throw new UnauthorizedException();
 
     const currentMatches = await bcrypt.compare(dto.currentPassword, user.password);
+    // 400 ไม่ใช่ 401 — session ยังใช้ได้ปกติ แค่พิมพ์รหัสเดิมผิด
+    // (หน้าเว็บถือว่า 401 = หมดอายุ แล้วเด้งไปหน้า login ทำให้พิมพ์ผิดทีเดียวหลุดออกจากระบบ)
     if (!currentMatches) {
-      throw new UnauthorizedException('รหัสผ่านปัจจุบันไม่ถูกต้อง');
+      throw new BadRequestException('รหัสผ่านปัจจุบันไม่ถูกต้อง');
     }
     if (dto.currentPassword === dto.newPassword) {
       throw new BadRequestException('รหัสผ่านใหม่ต้องต่างจากรหัสเดิม');

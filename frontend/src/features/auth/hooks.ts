@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import { login } from './api'
+import { changePassword, login } from './api'
 import { useAuth } from './use-auth'
 
 export function useLogin() {
@@ -9,3 +9,6 @@ export function useLogin() {
     onSuccess: (data) => signIn(data.accessToken, data.user),
   })
 }
+
+/** เปลี่ยนรหัสผ่านของตัวเอง (ทุก role) — ต้องรู้รหัสเดิม */
+export const useChangePassword = () => useMutation({ mutationFn: changePassword })

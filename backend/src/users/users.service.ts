@@ -14,6 +14,7 @@ const USER_SELECT = {
   name: true,
   email: true,
   role: true,
+  isActive: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -38,7 +39,8 @@ export class UsersService {
     return this.prisma.user.findMany({
       where: { role },
       select: USER_SELECT,
-      orderBy: { name: 'asc' },
+      // คนที่ยังทำงานอยู่ขึ้นก่อน คนที่ปิดใช้งานแล้วไปอยู่ท้าย
+      orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
     });
   }
 
@@ -53,13 +55,30 @@ export class UsersService {
     return user;
   }
 
-  async update(id: string, dto: UpdateUserDto) {
-    await this.findOne(id);
+  async update(id: string, dto: UpdateUserDto, currentUserId: string) {
+    const user = await this.findOne(id);
+
+    // แก้บัญชีตัวเอง: ห้ามลดสิทธิ์/ปิดตัวเอง — กดพลาดทีเดียวหลุดจากหน้าจัดการทันทีและกลับเข้ามาแก้ไม่ได้
+    if (id === currentUserId) {
+      if (dto.role !== undefined && dto.role !== user.role) {
+        throw new BadRequestException('เปลี่ยนสิทธิ์ของบัญชีตัวเองไม่ได้ — ให้ ADMIN อีกคนเปลี่ยนให้');
+      }
+      if (dto.isActive === false) {
+        throw new BadRequestException('ปิดใช้งานบัญชีตัวเองไม่ได้');
+      }
+    }
+
+    const losesAdmin =
+      user.role === Role.ADMIN &&
+      user.isActive &&
+      ((dto.role !== undefined && dto.role !== Role.ADMIN) || dto.isActive === false);
+    if (losesAdmin) await this.assertAnotherActiveAdmin(id);
 
     const data: Prisma.UserUpdateInput = {
       name: dto.name,
       email: dto.email,
       role: dto.role,
+      isActive: dto.isActive,
     };
     if (dto.password) {
       data.password = await bcrypt.hash(dto.password, 12);
@@ -81,9 +100,34 @@ export class UsersService {
       throw new BadRequestException('ลบบัญชีของตัวเองไม่ได้');
     }
     const user = await this.findOne(id);
-    await this.prisma.user.delete({ where: { id } });
+    if (user.role === Role.ADMIN && user.isActive) {
+      await this.assertAnotherActiveAdmin(id);
+    }
+    try {
+      await this.prisma.user.delete({ where: { id } });
+    } catch (e) {
+      // เคยปิดยอดลิ้นชัก/เบิกเงิน — ลบแล้วประวัติจะไม่รู้ว่าใครทำ ให้ปิดใช้งานแทน
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2003') {
+        throw new BadRequestException(
+          'ลบไม่ได้: พนักงานคนนี้มีประวัติปิดยอดหรือเบิกเงินอยู่ — ให้ "ปิดใช้งาน" แทน',
+        );
+      }
+      throw e;
+    }
     // คืนผู้ใช้ที่ลบไป (ไม่มี password) — ตอบ body ว่างแล้ว client ที่ parse JSON จะพัง
     return user;
+  }
+
+  /** ร้านต้องมี ADMIN ที่ใช้งานได้อย่างน้อย 1 คนเสมอ ไม่งั้นไม่มีใครเข้าหน้าจัดการ/เพิ่มพนักงานได้อีก */
+  private async assertAnotherActiveAdmin(exceptId: string) {
+    const others = await this.prisma.user.count({
+      where: { role: Role.ADMIN, isActive: true, id: { not: exceptId } },
+    });
+    if (others === 0) {
+      throw new BadRequestException(
+        'ต้องมี ADMIN ที่ใช้งานได้อย่างน้อย 1 คน — เพิ่ม ADMIN คนใหม่ก่อน แล้วค่อยเปลี่ยนคนนี้',
+      );
+    }
   }
 
   private mapPrismaError(e: unknown): Error {
