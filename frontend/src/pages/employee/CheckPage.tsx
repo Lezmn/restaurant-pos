@@ -564,7 +564,7 @@ function PaymentDialog({
   // QR ผูกยอดเงินไว้ด้วย ลูกค้าจึงไม่ต้องกรอกยอดเอง
   const qrPayload = useMemo(
     () =>
-      isPromptPay ? buildPromptPayPayload(PROMPTPAY_ID, chargedNum || 0) : '',
+      isPromptPay && PROMPTPAY_ID ? buildPromptPayPayload(PROMPTPAY_ID, chargedNum || 0) : '',
     [isPromptPay, chargedNum],
   )
 
@@ -626,15 +626,26 @@ function PaymentDialog({
 
         {isPromptPay && (
           <div className="mt-4 flex flex-col items-center rounded-xl border-2 border-promptpay/30 bg-promptpay/5 p-4">
-            <p className="mb-2 text-sm font-bold text-black">ให้ลูกค้าสแกนเพื่อจ่าย</p>
-            <div className="rounded-lg bg-white p-3">
-              <QRCodeSVG value={qrPayload} size={180} />
-            </div>
+            {qrPayload ? (
+              <>
+                <p className="mb-2 text-sm font-bold text-black">ให้ลูกค้าสแกนเพื่อจ่าย</p>
+                <div className="rounded-lg bg-white p-3">
+                  <QRCodeSVG value={qrPayload} size={180} />
+                </div>
+              </>
+            ) : (
+              <p className="text-center text-sm font-semibold text-danger-ink">
+                ยังไม่ได้ตั้งเบอร์พร้อมเพย์ของร้าน (VITE_PROMPTPAY_ID) — สร้าง QR ไม่ได้
+                <span className="block font-normal text-gray-700">
+                  ให้ลูกค้าโอนเข้าบัญชีร้านเอง แล้วแนบสลิปด้านล่าง
+                </span>
+              </p>
+            )}
             <p className="mt-2 text-lg font-bold text-black tabular-nums">
               {formatBaht(chargedNum || 0)}
             </p>
 
-            {IS_DEMO_PROMPTPAY && (
+            {IS_DEMO_PROMPTPAY && qrPayload && (
               <p className="mt-2 text-center text-sm text-danger-ink">
                 โหมดเดโม — ยังไม่ได้ตั้ง VITE_PROMPTPAY_ID
                 สแกนแล้วจะไม่พบบัญชีปลายทาง

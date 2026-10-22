@@ -7,11 +7,15 @@
 export const RESTAURANT_NAME =
   import.meta.env.VITE_RESTAURANT_NAME ?? 'ร้านอาหารตามใจ ไม่ตามสั่ง'
 
-/** เบอร์พร้อมเพย์ หรือเลขประจำตัว 13 หลักของร้าน สำหรับสร้าง QR รับเงิน */
-export const PROMPTPAY_ID =
-  import.meta.env.VITE_PROMPTPAY_ID ?? '0812345678'
+/**
+ * เบอร์พร้อมเพย์ หรือเลขประจำตัว 13 หลักของร้าน สำหรับสร้าง QR รับเงิน
+ * ไม่ได้ตั้ง: ตอน dev ใช้เบอร์ตัวอย่าง · build จริงเป็น null = ไม่สร้าง QR เลย
+ * (เบอร์ตัวอย่างอาจเป็นเบอร์ของคนจริง ลูกค้าสแกนแล้วเงินเข้าคนอื่น)
+ */
+export const PROMPTPAY_ID: string | null =
+  import.meta.env.VITE_PROMPTPAY_ID || (import.meta.env.DEV ? '0812345678' : null)
 
-/** true = ยังไม่ได้ตั้งค่าจริง (ใช้เบอร์ตัวอย่าง) ให้ UI เตือนไว้ */
+/** true = ยังไม่ได้ตั้งค่าจริง (ใช้เบอร์ตัวอย่าง หรือไม่มี QR) ให้ UI เตือนไว้ */
 export const IS_DEMO_PROMPTPAY = !import.meta.env.VITE_PROMPTPAY_ID
 
 /**

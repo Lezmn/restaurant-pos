@@ -4,6 +4,10 @@ import type { Role } from '@/types/enums'
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 
+/** dev = โชว์บัญชีตัวอย่างเสมอ · build จริงต้องตั้ง VITE_SHOW_DEMO_LOGIN=true เอง (เช่น เครื่องเดโมส่งอาจารย์) */
+const SHOW_DEMO_LOGIN =
+  import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_LOGIN === 'true'
+
 /**
  * ใช้ร่วมกันทั้งหน้า login ของพนักงานและของเจ้าของร้าน
  * ดีไซน์แยกไว้เป็น 2 หน้า (Desktop-9 กับ Desktop-16) แต่หน้าตาเหมือนกัน
@@ -114,11 +118,14 @@ export function LoginPage({
           {login.isPending ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
         </button>
 
-        <p className="mt-4 rounded-lg bg-brand-50 p-3 text-xs text-gray-600">
-          บัญชีตัวอย่างจาก seed — รหัสผ่าน <b>ChangeMe123!</b>
-          <br />
-          {hint}
-        </p>
+        {/* รหัสผ่านตัวอย่างจาก seed — โชว์เฉพาะตอน dev (หรือเปิดเองตอนเดโม) ห้ามติดไปกับ build จริง */}
+        {SHOW_DEMO_LOGIN && (
+          <p className="mt-4 rounded-lg bg-brand-50 p-3 text-xs text-gray-600">
+            บัญชีตัวอย่างจาก seed — รหัสผ่าน <b>ChangeMe123!</b>
+            <br />
+            {hint}
+          </p>
+        )}
       </form>
     </div>
   )
