@@ -1,0 +1,6 @@
+# Claude Code — ค่าตั้งส่วนตัวของแต่ละเครื่อง และสำเนา repo ชั่วคราวของ session อื่น
+.claude/settings.local.json
+.claude/worktrees/
+
+# binary ของ impeccable skill (~20 MB) — ได้มาเองตอนติดตั้ง plugin ไม่เก็บใน history
+.claude/skills/impeccable/scripts/bin/
