@@ -1,0 +1,10 @@
+# ค่าจริงของ production (docker-compose.prod.yml อ่านจากไฟล์นี้) — มีรหัส DB และ JWT_SECRET
+.env
+.env.*
+!.env.prod.example
+
+# ไฟล์สำรองฐานข้อมูลจาก service backup — ข้อมูลร้านจริง ห้ามเข้า git
+backups/
+
+# ไฟล์ของเครื่องมือ (Claude Code worktree / settings ส่วนตัว)
+.claude/

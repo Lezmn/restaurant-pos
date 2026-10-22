@@ -28,6 +28,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # ไฟล์นี้สำหรับ dev เท่านั้น — production ใช้ ../docker-compose.prod.yml (target prod)
+      target: dev
     container_name: restaurant_api
     restart: unless-stopped
     ports:
