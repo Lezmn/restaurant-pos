@@ -82,6 +82,7 @@
     "testEnvironment": "node",
     "setupFiles": [
       "<rootDir>/../test/setup-tz.js"
-    ]
+    ],
+    "globalSetup": "<rootDir>/../test/global-tz.js"
   }
 }
