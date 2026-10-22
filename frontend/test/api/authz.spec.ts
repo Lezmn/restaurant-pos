@@ -14,7 +14,8 @@ const ADMIN_KITCHEN: Role[] = ['ADMIN', 'KITCHEN']
 type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE'
 const matrix: [Method, string, Role[]][] = [
   ['GET', '/auth/me', ALL],
-  ['PATCH', '/auth/password', ALL],
+  // บัญชีกลางของครัว/หน้าร้านเปลี่ยนรหัสเองไม่ได้ (คนเดียวเปลี่ยน = ทั้งตำแหน่ง login ไม่ได้) — ADMIN ตั้งให้ที่ /users/:id
+  ['PATCH', '/auth/password', ADMIN],
   ['GET', '/categories', ALL],
   ['POST', '/categories', ADMIN],
   ['PATCH', `/categories/${ID}`, ADMIN],

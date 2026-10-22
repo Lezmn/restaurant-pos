@@ -13,7 +13,7 @@ interface ApiStaffUser {
   createdAt: string
 }
 
-/** บัญชีพนักงานในหน้าจัดการ */
+/** บัญชีผู้ใช้ในหน้าจัดการ — ร้านใช้บัญชีกลางตามตำแหน่ง (ครัว 1 บัญชี, หน้าร้าน 1 บัญชี) */
 export interface StaffUser {
   id: Id
   name: string
@@ -62,6 +62,8 @@ export interface UpdateUserInput {
   password?: string
   /** false = ปิดใช้งาน — login ไม่ได้ และเครื่องที่ login ค้างไว้หลุดทันที */
   isActive?: boolean
+  /** true = เตะทุกเครื่องที่ใช้บัญชีนี้อยู่ ให้ login ใหม่ (ใช้คู่กับตั้งรหัสใหม่ตอนมีคนลาออก) */
+  logoutEverywhere?: boolean
 }
 
 /** PATCH /users/:id @Roles(ADMIN) */

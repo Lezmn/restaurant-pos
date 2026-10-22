@@ -22,7 +22,8 @@ function setup() {
       count: jest.fn(),
     },
   };
-  return { prisma, service: new UsersService(prisma as any) };
+  const events = { disconnectUser: jest.fn() };
+  return { prisma, events, service: new UsersService(prisma as any, events as any) };
 }
 
 describe('UsersService — กันร้านไม่มี ADMIN เหลือ', () => {
@@ -85,5 +86,35 @@ describe('UsersService — ลบพนักงานที่มีประ�
       new Prisma.PrismaClientKnownRequestError('fk', { code: 'P2003', clientVersion: 'x' }),
     );
     await expect(service.remove('u2', 'a1')).rejects.toThrow('ปิดใช้งาน');
+  });
+});
+
+describe('UsersService — ออกจากระบบทุกเครื่อง (บัญชีกลางตามตำแหน่ง)', () => {
+  it('ตั้งรหัสใหม่ + logoutEverywhere → tokenVersion +1 และตัด socket ของบัญชีนั้น', async () => {
+    const { prisma, events, service } = setup();
+    prisma.user.findUnique.mockResolvedValue(user({ id: 'k1', role: Role.KITCHEN }));
+    await service.update('k1', { password: 'NewKitchen1', logoutEverywhere: true }, 'a1');
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ tokenVersion: { increment: 1 } }),
+      }),
+    );
+    expect(events.disconnectUser).toHaveBeenCalledWith('k1');
+  });
+
+  it('ตั้งรหัสใหม่อย่างเดียว ไม่เตะเครื่องที่ใช้อยู่', async () => {
+    const { prisma, events, service } = setup();
+    prisma.user.findUnique.mockResolvedValue(user({ id: 'k1', role: Role.KITCHEN }));
+    await service.update('k1', { password: 'NewKitchen1' }, 'a1');
+    expect(prisma.user.update.mock.calls[0][0].data.tokenVersion).toBeUndefined();
+    expect(events.disconnectUser).not.toHaveBeenCalled();
+  });
+
+  it('สั่งกับบัญชีตัวเองไม่ได้ (จะหลุดจากหน้าจัดการทันที)', async () => {
+    const { prisma, service } = setup();
+    prisma.user.findUnique.mockResolvedValue(user({ id: 'a1', role: Role.ADMIN }));
+    await expect(service.update('a1', { logoutEverywhere: true }, 'a1')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 });

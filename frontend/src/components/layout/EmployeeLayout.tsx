@@ -126,13 +126,13 @@ export function EmployeeLayout() {
               </Link>
             )}
 
-            {/* จัดการบัญชีพนักงาน — เฉพาะ ADMIN (route + backend @Roles(ADMIN) กันอีกชั้น) */}
+            {/* จัดการบัญชีผู้ใช้ — เฉพาะ ADMIN (route + backend @Roles(ADMIN) กันอีกชั้น) */}
             {user && pageRoles.users.includes(user.role) && (
               <Link
                 to="/employee/users"
                 className="hidden whitespace-nowrap rounded-lg border-2 border-brand-400 px-3 py-2 text-sm font-bold text-brand-500 transition hover:bg-brand-50 sm:block"
               >
-                พนักงาน
+                บัญชีผู้ใช้
               </Link>
             )}
 
@@ -154,13 +154,17 @@ export function EmployeeLayout() {
           {user && (
             <span className="ml-3 text-sm font-normal text-gray-600">
               ({user.name} · {user.role})
-              <button
-                type="button"
-                onClick={() => setChangingPassword(true)}
-                className="ml-2 font-semibold text-brand-500 underline-offset-2 hover:underline"
-              >
-                เปลี่ยนรหัสผ่าน
-              </button>
+              {/* บัญชีกลาง (ครัว/หน้าร้าน) ทั้งตำแหน่งรู้รหัสเดิม ให้เปลี่ยนเองได้ = คนเดียวล็อกทั้งตำแหน่ง
+                  จึงให้เฉพาะ ADMIN ส่วนบัญชีกลาง ADMIN ตั้งรหัสใหม่ให้ที่หน้าบัญชีผู้ใช้ */}
+              {user.role === Role.ADMIN && (
+                <button
+                  type="button"
+                  onClick={() => setChangingPassword(true)}
+                  className="ml-2 font-semibold text-brand-500 underline-offset-2 hover:underline"
+                >
+                  เปลี่ยนรหัสผ่าน
+                </button>
+              )}
             </span>
           )}
         </p>

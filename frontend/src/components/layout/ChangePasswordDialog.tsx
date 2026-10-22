@@ -9,7 +9,7 @@ import { useState } from 'react'
 export const MIN_PASSWORD_LENGTH = 8
 
 /**
- * เปลี่ยนรหัสผ่านของตัวเอง — ทุก role ใช้ได้
+ * เปลี่ยนรหัสผ่านของตัวเอง — เฉพาะ ADMIN (บัญชีกลางของครัว/หน้าร้าน ADMIN ตั้งให้ที่หน้าบัญชีผู้ใช้)
  * ใช้ตอนรับมอบระบบ: เจ้าของร้านเปลี่ยนรหัส ADMIN ที่ได้มาเป็นรหัสที่รู้คนเดียว
  */
 export function ChangePasswordDialog({ onClose }: Readonly<{ onClose: () => void }>) {

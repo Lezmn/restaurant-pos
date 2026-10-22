@@ -34,7 +34,10 @@ export type ServerEvent =
   /** ผลตรวจสลิป PromptPay เปลี่ยน (ตรวจซ้ำผ่าน/ไม่ผ่าน, ADMIN ยืนยันเอง) */
   | 'payment.slip-updated';
 
-type StaffPayload = { sub: string };
+type StaffPayload = { sub: string; tv?: number };
+
+/** ห้องของแต่ละบัญชี — ไว้ตัดทุก socket ของบัญชีนั้นตอนถูกปิดใช้งาน/ออกจากระบบทุกเครื่อง */
+const userRoom = (userId: string) => `user:${userId}`;
 
 /**
  * Handshake: client ส่งอย่างใดอย่างหนึ่งมาใน `socket.handshake.auth`
@@ -84,6 +87,11 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.debug(`ตัดการเชื่อมต่อ ${client.id}`);
   }
 
+  /** ตัดทุก socket ของบัญชีนี้ — เครื่องที่ถูกเตะจะไม่ได้รับ event ต่อ (REST ก็ได้ 401 แล้วเด้งไป login) */
+  disconnectUser(userId: string) {
+    this.server?.in(userRoom(userId)).disconnectSockets(true);
+  }
+
   /** ส่งให้พนักงานทุกคน */
   emitToStaff(event: ServerEvent, payload: unknown) {
     this.server?.to(STAFF_ROOM).emit(event, decimalToNumber(payload));
@@ -115,9 +123,16 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   private async joinAsStaff(client: Socket, token: string) {
-    // ตรวจแค่ลายเซ็น + หมดอายุ ไม่ต้อง query user ทุกครั้ง; role ไม่สำคัญเพราะทุก role เห็น event เดียวกัน
+    // role ไม่สำคัญเพราะทุก role เห็น event เดียวกัน แต่ต้องเช็คบัญชียังใช้ได้ (query ครั้งเดียวตอนต่อ)
     const payload = await this.jwtService.verifyAsync<StaffPayload>(token);
-    await client.join(STAFF_ROOM);
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { isActive: true, tokenVersion: true },
+    });
+    if (!user?.isActive || (payload.tv ?? 0) !== user.tokenVersion) {
+      throw new Error('บัญชีนี้ถูกปิดใช้งานหรือถูกออกจากระบบแล้ว');
+    }
+    await client.join([STAFF_ROOM, userRoom(payload.sub)]);
     client.data.userId = payload.sub;
     this.logger.debug(`พนักงาน ${payload.sub} เชื่อมต่อ (${client.id})`);
   }

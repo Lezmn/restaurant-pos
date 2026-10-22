@@ -21,7 +21,7 @@ import { useState } from 'react'
 const ROLE_INFO: Record<Role, { label: string; detail: string }> = {
   [Role.STAFF]: { label: 'พนักงานหน้าร้าน', detail: 'เปิดโต๊ะ รับออเดอร์ เก็บเงิน' },
   [Role.KITCHEN]: { label: 'ครัว', detail: 'ดูคิวอาหาร ปิดเมนู/วัตถุดิบที่หมด' },
-  [Role.ADMIN]: { label: 'เจ้าของร้าน', detail: 'ทุกหน้า รวมถึงรายงานและจัดการพนักงาน' },
+  [Role.ADMIN]: { label: 'เจ้าของร้าน', detail: 'ทุกหน้า รวมถึงรายงานและจัดการบัญชีผู้ใช้' },
 }
 const ROLES = [Role.STAFF, Role.KITCHEN, Role.ADMIN] as const
 
@@ -29,8 +29,11 @@ const ROLES = [Role.STAFF, Role.KITCHEN, Role.ADMIN] as const
 const USERNAME_PATTERN = /^[a-z0-9._-]+$/
 
 /**
- * หน้าจัดการพนักงาน — เข้าได้เฉพาะ ADMIN (route + @Roles(ADMIN) ที่ backend)
- * พนักงานลาออก = ปิดใช้งาน ไม่ใช่ลบ (ประวัติปิดยอด/เบิกเงินยังผูกกับคนเดิม)
+ * หน้าจัดการบัญชีผู้ใช้ — เข้าได้เฉพาะ ADMIN (route + @Roles(ADMIN) ที่ backend)
+ *
+ * ร้านใช้บัญชีกลางตามตำแหน่ง: ครัวทั้งครัว 1 บัญชี, หน้าร้านทั้งหมด 1 บัญชี
+ * - มีคนลาออก = ตั้งรหัสใหม่ + ออกจากระบบทุกเครื่อง (ไม่ใช่ปิดบัญชี — ปิดแล้วทั้งตำแหน่งใช้ไม่ได้)
+ * - ปิดใช้งาน = เลิกใช้บัญชีนั้นทั้งบัญชี (ประวัติปิดยอด/เบิกเงินยังผูกอยู่ จึงไม่ลบ)
  */
 export function UsersPage() {
   const me = useAuth((s) => s.user)
@@ -55,11 +58,11 @@ export function UsersPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeader
-        title="พนักงาน"
+        title="บัญชีผู้ใช้"
         description={
           users
-            ? `ใช้งานอยู่ ${activeCount} คน · ปิดใช้งาน ${users.length - activeCount} คน`
-            : 'เพิ่มบัญชีพนักงานและกำหนดสิทธิ์'
+            ? `ใช้งานอยู่ ${activeCount} บัญชี · ปิดใช้งาน ${users.length - activeCount} บัญชี — ทุกเครื่องในตำแหน่งเดียวกันใช้บัญชีเดียวกัน`
+            : 'บัญชีตามตำแหน่ง (ครัว / หน้าร้าน) และสิทธิ์'
         }
         action={
           <button
@@ -67,14 +70,14 @@ export function UsersPage() {
             onClick={() => setEditing('new')}
             className={`${button('primary', 'lg')} shrink-0`}
           >
-            เพิ่มพนักงาน
+            เพิ่มบัญชี
           </button>
         }
       />
 
       {usersQuery.isError && (
         <LoadError
-          what="รายชื่อพนักงาน"
+          what="รายการบัญชี"
           stale={Boolean(users)}
           error={usersQuery.error}
           onRetry={() => usersQuery.refetch()}
@@ -188,10 +191,10 @@ export function UsersPage() {
 
       {deactivating && (
         <ConfirmDialog
-          title="ปิดใช้งานพนักงาน"
+          title="ปิดใช้งานบัญชี"
           subject={deactivating.name}
           detail={`ชื่อผู้ใช้ ${deactivating.username} · ${ROLE_INFO[deactivating.role].label}`}
-          consequence="เข้าสู่ระบบไม่ได้ และเครื่องที่ login ค้างไว้จะหลุดทันที ประวัติปิดยอด/บิลยังอยู่ครบ เปิดใช้งานคืนได้ทุกเมื่อ"
+          consequence="ทุกเครื่องที่ใช้บัญชีนี้จะหลุดทันทีและ login ไม่ได้ — ทั้งตำแหน่งใช้ระบบไม่ได้จนกว่าจะเปิดคืน ถ้าแค่มีคนลาออก ให้ใช้ “ตั้งรหัสผ่านใหม่” แทน ประวัติปิดยอด/บิลยังอยู่ครบ"
           confirmLabel="ปิดใช้งาน"
           pendingLabel="กำลังปิด..."
           isPending={update.isPending}
@@ -216,11 +219,11 @@ export function UsersPage() {
 
       {deleting && (
         <ConfirmDialog
-          title="ลบพนักงาน"
+          title="ลบบัญชี"
           subject={deleting.name}
           detail={`ชื่อผู้ใช้ ${deleting.username} · ${ROLE_INFO[deleting.role].label}`}
-          consequence="ลบแล้วกู้คืนไม่ได้ ถ้าพนักงานคนนี้เคยปิดยอดหรือเบิกเงินจะลบไม่ได้ — ใช้ “ปิดใช้งาน” แทน"
-          confirmLabel="ลบพนักงาน"
+          consequence="ลบแล้วกู้คืนไม่ได้ ทุกเครื่องที่ใช้บัญชีนี้จะหลุด ถ้าบัญชีนี้เคยปิดยอดหรือเบิกเงินจะลบไม่ได้ — ใช้ “ปิดใช้งาน” แทน"
+          confirmLabel="ลบบัญชี"
           pendingLabel="กำลังลบ..."
           isPending={remove.isPending}
           error={remove.error}
@@ -242,7 +245,7 @@ export function UsersPage() {
   )
 }
 
-/** เพิ่มพนักงานใหม่ / แก้ชื่อและสิทธิ์ — ชื่อผู้ใช้แก้ไม่ได้หลังสร้าง (เป็นตัว login) */
+/** เพิ่มบัญชีใหม่ / แก้ชื่อและสิทธิ์ — ชื่อผู้ใช้แก้ไม่ได้หลังสร้าง (เป็นตัว login) */
 function UserFormDialog({
   user,
   isMe,
@@ -260,7 +263,7 @@ function UserFormDialog({
   const isNew = !user
   const login = username.trim().toLowerCase()
   const errors = {
-    name: name.trim() ? '' : 'กรอกชื่อพนักงาน',
+    name: name.trim() ? '' : 'กรอกชื่อบัญชี',
     username: !isNew
       ? ''
       : !login
@@ -287,7 +290,7 @@ function UserFormDialog({
     if (isNew) {
       create.mutate(
         { name: name.trim(), email: toLoginEmail(login), password, role },
-        { onSuccess: done(`เพิ่ม ${name.trim()} แล้ว — login ด้วยชื่อผู้ใช้ ${login}`) },
+        { onSuccess: done(`เพิ่มบัญชี ${name.trim()} แล้ว — login ด้วยชื่อผู้ใช้ ${login}`) },
       )
     } else {
       update.mutate(
@@ -298,7 +301,7 @@ function UserFormDialog({
   }
 
   return (
-    <Modal title={isNew ? 'เพิ่มพนักงาน' : `แก้ไข ${user.name}`} onClose={onClose}>
+    <Modal title={isNew ? 'เพิ่มบัญชี' : `แก้ไข ${user.name}`} onClose={onClose}>
       <form
         noValidate
         onSubmit={(e) => {
@@ -310,11 +313,11 @@ function UserFormDialog({
         <ErrorNote error={create.error ?? update.error} />
 
         <label className="block text-sm">
-          <span className={fieldLabel}>ชื่อที่แสดง</span>
+          <span className={fieldLabel}>ชื่อบัญชี / ตำแหน่ง</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="เช่น สมชาย (แคชเชียร์เช้า)"
+            placeholder="เช่น ครัว, แคชเชียร์, หน้าร้าน"
             maxLength={100}
             aria-invalid={Boolean(show('name'))}
             className={`${field} ${show('name') ? 'border-danger' : ''}`}
@@ -328,7 +331,7 @@ function UserFormDialog({
             <input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="เช่น somchai"
+              placeholder="เช่น kitchen, cashier"
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
@@ -395,7 +398,8 @@ function UserFormDialog({
               autoComplete="new-password"
             />
             <p className="text-sm text-gray-600">
-              บอกรหัสนี้กับพนักงานด้วยตัวเอง แล้วให้กด “เปลี่ยนรหัสผ่าน” ที่หัวจอหลัง login ครั้งแรก
+              บอกรหัสนี้กับคนในตำแหน่งนี้ด้วยตัวเอง (ไม่ส่งทางแชตกลุ่ม) — มีคนลาออกเมื่อไร ให้กด
+              “ตั้งรหัสผ่านใหม่” ที่หน้านี้
             </p>
           </>
         )}
@@ -405,7 +409,7 @@ function UserFormDialog({
             ยกเลิก
           </button>
           <button type="submit" disabled={pending} className={button('primary', 'lg')}>
-            {pending ? 'กำลังบันทึก...' : isNew ? 'เพิ่มพนักงาน' : 'บันทึก'}
+            {pending ? 'กำลังบันทึก...' : isNew ? 'เพิ่มบัญชี' : 'บันทึก'}
           </button>
         </div>
       </form>
@@ -413,7 +417,10 @@ function UserFormDialog({
   )
 }
 
-/** พนักงานลืมรหัส — เจ้าของร้านตั้งรหัสใหม่ให้ (ไม่ต้องรู้รหัสเดิม) */
+/**
+ * ตั้งรหัสใหม่ให้บัญชีกลาง (ลืมรหัส / มีคนลาออก) — ไม่ต้องรู้รหัสเดิม
+ * มีคนลาออก: ติ๊ก "ออกจากระบบทุกเครื่อง" ด้วย ไม่งั้นมือถือของคนที่ออกไปแล้วยัง login ค้างอยู่ได้
+ */
 function ResetPasswordDialog({
   user,
   onClose,
@@ -421,6 +428,7 @@ function ResetPasswordDialog({
   const update = useUpdateUser()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [logoutEverywhere, setLogoutEverywhere] = useState(true)
   const [attempted, setAttempted] = useState(false)
 
   const errors = {
@@ -439,10 +447,14 @@ function ResetPasswordDialog({
           setAttempted(true)
           if (errors.password || errors.confirm) return
           update.mutate(
-            { id: user.id, input: { password } },
+            { id: user.id, input: { password, logoutEverywhere } },
             {
               onSuccess: () => {
-                toast(`ตั้งรหัสผ่านใหม่ให้ ${user.name} แล้ว`)
+                toast(
+                  logoutEverywhere
+                    ? `ตั้งรหัสใหม่ให้ ${user.name} แล้ว — ทุกเครื่องต้อง login ใหม่ด้วยรหัสใหม่`
+                    : `ตั้งรหัสใหม่ให้ ${user.name} แล้ว`,
+                )
                 onClose()
               },
             },
@@ -469,6 +481,21 @@ function ResetPasswordDialog({
           error={show('confirm')}
           autoComplete="new-password"
         />
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border-2 border-gray-200 bg-white p-3">
+          <input
+            type="checkbox"
+            checked={logoutEverywhere}
+            onChange={(e) => setLogoutEverywhere(e.target.checked)}
+            className="mt-1 h-5 w-5"
+          />
+          <span>
+            <span className="block font-bold text-black">ออกจากระบบทุกเครื่องที่ใช้บัญชีนี้</span>
+            <span className="block text-sm text-gray-600">
+              ใช้ตอนมีคนลาออก — มือถือ/เครื่องที่ login ค้างไว้จะหลุดทันที แท็บเล็ตของร้านต้อง
+              login ใหม่ด้วยรหัสใหม่ (ไม่ติ๊ก = แค่เปลี่ยนรหัส เครื่องที่ใช้อยู่ไม่หลุด)
+            </span>
+          </span>
+        </label>
         <div className="grid grid-cols-2 gap-3 pt-2">
           <button type="button" onClick={onClose} className={button('secondary', 'lg')}>
             ยกเลิก
