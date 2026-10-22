@@ -345,6 +345,7 @@ export function CheckPage() {
         <ReceiptDialog
           payment={receipt.payment}
           tendered={receipt.tendered}
+          justPaid
           onClose={() => setReceipt(null)}
         />
       )}
