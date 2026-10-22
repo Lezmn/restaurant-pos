@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { JwtStrategy } from './jwt.strategy';
+import { PasswordChangeGuard } from './guards/password-change.guard';
 
 @Global()
 @Module({
@@ -28,6 +29,8 @@ import { JwtStrategy } from './jwt.strategy';
     JwtStrategy,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    // ลำดับสำคัญ: ต้องรู้ตัว user (JwtAuthGuard) ก่อนถึงจะเช็คว่าต้องเปลี่ยนรหัสหรือไม่
+    { provide: APP_GUARD, useClass: PasswordChangeGuard },
   ],
   // export JwtModule ให้ EventsGateway ตรวจ token ตอน WebSocket handshake ได้
   exports: [AuthService, JwtModule],

@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CreateTableSessionDto } from './dto/create-table-session.dto';
+import { UpdateGuestCountDto } from './dto/update-guest-count.dto';
 import { FindTableSessionsQueryDto } from './dto/find-table-sessions-query.dto';
 import { TableSessionsService } from './table-sessions.service';
 
@@ -31,6 +32,13 @@ export class TableSessionsController {
   @ApiOperation({ summary: 'ดึง QR session ตาม id' })
   findOne(@Param('id') id: string) {
     return this.tableSessionsService.findOne(id);
+  }
+
+  @Patch(':id/guests')
+  @Roles(Role.ADMIN, Role.STAFF)
+  @ApiOperation({ summary: 'ระบุ/แก้จำนวนลูกค้าของโต๊ะ (Dashboard รวมเป็นลูกค้าเข้าใช้บริการ)' })
+  setGuestCount(@Param('id') id: string, @Body() dto: UpdateGuestCountDto) {
+    return this.tableSessionsService.setGuestCount(id, dto.guestCount);
   }
 
   @Patch(':id/close')

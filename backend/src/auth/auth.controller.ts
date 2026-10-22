@@ -2,6 +2,7 @@ import { Body, Controller, Get, Patch, Post, Req } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { AllowDuringPasswordChange } from './decorators/allow-password-change.decorator';
 import { Public } from './decorators/public.decorator';
 import { Roles } from './decorators/roles.decorator';
 import { AuthService } from './auth.service';
@@ -26,6 +27,7 @@ export class AuthController {
   login(@Body() dto: LoginDto) { return this.authService.login(dto); }
 
   @Get('me')
+  @AllowDuringPasswordChange()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'ดูข้อมูลผู้ใช้ที่ login อยู่' })
   me(@Req() request: { user: AuthenticatedUser }) { return request.user; }
@@ -35,6 +37,7 @@ export class AuthController {
   // คนเดียวกดเปลี่ยนแล้วทั้งตำแหน่ง login ไม่ได้ จึงให้เฉพาะ ADMIN เปลี่ยนของตัวเอง
   // ส่วนบัญชีกลาง ADMIN ตั้งรหัสใหม่ให้ที่หน้าบัญชีผู้ใช้ (PATCH /users/:id)
   @Roles(Role.ADMIN)
+  @AllowDuringPasswordChange()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'เปลี่ยนรหัสผ่านของตัวเอง (ต้องส่งรหัสเดิม) — เฉพาะ ADMIN' })
   changePassword(

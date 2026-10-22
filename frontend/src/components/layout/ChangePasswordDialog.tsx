@@ -13,6 +13,28 @@ export const MIN_PASSWORD_LENGTH = 8
  * ใช้ตอนรับมอบระบบ: เจ้าของร้านเปลี่ยนรหัส ADMIN ที่ได้มาเป็นรหัสที่รู้คนเดียว
  */
 export function ChangePasswordDialog({ onClose }: Readonly<{ onClose: () => void }>) {
+  return (
+    <Modal title="เปลี่ยนรหัสผ่านของฉัน" onClose={onClose}>
+      <ChangePasswordForm
+        onCancel={onClose}
+        onDone={() => {
+          toast('เปลี่ยนรหัสผ่านแล้ว — ครั้งหน้าใช้รหัสใหม่')
+          onClose()
+        }}
+      />
+    </Modal>
+  )
+}
+
+/**
+ * ฟอร์มเปลี่ยนรหัส — ใช้ทั้งในกล่อง (กดเปลี่ยนเอง) และหน้าบังคับเปลี่ยนรหัส (รหัสชั่วคราว)
+ * onCancel ไม่ส่งมา = ไม่มีปุ่มยกเลิก (หน้าบังคับ ต้องเปลี่ยนก่อนถึงจะใช้งานต่อได้)
+ */
+export function ChangePasswordForm({
+  onCancel,
+  onDone,
+  currentLabel = 'รหัสผ่านปัจจุบัน',
+}: Readonly<{ onCancel?: () => void; onDone: () => void; currentLabel?: string }>) {
   const change = useChangePassword()
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
@@ -33,58 +55,50 @@ export function ChangePasswordDialog({ onClose }: Readonly<{ onClose: () => void
   const show = (key: keyof typeof errors) => (attempted ? errors[key] : '')
 
   return (
-    <Modal title="เปลี่ยนรหัสผ่านของฉัน" onClose={onClose}>
-      <form
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault()
-          setAttempted(true)
-          if (invalid) return
-          change.mutate(
-            { currentPassword: current, newPassword: next },
-            {
-              onSuccess: () => {
-                toast('เปลี่ยนรหัสผ่านแล้ว — ครั้งหน้าใช้รหัสใหม่')
-                onClose()
-              },
-            },
-          )
-        }}
-        className="space-y-3"
-      >
-        <ErrorNote error={change.error} />
-        <PasswordField
-          label="รหัสผ่านปัจจุบัน"
-          value={current}
-          onChange={setCurrent}
-          error={show('current')}
-          autoComplete="current-password"
-        />
-        <PasswordField
-          label="รหัสผ่านใหม่"
-          hint={`อย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`}
-          value={next}
-          onChange={setNext}
-          error={show('next')}
-          autoComplete="new-password"
-        />
-        <PasswordField
-          label="ยืนยันรหัสผ่านใหม่"
-          value={confirm}
-          onChange={setConfirm}
-          error={show('confirm')}
-          autoComplete="new-password"
-        />
-        <div className="grid grid-cols-2 gap-3 pt-2">
-          <button type="button" onClick={onClose} className={button('secondary', 'lg')}>
+    <form
+      noValidate
+      onSubmit={(e) => {
+        e.preventDefault()
+        setAttempted(true)
+        if (invalid) return
+        change.mutate({ currentPassword: current, newPassword: next }, { onSuccess: onDone })
+      }}
+      className="space-y-3"
+    >
+      <ErrorNote error={change.error} />
+      <PasswordField
+        label={currentLabel}
+        value={current}
+        onChange={setCurrent}
+        error={show('current')}
+        autoComplete="current-password"
+      />
+      <PasswordField
+        label="รหัสผ่านใหม่"
+        hint={`อย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`}
+        value={next}
+        onChange={setNext}
+        error={show('next')}
+        autoComplete="new-password"
+      />
+      <PasswordField
+        label="ยืนยันรหัสผ่านใหม่"
+        value={confirm}
+        onChange={setConfirm}
+        error={show('confirm')}
+        autoComplete="new-password"
+      />
+      <div className={`grid gap-3 pt-2 ${onCancel ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        {onCancel && (
+          <button type="button" onClick={onCancel} className={button('secondary', 'lg')}>
             ยกเลิก
           </button>
-          <button type="submit" disabled={change.isPending} className={button('primary', 'lg')}>
-            {change.isPending ? 'กำลังบันทึก...' : 'เปลี่ยนรหัสผ่าน'}
-          </button>
-        </div>
-      </form>
-    </Modal>
+        )}
+        <button type="submit" disabled={change.isPending} className={button('primary', 'lg')}>
+          {change.isPending ? 'กำลังบันทึก...' : 'เปลี่ยนรหัสผ่าน'}
+        </button>
+      </div>
+    </form>
   )
 }
 

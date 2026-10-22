@@ -16,6 +16,7 @@ const USER_SELECT = {
   email: true,
   role: true,
   isActive: true,
+  mustChangePassword: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -31,7 +32,15 @@ export class UsersService {
     const password = await bcrypt.hash(dto.password, 12);
     try {
       return await this.prisma.user.create({
-        data: { name: dto.name, email: dto.email, password, role: dto.role },
+        // ADMIN ใหม่ใช้รหัสที่คนสร้างตั้งให้ = รหัสชั่วคราว ต้องเปลี่ยนเองตอน login ครั้งแรก
+        // บัญชีกลาง (ครัว/หน้าร้าน) ไม่บังคับ — เปลี่ยนรหัสเองไม่ได้อยู่แล้ว ADMIN เป็นคนตั้งให้
+        data: {
+          name: dto.name,
+          email: dto.email,
+          password,
+          role: dto.role,
+          mustChangePassword: dto.role === Role.ADMIN,
+        },
         select: USER_SELECT,
       });
     } catch (e) {
@@ -90,6 +99,8 @@ export class UsersService {
     };
     if (dto.password) {
       data.password = await bcrypt.hash(dto.password, 12);
+      // ADMIN อีกคนตั้งรหัสให้ = คนตั้งรู้รหัสด้วย ต้องให้เจ้าของบัญชีเปลี่ยนเองตอน login ครั้งถัดไป
+      if ((dto.role ?? user.role) === Role.ADMIN) data.mustChangePassword = true;
     }
 
     try {

@@ -19,6 +19,8 @@ export interface User {
   email: string
   name: string
   role: Role
+  /** true = ต้องตั้งรหัสใหม่ก่อนใช้งาน (รหัสชั่วคราวตอนส่งมอบ / ADMIN อีกคนตั้งให้) */
+  mustChangePassword?: boolean
 }
 
 export interface Category {
@@ -107,6 +109,8 @@ export interface TableSession {
   status: TableSessionStatus
   openedAt: string
   closedAt: string | null
+  /** จำนวนลูกค้า (null = ไม่ได้ระบุ) */
+  guestCount: number | null
   /** ยอดที่ต้องจ่ายของโต๊ะนี้ — backend คำนวณมาให้ ไม่ได้บวกเองฝั่ง frontend */
   total: number
 }

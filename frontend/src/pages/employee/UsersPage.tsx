@@ -121,6 +121,11 @@ export function UsersPage() {
                   ปิดใช้งาน — เข้าสู่ระบบไม่ได้
                 </p>
               )}
+              {user.isActive && user.mustChangePassword && (
+                <p className="mt-2 text-sm font-semibold text-amber-800">
+                  ยังใช้รหัสชั่วคราว — login ครั้งหน้าต้องตั้งรหัสใหม่
+                </p>
+              )}
 
               <div className="mt-3 flex flex-wrap gap-2 border-t border-gray-200 pt-3">
                 <button
@@ -398,8 +403,9 @@ function UserFormDialog({
               autoComplete="new-password"
             />
             <p className="text-sm text-gray-600">
-              บอกรหัสนี้กับคนในตำแหน่งนี้ด้วยตัวเอง (ไม่ส่งทางแชตกลุ่ม) — มีคนลาออกเมื่อไร ให้กด
-              “ตั้งรหัสผ่านใหม่” ที่หน้านี้
+              {role === Role.ADMIN
+                ? 'บัญชีเจ้าของร้านต้องตั้งรหัสใหม่เองตอน login ครั้งแรก — รหัสนี้ใช้ได้ครั้งเดียว'
+                : 'บอกรหัสนี้กับคนในตำแหน่งนี้ด้วยตัวเอง (ไม่ส่งทางแชตกลุ่ม) — มีคนลาออกเมื่อไร ให้กด “ตั้งรหัสผ่านใหม่” ที่หน้านี้'}
             </p>
           </>
         )}

@@ -10,6 +10,7 @@ interface ApiStaffUser {
   email: string
   role: Role
   isActive: boolean
+  mustChangePassword: boolean
   createdAt: string
 }
 
@@ -22,6 +23,8 @@ export interface StaffUser {
   username: string
   role: Role
   isActive: boolean
+  /** ADMIN ที่ยังใช้รหัสชั่วคราว — login แล้วต้องตั้งรหัสใหม่ก่อน */
+  mustChangePassword: boolean
   createdAt: string
 }
 

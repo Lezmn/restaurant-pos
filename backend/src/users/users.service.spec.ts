@@ -20,6 +20,7 @@ function setup() {
       update: jest.fn().mockImplementation(({ data }) => ({ ...user(), ...data })),
       delete: jest.fn(),
       count: jest.fn(),
+      create: jest.fn().mockImplementation(({ data }) => ({ ...user(), ...data })),
     },
   };
   const events = { disconnectUser: jest.fn() };
@@ -116,5 +117,22 @@ describe('UsersService — ออกจากระบบทุกเครื�
     await expect(service.update('a1', { logoutEverywhere: true }, 'a1')).rejects.toBeInstanceOf(
       BadRequestException,
     );
+  });
+});
+
+describe('UsersService — รหัสชั่วคราวของ ADMIN', () => {
+  it('สร้าง ADMIN → ต้องเปลี่ยนรหัสตอน login ครั้งแรก, บัญชีกลางครัว/หน้าร้าน → ไม่บังคับ', async () => {
+    const { prisma, service } = setup();
+    await service.create({ name: 'เจ้าของ', email: 'o@x.local', password: 'TempPass1', role: Role.ADMIN });
+    await service.create({ name: 'ครัว', email: 'k@x.local', password: 'TempPass1', role: Role.KITCHEN });
+    expect(prisma.user.create.mock.calls[0][0].data.mustChangePassword).toBe(true);
+    expect(prisma.user.create.mock.calls[1][0].data.mustChangePassword).toBe(false);
+  });
+
+  it('ADMIN ตั้งรหัสให้ ADMIN อีกคน → อีกคนต้องเปลี่ยนเอง', async () => {
+    const { prisma, service } = setup();
+    prisma.user.findUnique.mockResolvedValue(user({ id: 'a2', role: Role.ADMIN }));
+    await service.update('a2', { password: 'TempPass1' }, 'a1');
+    expect(prisma.user.update.mock.calls[0][0].data.mustChangePassword).toBe(true);
   });
 });

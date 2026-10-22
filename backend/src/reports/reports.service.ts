@@ -35,6 +35,7 @@ export class ReportsService {
       tableGroups,
       trendPayments,
       slipGroups,
+      todaySessions,
     ] = await Promise.all([
         // นับเฉพาะบิลที่ยังไม่ถูกยกเลิก ไม่งั้นยอดขายจะเกินจริง
         this.prisma.payment.findMany({
@@ -70,6 +71,12 @@ export class ReportsService {
           },
           _count: { _all: true },
         }),
+        // โต๊ะที่เปิดวันนี้ — รวมจำนวนลูกค้าที่พนักงานกดระบุไว้ (QR ที่หมดอายุโดยไม่มีออเดอร์ก็ยังนับ เพราะลูกค้ามานั่งจริง)
+        this.prisma.tableSession.aggregate({
+          where: { openedAt: { gte: todayStart, lt: tomorrowStart } },
+          _sum: { guestCount: true },
+          _count: { _all: true, guestCount: true },
+        }),
       ]);
 
     const revenue = this.sum(todayPayments.map((payment) => payment.amount));
@@ -86,6 +93,12 @@ export class ReportsService {
       tables: this.countTablesByStatus(tableGroups),
       revenueTrend: this.buildTrend(trendPayments, trendStart),
       // บิล PromptPay ที่ยังยืนยันไม่ได้ว่าเงินเข้าจริง — ไม่จำกัดวัน ค้างอยู่จนกว่าจะจัดการ
+      // ลูกค้าเข้าใช้บริการ — tablesWithoutCount = โต๊ะที่ไม่ได้ระบุจำนวน (ยอดจริงอาจมากกว่านี้)
+      guests: {
+        total: todaySessions._sum.guestCount ?? 0,
+        tables: todaySessions._count._all,
+        tablesWithoutCount: todaySessions._count._all - todaySessions._count.guestCount,
+      },
       slipIssues: {
         pending: slipGroups.find((g) => g.slipStatus === SlipStatus.PENDING)?._count._all ?? 0,
         failed: slipGroups.find((g) => g.slipStatus === SlipStatus.FAILED)?._count._all ?? 0,
