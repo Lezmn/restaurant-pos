@@ -6,5 +6,12 @@
 # ไฟล์สำรองฐานข้อมูลจาก service backup — ข้อมูลร้านจริง ห้ามเข้า git
 backups/
 
-# ไฟล์ของเครื่องมือ (Claude Code worktree / settings ส่วนตัว)
-.claude/
+# Claude Code — ค่าตั้งส่วนตัวของแต่ละเครื่อง และสำเนา repo ชั่วคราวของ session อื่น
+# (agents/skills ใน .claude/ ยังเก็บใน git ให้คนที่ clone ใช้ได้)
+.claude/settings.local.json
+.claude/worktrees/
+# dev server ที่ชี้ path ในเครื่องตัวเอง
+.claude/launch.json
+
+# binary ของ impeccable skill (~20 MB) — ได้มาเองตอนติดตั้ง plugin ไม่เก็บใน history
+.claude/skills/impeccable/scripts/bin/
