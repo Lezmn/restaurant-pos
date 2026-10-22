@@ -25,7 +25,8 @@ export class AuthService {
     }
 
     return {
-      accessToken: await this.jwt.signAsync({ sub: user.id, role: user.role }),
+      // tv = tokenVersion ตอนออก token — ADMIN กด "ออกจากระบบทุกเครื่อง" แล้ว token นี้ใช้ไม่ได้
+      accessToken: await this.jwt.signAsync({ sub: user.id, role: user.role, tv: user.tokenVersion }),
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
     };
   }

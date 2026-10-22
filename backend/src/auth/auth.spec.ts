@@ -29,12 +29,14 @@ describe('AuthService', () => {
   it('login สำเร็จ: คืน JWT ที่มี sub/role และไม่คืน password', async () => {
     prisma.user.findUnique.mockResolvedValue({
       id: 'u1', name: 'A', email: 'a@x', role: Role.STAFF, password: hash, isActive: true,
+      tokenVersion: 3,
     });
     const r = await service.login({ email: 'a@x', password: 'correct-password' });
     expect(r.user).toEqual({ id: 'u1', name: 'A', email: 'a@x', role: Role.STAFF });
     expect(JSON.stringify(r)).not.toContain(hash);
     const payload = jwt.verify(r.accessToken);
-    expect(payload).toMatchObject({ sub: 'u1', role: Role.STAFF });
+    // tv = tokenVersion — "ออกจากระบบทุกเครื่อง" เพิ่มค่านี้แล้ว token เก่าใช้ไม่ได้
+    expect(payload).toMatchObject({ sub: 'u1', role: Role.STAFF, tv: 3 });
   });
 
   it('บัญชีที่ปิดใช้งาน → 401 แม้รหัสถูก', async () => {

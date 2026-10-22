@@ -6,7 +6,8 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service';
 
 export type AuthenticatedUser = { id: string; email: string; name: string; role: Role };
-type JwtPayload = { sub: string };
+/** tv ไม่มี = token ที่ออกก่อนมีระบบนี้ ถือเป็นรุ่น 0 (deploy แล้วทุกเครื่องไม่ต้อง login ใหม่) */
+export type JwtPayload = { sub: string; tv?: number };
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -19,10 +20,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: JwtPayload): Promise<AuthenticatedUser> {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, email: true, name: true, role: true, isActive: true },
+      select: { id: true, email: true, name: true, role: true, isActive: true, tokenVersion: true },
     });
-    // ปิดใช้งานแล้ว = token ที่ยังไม่หมดอายุก็ใช้ต่อไม่ได้ทันที ไม่ต้องรอ 8 ชั่วโมง
-    if (!user?.isActive) throw new UnauthorizedException();
+    // ปิดใช้งาน หรือถูกสั่งออกจากระบบทุกเครื่อง = token ที่ยังไม่หมดอายุก็ใช้ต่อไม่ได้ทันที
+    if (!user?.isActive || (payload.tv ?? 0) !== user.tokenVersion) {
+      throw new UnauthorizedException();
+    }
     return { id: user.id, email: user.email, name: user.name, role: user.role };
   }
 }

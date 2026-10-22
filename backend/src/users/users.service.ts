@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { EventsGateway } from '../events/events.gateway';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -21,7 +22,10 @@ const USER_SELECT = {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventsGateway,
+  ) {}
 
   async create(dto: CreateUserDto) {
     const password = await bcrypt.hash(dto.password, 12);
@@ -66,6 +70,9 @@ export class UsersService {
       if (dto.isActive === false) {
         throw new BadRequestException('ปิดใช้งานบัญชีตัวเองไม่ได้');
       }
+      if (dto.logoutEverywhere) {
+        throw new BadRequestException('สั่งออกจากระบบทุกเครื่องกับบัญชีตัวเองไม่ได้');
+      }
     }
 
     const losesAdmin =
@@ -79,17 +86,21 @@ export class UsersService {
       email: dto.email,
       role: dto.role,
       isActive: dto.isActive,
+      ...(dto.logoutEverywhere ? { tokenVersion: { increment: 1 } } : {}),
     };
     if (dto.password) {
       data.password = await bcrypt.hash(dto.password, 12);
     }
 
     try {
-      return await this.prisma.user.update({
+      const updated = await this.prisma.user.update({
         where: { id },
         data,
         select: USER_SELECT,
       });
+      // token เก่าใช้ไม่ได้แล้ว (JwtStrategy เช็ค) — ตัด socket ด้วย ไม่งั้นเครื่องที่ถูกเตะยังได้ event ต่อ
+      if (dto.logoutEverywhere || dto.isActive === false) this.events.disconnectUser(id);
+      return updated;
     } catch (e) {
       throw this.mapPrismaError(e);
     }
@@ -109,11 +120,12 @@ export class UsersService {
       // เคยปิดยอดลิ้นชัก/เบิกเงิน — ลบแล้วประวัติจะไม่รู้ว่าใครทำ ให้ปิดใช้งานแทน
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2003') {
         throw new BadRequestException(
-          'ลบไม่ได้: พนักงานคนนี้มีประวัติปิดยอดหรือเบิกเงินอยู่ — ให้ "ปิดใช้งาน" แทน',
+          'ลบไม่ได้: บัญชีนี้มีประวัติปิดยอดหรือเบิกเงินอยู่ — ให้ "ปิดใช้งาน" แทน',
         );
       }
       throw e;
     }
+    this.events.disconnectUser(id);
     // คืนผู้ใช้ที่ลบไป (ไม่มี password) — ตอบ body ว่างแล้ว client ที่ parse JSON จะพัง
     return user;
   }

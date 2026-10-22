@@ -1,7 +1,9 @@
 import { Body, Controller, Get, Patch, Post, Req } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from './decorators/public.decorator';
+import { Roles } from './decorators/roles.decorator';
 import { AuthService } from './auth.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
@@ -29,8 +31,12 @@ export class AuthController {
   me(@Req() request: { user: AuthenticatedUser }) { return request.user; }
 
   @Patch('password')
+  // ร้านใช้บัญชีกลางตามตำแหน่ง (ครัว/หน้าร้าน) ทุกคนในตำแหน่งรู้รหัสเดิม — ถ้าให้เปลี่ยนเองได้
+  // คนเดียวกดเปลี่ยนแล้วทั้งตำแหน่ง login ไม่ได้ จึงให้เฉพาะ ADMIN เปลี่ยนของตัวเอง
+  // ส่วนบัญชีกลาง ADMIN ตั้งรหัสใหม่ให้ที่หน้าบัญชีผู้ใช้ (PATCH /users/:id)
+  @Roles(Role.ADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'เปลี่ยนรหัสผ่านของตัวเอง (ต้องส่งรหัสเดิม) ทุก role ใช้ได้' })
+  @ApiOperation({ summary: 'เปลี่ยนรหัสผ่านของตัวเอง (ต้องส่งรหัสเดิม) — เฉพาะ ADMIN' })
   changePassword(
     @Req() request: { user: AuthenticatedUser },
     @Body() dto: ChangePasswordDto,

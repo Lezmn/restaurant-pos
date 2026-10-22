@@ -9,4 +9,12 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'true = ออกจากระบบทุกเครื่องที่ใช้บัญชีนี้อยู่ (ใช้คู่กับตั้งรหัสใหม่ตอนมีคนลาออก — บัญชีกลางตามตำแหน่ง)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  logoutEverywhere?: boolean;
 }
