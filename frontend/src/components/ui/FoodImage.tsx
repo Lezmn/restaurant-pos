@@ -9,11 +9,11 @@ export function FoodImage({
   src,
   alt,
   className = '',
-}: {
+}: Readonly<{
   src: string | null
   alt: string
   className?: string
-}) {
+}>) {
   // จำ src ที่โหลดไม่ขึ้นไว้ — ถ้าแก้ลิงก์ใหม่ (src เปลี่ยน) จะลองโหลดอีกรอบเอง
   const [failedSrc, setFailedSrc] = useState<string | null>(null)
 

@@ -10,9 +10,12 @@ export interface ExpenseInput {
 }
 
 /** เช็คฝั่งนี้ก่อนยิง ข้อความอ่านง่ายกว่าที่ class-validator ส่งกลับมา */
+/** NaN (ช่องว่าง) / Infinity / 0 / ติดลบ ไม่ผ่าน */
+const isPositiveAmount = (amount: number) => Number.isFinite(amount) && amount > 0
+
 function assertValid(vars: ExpenseInput) {
   if (!vars.detail.trim()) throw new Error('กรุณากรอกรายละเอียด')
-  if (!(vars.amount > 0)) throw new Error('จำนวนเงินต้องมากกว่า 0')
+  if (!isPositiveAmount(vars.amount)) throw new Error('จำนวนเงินต้องมากกว่า 0')
 }
 
 /** POST /expenses @Roles(ADMIN) — backend ใช้เวลาปัจจุบันเป็น spentAt ถ้าไม่ส่ง */
@@ -41,7 +44,7 @@ export interface DrawerExpenseInput {
  */
 export async function addDrawerExpense(vars: DrawerExpenseInput): Promise<ApiExpense> {
   if (!vars.detail.trim()) throw new Error('กรุณากรอกว่าเอาไปจ่ายอะไร')
-  if (!(vars.amount > 0)) throw new Error('จำนวนเงินต้องมากกว่า 0')
+  if (!isPositiveAmount(vars.amount)) throw new Error('จำนวนเงินต้องมากกว่า 0')
 
   return apiClient<ApiExpense>('/expenses/drawer', {
     method: 'POST',

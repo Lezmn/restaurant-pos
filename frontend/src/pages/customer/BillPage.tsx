@@ -135,12 +135,12 @@ function PaymentButton({
   label,
   disabled,
   onClick,
-}: {
+}: Readonly<{
   icon: ReactNode
   label: string
   disabled: boolean
   onClick: () => void
-}) {
+}>) {
   return (
     <button
       type="button"

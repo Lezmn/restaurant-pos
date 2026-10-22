@@ -250,6 +250,24 @@ export function UsersPage() {
   )
 }
 
+function usernameError(login: string) {
+  if (!login) return 'กรอกชื่อผู้ใช้'
+  return login.includes('@') || USERNAME_PATTERN.test(login) ? '' : 'ใช้ได้แค่ a-z, 0-9 และ . _ -'
+}
+
+/** ข้อความผิดของแต่ละช่อง ('' = ผ่าน) — โหมดแก้ไขตรวจแค่ชื่อ (ชื่อผู้ใช้/รหัสแก้ที่อื่น) */
+function validateUserForm(
+  f: Readonly<{ isNew: boolean; name: string; login: string; password: string; confirm: string }>,
+) {
+  const shortPassword = f.password.length < MIN_PASSWORD_LENGTH
+  return {
+    name: f.name.trim() ? '' : 'กรอกชื่อบัญชี',
+    username: f.isNew ? usernameError(f.login) : '',
+    password: f.isNew && shortPassword ? `รหัสผ่านอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร` : '',
+    confirm: f.isNew && f.confirm !== f.password ? 'รหัสผ่านสองช่องไม่ตรงกัน' : '',
+  }
+}
+
 /** เพิ่มบัญชีใหม่ / แก้ชื่อและสิทธิ์ — ชื่อผู้ใช้แก้ไม่ได้หลังสร้าง (เป็นตัว login) */
 function UserFormDialog({
   user,
@@ -267,23 +285,11 @@ function UserFormDialog({
 
   const isNew = !user
   const login = username.trim().toLowerCase()
-  const errors = {
-    name: name.trim() ? '' : 'กรอกชื่อบัญชี',
-    username: !isNew
-      ? ''
-      : !login
-        ? 'กรอกชื่อผู้ใช้'
-        : login.includes('@') || USERNAME_PATTERN.test(login)
-          ? ''
-          : 'ใช้ได้แค่ a-z, 0-9 และ . _ -',
-    password: !isNew || password.length >= MIN_PASSWORD_LENGTH
-      ? ''
-      : `รหัสผ่านอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`,
-    confirm: !isNew || confirm === password ? '' : 'รหัสผ่านสองช่องไม่ตรงกัน',
-  }
+  const errors = validateUserForm({ isNew, name, login, password, confirm })
   const invalid = Object.values(errors).some(Boolean)
   const show = (key: keyof typeof errors) => (attempted ? errors[key] : '')
   const pending = create.isPending || update.isPending
+  const submitLabel = isNew ? 'เพิ่มบัญชี' : 'บันทึก'
 
   const submit = () => {
     setAttempted(true)
@@ -363,7 +369,7 @@ function UserFormDialog({
             {ROLES.map((r) => (
               <label
                 key={r}
-                className={`flex cursor-pointer items-start gap-3 rounded-lg border-2 p-3 ${
+                className={`grid cursor-pointer grid-cols-[auto_1fr] gap-x-3 rounded-lg border-2 p-3 ${
                   role === r ? 'border-brand-400 bg-brand-50' : 'border-gray-200 bg-white'
                 } ${isMe ? 'cursor-not-allowed opacity-60' : ''}`}
               >
@@ -374,12 +380,10 @@ function UserFormDialog({
                   checked={role === r}
                   disabled={isMe}
                   onChange={() => setRole(r)}
-                  className="mt-1 h-4 w-4"
+                  className="row-span-2 mt-1 h-4 w-4"
                 />
-                <span>
-                  <span className="block font-bold text-black">{ROLE_INFO[r].label}</span>
-                  <span className="block text-sm text-gray-600">{ROLE_INFO[r].detail}</span>
-                </span>
+                <span className="font-bold text-black">{ROLE_INFO[r].label}</span>
+                <span className="text-sm text-gray-600">{ROLE_INFO[r].detail}</span>
               </label>
             ))}
           </div>
@@ -415,7 +419,7 @@ function UserFormDialog({
             ยกเลิก
           </button>
           <button type="submit" disabled={pending} className={button('primary', 'lg')}>
-            {pending ? 'กำลังบันทึก...' : isNew ? 'เพิ่มบัญชี' : 'บันทึก'}
+            {pending ? 'กำลังบันทึก...' : submitLabel}
           </button>
         </div>
       </form>
@@ -487,19 +491,18 @@ function ResetPasswordDialog({
           error={show('confirm')}
           autoComplete="new-password"
         />
-        <label className="flex cursor-pointer items-start gap-3 rounded-lg border-2 border-gray-200 bg-white p-3">
+        {/* grid 2 คอลัมน์แทน span ซ้อน — ข้อความเป็นลูกตรงของ label ให้ screen reader/ตัวตรวจหาเจอ */}
+        <label className="grid cursor-pointer grid-cols-[auto_1fr] gap-x-3 rounded-lg border-2 border-gray-200 bg-white p-3">
           <input
             type="checkbox"
             checked={logoutEverywhere}
             onChange={(e) => setLogoutEverywhere(e.target.checked)}
-            className="mt-1 h-5 w-5"
+            className="row-span-2 mt-1 h-5 w-5"
           />
-          <span>
-            <span className="block font-bold text-black">ออกจากระบบทุกเครื่องที่ใช้บัญชีนี้</span>
-            <span className="block text-sm text-gray-600">
-              ใช้ตอนมีคนลาออก — มือถือ/เครื่องที่ login ค้างไว้จะหลุดทันที แท็บเล็ตของร้านต้อง
-              login ใหม่ด้วยรหัสใหม่ (ไม่ติ๊ก = แค่เปลี่ยนรหัส เครื่องที่ใช้อยู่ไม่หลุด)
-            </span>
+          <span className="font-bold text-black">ออกจากระบบทุกเครื่องที่ใช้บัญชีนี้</span>
+          <span className="text-sm text-gray-600">
+            ใช้ตอนมีคนลาออก — มือถือ/เครื่องที่ login ค้างไว้จะหลุดทันที แท็บเล็ตของร้านต้อง
+            login ใหม่ด้วยรหัสใหม่ (ไม่ติ๊ก = แค่เปลี่ยนรหัส เครื่องที่ใช้อยู่ไม่หลุด)
           </span>
         </label>
         <div className="grid grid-cols-2 gap-3 pt-2">

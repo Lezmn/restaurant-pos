@@ -66,13 +66,8 @@ export async function loginAsStaff(page: Page, request: APIRequestContext) {
   return user
 }
 
-/** login เป็น cashier (STAFF) จริง — ใช้ทดสอบฝั่ง Check / เปิดโต๊ะ */
-export async function loginAsCashier(page: Page, request: APIRequestContext) {
-  const { accessToken, user } = await loginViaApi(request, 'staff', 'ChangeMe123!')
-  await page.goto('/login')
-  await setAuthState(page, accessToken, user)
-  return user
-}
+/** login เป็น cashier (STAFF) จริง — ใช้ทดสอบฝั่ง Check / เปิดโต๊ะ (บัญชีเดียวกับ loginAsStaff) */
+export const loginAsCashier = loginAsStaff
 
 /** login เป็น KITCHEN จริง — ใช้ทดสอบหน้า Order (คิวครัว) */
 export async function loginAsKitchen(page: Page, request: APIRequestContext) {

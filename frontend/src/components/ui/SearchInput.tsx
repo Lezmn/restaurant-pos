@@ -3,13 +3,13 @@ export function SearchInput({
   onChange,
   placeholder = 'ค้นหา',
   label,
-}: {
+}: Readonly<{
   value: string
   onChange: (next: string) => void
   placeholder?: string
   /** ข้อความสำหรับ screen reader — ไม่ระบุจะใช้ placeholder */
   label?: string
-}) {
+}>) {
   return (
     <label className="relative block">
       <span className="sr-only">{label ?? placeholder}</span>

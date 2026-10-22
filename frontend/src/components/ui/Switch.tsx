@@ -7,12 +7,12 @@ export function Switch({
   label,
   busy = false,
   onChange,
-}: {
+}: Readonly<{
   checked: boolean
   label: string
   busy?: boolean
   onChange: (next: boolean) => void
-}) {
+}>) {
   return (
     <button
       type="button"

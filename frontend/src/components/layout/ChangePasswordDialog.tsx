@@ -30,6 +30,11 @@ export function ChangePasswordDialog({ onClose }: Readonly<{ onClose: () => void
  * ฟอร์มเปลี่ยนรหัส — ใช้ทั้งในกล่อง (กดเปลี่ยนเอง) และหน้าบังคับเปลี่ยนรหัส (รหัสชั่วคราว)
  * onCancel ไม่ส่งมา = ไม่มีปุ่มยกเลิก (หน้าบังคับ ต้องเปลี่ยนก่อนถึงจะใช้งานต่อได้)
  */
+function newPasswordError(next: string, current: string) {
+  if (next.length < MIN_PASSWORD_LENGTH) return `รหัสผ่านใหม่อย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`
+  return next === current ? 'รหัสผ่านใหม่ต้องต่างจากรหัสเดิม' : ''
+}
+
 export function ChangePasswordForm({
   onCancel,
   onDone,
@@ -43,12 +48,7 @@ export function ChangePasswordForm({
 
   const errors = {
     current: current ? '' : 'กรอกรหัสผ่านปัจจุบัน',
-    next:
-      next.length < MIN_PASSWORD_LENGTH
-        ? `รหัสผ่านใหม่อย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`
-        : next === current
-          ? 'รหัสผ่านใหม่ต้องต่างจากรหัสเดิม'
-          : '',
+    next: newPasswordError(next, current),
     confirm: confirm === next ? '' : 'รหัสผ่านใหม่สองช่องไม่ตรงกัน',
   }
   const invalid = Object.values(errors).some(Boolean)

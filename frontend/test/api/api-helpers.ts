@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto'
 import { expect, type APIRequestContext, type APIResponse } from '@playwright/test'
 import { API_URL, loginViaApi } from '../helpers'
 
@@ -63,7 +64,7 @@ export async function menuItemByName(request: APIRequestContext, name: string) {
 /** สร้างโต๊ะใหม่ (เลขสุ่มไม่ชน) — E2E รันซ้ำแล้วโต๊ะ seed ไม่หมด */
 export async function newTable(request: APIRequestContext, adminToken: string) {
   for (let attempt = 0; attempt < 5; attempt++) {
-    const number = 1000 + Math.floor(Math.random() * 8_000_000)
+    const number = randomInt(1000, 8_001_000)
     const res = await call(request, 'POST', '/tables', { token: adminToken, data: { number, seats: 2 } })
     if (res.ok()) return ok<{ id: string; number: number }>(res)
   }

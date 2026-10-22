@@ -28,12 +28,8 @@ import { CashDrawerBar } from './CashDrawerBar'
 import { PaidBills } from './PaidBills'
 import { ReceiptDialog } from './ReceiptDialog'
 import { SlipIssues } from './SlipIssues'
-import {
-  emptySlipInput,
-  isSlipReady,
-  SlipScanField,
-  type SlipInput,
-} from './SlipScanField'
+import { emptySlipInput, isSlipReady, type SlipInput } from './slip-input'
+import { SlipScanField } from './SlipScanField'
 import { QRCodeSVG } from 'qrcode.react'
 import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -368,11 +364,7 @@ export function CheckPage() {
                 tableName: target.tableName,
                 note,
                 // PromptPay: ส่งข้อความ QR ของสลิปให้ backend ตรวจกับ SlipOK
-                ...(method === PaymentMethod.PROMPTPAY
-                  ? slip.override
-                    ? { slipOverrideReason: slip.overrideReason.trim() }
-                    : { slipPayload: slip.payload.trim() }
-                  : {}),
+                ...(method === PaymentMethod.PROMPTPAY ? slipFields(slip) : {}),
                 // ยอดที่ลูกค้าเห็นบนจอ/QR — ถ้ายอดจริงเปลี่ยนไประหว่างนี้ backend จะไม่ยอมบันทึก
                 expectedTotal: target.amountDue,
                 // เท่ากับยอดบิลก็ไม่ต้องส่ง ปล่อยให้ backend คิดเองเหมือนเดิม
@@ -406,12 +398,12 @@ function TableTile({
   closeDisabled,
   onCharge,
   onClose,
-}: {
+}: Readonly<{
   row: TableRow
   closeDisabled: boolean
   onCharge: () => void
   onClose: () => void
-}) {
+}>) {
   const { session, state, notServed, cancelled, neverOrdered, customerMethod } = row
   const badge = stateBadge[state]
 
@@ -512,7 +504,7 @@ function PaymentDialog({
   canOverrideSlip,
   onCancel,
   onSubmit,
-}: {
+}: Readonly<{
   target: PayTarget
   isSaving: boolean
   /** error ต้องโชว์ในกล่องนี้ — ErrorNote ของหน้าอยู่หลัง modal มองไม่เห็น */
@@ -528,7 +520,7 @@ function PaymentDialog({
     /** เงินที่ลูกค้ายื่นมา (เงินสด) — ไว้โชว์เงินทอนบนใบเสร็จ ไม่ได้บันทึก */
     tendered: number | null
   }) => void
-}) {
+}>) {
   /**
    * แยกสองยอดออกจากกัน เดิมมีช่องเดียวเลยทำได้แค่คิดเงินทอน แก้ยอดจริงไม่ได้
    * - charged  = ยอดที่บันทึกเป็นรายได้ (ลดได้ เช่น ลูกค้าต่อรอง/ของมีตำหนิ)
@@ -561,6 +553,7 @@ function PaymentDialog({
     (!isPromptPay || isSlipReady(slip)) &&
     (!hasDiscount || discountReason.trim() !== '')
   const change = receivedNum - chargedNum
+  const chargeAmount = chargedValid ? chargedNum : target.amountDue
 
   // QR ผูกยอดเงินไว้ด้วย ลูกค้าจึงไม่ต้องกรอกยอดเอง
   const qrPayload = useMemo(
@@ -636,7 +629,7 @@ function PaymentDialog({
               </>
             ) : (
               <p className="text-center text-sm font-semibold text-danger-ink">
-                ยังไม่ได้ตั้งเบอร์พร้อมเพย์ของร้าน (VITE_PROMPTPAY_ID) — สร้าง QR ไม่ได้
+                <span>ยังไม่ได้ตั้งเบอร์พร้อมเพย์ของร้าน (VITE_PROMPTPAY_ID) — สร้าง QR ไม่ได้</span>
                 <span className="block font-normal text-gray-700">
                   ให้ลูกค้าโอนเข้าบัญชีร้านเอง แล้วแนบสลิปด้านล่าง
                 </span>
@@ -679,7 +672,8 @@ function PaymentDialog({
               />
             </label>
             {chargedValid && chargedNum > 0 && (
-              <div role="group" aria-label="จำนวนเงินที่รับมา" className="mt-2 flex flex-wrap gap-2">
+              <fieldset className="mt-2 flex flex-wrap gap-2">
+                <legend className="sr-only">จำนวนเงินที่รับมา</legend>
                 {quickCash(chargedNum).map((amount, i) => (
                   <button
                     key={amount}
@@ -695,7 +689,7 @@ function PaymentDialog({
                     {i === 0 ? `พอดี ${formatBaht(amount)}` : formatBaht(amount)}
                   </button>
                 ))}
-              </div>
+              </fieldset>
             )}
             {/* ยังบันทึกได้ (ช่องนี้ไว้คิดเงินทอนเฉย ๆ) แต่ต้องเตือนให้เห็น จะได้ไม่ปล่อยลูกค้าไปทั้งที่เงินขาด */}
             {receivedNum > 0 && change < 0 && (
@@ -806,7 +800,7 @@ function PaymentDialog({
           >
             {isSaving
               ? 'กำลังบันทึก...'
-              : `รับเงิน ${formatBaht(chargedValid ? chargedNum : target.amountDue)}`}
+              : `รับเงิน ${formatBaht(chargeAmount)}`}
           </button>
         </div>
         {hasDiscount && !discountReason.trim() && (
@@ -821,6 +815,13 @@ function PaymentDialog({
  * ปุ่มเงินด่วน: ยอดพอดี + ยอดที่ปัดขึ้นเป็นแบงก์ถัดไป (50 / 100 / 500 / 1000) ไม่ซ้ำกัน สูงสุด 4 ปุ่ม
  * เช่น ฿120 → พอดี ฿120, ฿150, ฿200, ฿500
  */
+/** PromptPay: ส่งข้อความ QR ของสลิปให้ backend ตรวจกับ SlipOK หรือเหตุผลที่ ADMIN ยืนยันเอง */
+function slipFields(slip: SlipInput) {
+  return slip.override
+    ? { slipOverrideReason: slip.overrideReason.trim() }
+    : { slipPayload: slip.payload.trim() }
+}
+
 function quickCash(amount: number) {
   const steps = [50, 100, 500, 1000].map((note) => Math.ceil(amount / note) * note)
   return [...new Set([amount, ...steps])].filter((v) => v >= amount).slice(0, 4)

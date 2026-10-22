@@ -18,5 +18,9 @@ ENV VITE_API_URL=$VITE_API_URL \
 RUN npm run build
 
 FROM caddy:2.10-alpine
+# รันเป็น user ธรรมดา ไม่ใช่ root (Sonar docker:S6471) — /usr/bin/caddy มี cap_net_bind_service มากับ image
+# จึงเปิดพอร์ต 80/443 ได้โดยไม่ต้องเป็น root; /data (ใบรับรอง) กับ /config ต้องเขียนได้
+RUN addgroup -S caddy && adduser -S -D -H -G caddy caddy && chown -R caddy:caddy /data /config
 # Caddyfile mount จาก deploy/Caddyfile (ดู docker-compose.prod.yml) — image นี้มีแค่ไฟล์ static
 COPY --from=build /app/dist /srv
+USER caddy

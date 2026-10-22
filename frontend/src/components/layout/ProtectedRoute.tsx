@@ -9,13 +9,13 @@ export function ProtectedRoute({
   roles,
   loginPath = '/login',
   fallbackPath = '/employee',
-}: {
+}: Readonly<{
   roles?: Role[]
   /** หน้า login ที่จะเด้งไปเมื่อยังไม่ได้เข้าสู่ระบบ */
   loginPath?: string
   /** หน้าที่จะเด้งไปเมื่อ login แล้วแต่ role ไม่มีสิทธิ์ */
   fallbackPath?: string
-}) {
+}>) {
   const user = useAuth((s) => s.user)
   const location = useLocation()
 

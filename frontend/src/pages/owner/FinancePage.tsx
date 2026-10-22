@@ -297,12 +297,12 @@ function ConfirmDeleteDialog({
   isDeleting,
   onCancel,
   onConfirm,
-}: {
+}: Readonly<{
   expense: Transaction
   isDeleting: boolean
   onCancel: () => void
   onConfirm: () => void
-}) {
+}>) {
   return (
     <Modal title="ลบรายจ่าย" onClose={onCancel}>
       <div className="rounded-lg bg-danger/5 px-4 py-3 text-sm text-gray-700">
@@ -344,11 +344,11 @@ function ConfirmDeleteDialog({
 function ExpenseForm({
   expense,
   onDone,
-}: {
+}: Readonly<{
   /** ไม่ส่งมา = โหมดเพิ่มรายจ่ายใหม่ */
   expense?: Transaction
   onDone: () => void
-}) {
+}>) {
   const addExpense = useAddExpense()
   const updateExpense = useUpdateExpense()
   const saving = expense ? updateExpense : addExpense

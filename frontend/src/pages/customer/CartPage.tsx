@@ -83,12 +83,9 @@ export function CustomerCartPage() {
         </div>
 
         {repriced.length > 0 && (
-          <p
-            role="status"
-            className="mt-4 rounded-xl border-2 border-brand-300 bg-brand-50 px-4 py-3 text-sm md:text-base font-semibold text-text"
-          >
+          <output className="mt-4 block rounded-xl border-2 border-brand-300 bg-brand-50 px-4 py-3 text-sm md:text-base font-semibold text-text">
             ราคา {repriced.join(', ')} มีการเปลี่ยนแปลง — ยอดด้านล่างเป็นราคาล่าสุดแล้ว
-          </p>
+          </output>
         )}
 
         <ul className="mt-4 space-y-3">

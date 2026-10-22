@@ -15,8 +15,9 @@ export async function getCashClosePreview(): Promise<ApiCashClosePreview> {
 
 /** POST /cash-closes @Roles(ADMIN, STAFF) — ปิดยอดของวันนี้ (วันละครั้ง ซ้ำได้ 409) */
 export async function createCashClose(vars: CashCloseInput): Promise<ApiCashClose> {
-  if (!(vars.openingFloat >= 0)) throw new Error('กรุณากรอกเงินทอนตั้งต้น')
-  if (!(vars.countedCash >= 0)) throw new Error('กรุณากรอกเงินที่นับได้')
+  // isFinite กัน NaN (ช่องว่าง) ด้วย — `x < 0` เฉย ๆ ปล่อย NaN ผ่าน
+  if (!Number.isFinite(vars.openingFloat) || vars.openingFloat < 0) throw new Error('กรุณากรอกเงินทอนตั้งต้น')
+  if (!Number.isFinite(vars.countedCash) || vars.countedCash < 0) throw new Error('กรุณากรอกเงินที่นับได้')
 
   return apiClient<ApiCashClose>('/cash-closes', {
     method: 'POST',

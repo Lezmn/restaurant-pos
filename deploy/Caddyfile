@@ -4,6 +4,9 @@
 # ค่าโดเมนมาจาก .env ผ่าน docker-compose.prod.yml — DNS ของทั้งสองโดเมนต้องชี้มาที่เครื่องนี้ก่อน
 {
 	email {$ACME_EMAIL}
+	# Caddy รันเป็น user ธรรมดา (frontend/Dockerfile) — ไม่ต้องพยายามติดตั้ง CA ของตัวเองลง trust store ของ container
+	# (ใช้แค่ตอนทดสอบ *.localhost; โดเมนจริงใช้ Let's Encrypt)
+	skip_install_trust
 }
 
 (security_headers) {

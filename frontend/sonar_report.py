@@ -143,7 +143,8 @@ def build_pdf(output_path, project_name, project_key, host, measures, sev_counts
     # --- Quality Gate ---
     gate_status = measures.get("alert_status", "N/A")
     gate_color = colors.HexColor("#2e7d32") if gate_status == "OK" else colors.HexColor("#c62828")
-    gate_label = "PASSED" if gate_status == "OK" else "FAILED" if gate_status == "ERROR" else gate_status
+    gate_labels = {"OK": "PASSED", "ERROR": "FAILED"}
+    gate_label = gate_labels.get(gate_status, gate_status)
     gate_table = Table([[f"Quality Gate: {gate_label}"]], colWidths=[17 * cm])
     gate_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), gate_color),

@@ -1,19 +1,6 @@
 import { field, fieldLabel } from '@/components/ui/styles'
 import { useEffect, useRef } from 'react'
-
-export interface SlipInput {
-  /** ข้อความใน QR มุมขวาล่างของสลิป */
-  payload: string
-  /** ADMIN: ไม่มีสลิป ยืนยันเอง */
-  override: boolean
-  overrideReason: string
-}
-
-export const emptySlipInput: SlipInput = { payload: '', override: false, overrideReason: '' }
-
-/** พร้อมบันทึกไหม — มีข้อความ QR หรือ ADMIN ยืนยันเองพร้อมเหตุผล */
-export const isSlipReady = (slip: SlipInput) =>
-  slip.override ? slip.overrideReason.trim() !== '' : slip.payload.trim() !== ''
+import type { SlipInput } from './slip-input'
 
 /**
  * ช่องสแกนสลิป PromptPay — backend ส่งข้อความ QR ไปตรวจกับ SlipOK ก่อนบันทึก
@@ -94,7 +81,7 @@ export function SlipScanField({
               onChange={(e) => onChange({ ...value, override: e.target.checked })}
               className="h-5 w-5 accent-brand-300"
             />
-            ไม่มีสลิปให้ตรวจ — ยืนยันรับเงินเอง (ADMIN)
+            <span>ไม่มีสลิปให้ตรวจ — ยืนยันรับเงินเอง (ADMIN)</span>
           </label>
           {value.override && (
             <textarea

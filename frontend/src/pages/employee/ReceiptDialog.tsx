@@ -24,14 +24,14 @@ export function ReceiptDialog({
   tendered = null,
   justPaid = false,
   onClose,
-}: {
+}: Readonly<{
   payment: Payment
   /** เงินที่ลูกค้ายื่นมา (เงินสด รับเงินเพิ่งเสร็จ) — โชว์เงินทอนให้แคชเชียร์ ไม่พิมพ์ลงกระดาษ */
   tendered?: number | null
   /** เพิ่งรับเงินเสร็จ (ไม่ใช่เปิดดูย้อนหลัง) — เครื่องที่เปิด "พิมพ์ทันที" ไว้จะสั่งพิมพ์เอง */
   justPaid?: boolean
   onClose: () => void
-}) {
+}>) {
   const receipt = payment.receipt
   // หมายเหตุอยู่ใน DB แล้ว — เปิดใบเสร็จย้อนหลังจาก PaidBills ก็เห็นเหมือนตอนพิมพ์ครั้งแรก
   const note = receipt?.note ?? payment.note
@@ -65,17 +65,14 @@ export function ReceiptDialog({
     <Modal title="ใบเสร็จรับเงิน" onClose={onClose}>
       {/* ยืนยันว่ารับเงินแล้ว + ทอนเท่าไหร่ — จังหวะที่แคชเชียร์กำลังหยิบเงินทอนพอดี */}
       {tendered !== null && (
-        <div
-          role="status"
-          className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-lg bg-gray-100 px-4 py-3 print:hidden"
-        >
+        <output className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-lg bg-gray-100 px-4 py-3 print:hidden">
           <span className="text-sm text-gray-700">
             รับเงิน <b className="text-black tabular-nums">{formatBaht(tendered)}</b>
           </span>
           <span className="text-lg font-bold text-black tabular-nums">
             ทอน {formatBaht(Math.max(0, tendered - payment.amount))}
           </span>
-        </div>
+        </output>
       )}
       {/* แจ้งแคชเชียร์เท่านั้น ไม่ติดไปกับกระดาษ */}
       {payment.slip?.status === SlipStatus.PENDING && (
@@ -172,7 +169,7 @@ export function ReceiptDialog({
       </div>
 
       {/* ค่าของเครื่องนี้ — เปิดเฉพาะเครื่องที่ต่อเครื่องพิมพ์ใบเสร็จ */}
-      <label className="mt-5 flex cursor-pointer items-start gap-2 text-sm text-gray-700 print:hidden">
+      <label className="mt-5 grid cursor-pointer grid-cols-[auto_1fr] gap-x-2 text-sm text-gray-700 print:hidden">
         <input
           type="checkbox"
           checked={autoPrint}
@@ -180,12 +177,10 @@ export function ReceiptDialog({
             setAutoPrint(e.target.checked)
             printSettings.setAutoPrintReceipt(e.target.checked)
           }}
-          className="mt-0.5 h-4 w-4 accent-brand-500"
+          className="row-span-2 mt-0.5 h-4 w-4 accent-brand-500"
         />
-        <span>
-          พิมพ์ใบเสร็จทันทีหลังรับเงิน
-          <span className="block text-xs text-gray-500">ตั้งเฉพาะเครื่องนี้ — เปิดที่เครื่องที่ต่อเครื่องพิมพ์ใบเสร็จ</span>
-        </span>
+        <span>พิมพ์ใบเสร็จทันทีหลังรับเงิน</span>
+        <span className="text-xs text-gray-500">ตั้งเฉพาะเครื่องนี้ — เปิดที่เครื่องที่ต่อเครื่องพิมพ์ใบเสร็จ</span>
       </label>
 
       <div className="mt-4 grid grid-cols-2 gap-3 print:hidden">

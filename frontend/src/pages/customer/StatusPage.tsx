@@ -213,7 +213,7 @@ export function CustomerStatusPage() {
 }
 
 /** ปุ่มเรียกพนักงาน — ใช้ทั้งตอนยังไม่มีออเดอร์และตอนมีแล้ว */
-function CallStaff({ token }: { token: string }) {
+function CallStaff({ token }: Readonly<{ token: string }>) {
   const callStaff = useCallStaff()
   return (
     <>

@@ -201,7 +201,8 @@ test('ปิดวัตถุดิบ (KITCHEN): เมนูหายจา�
     await call(request, 'GET', '/menu', { token: t.ADMIN }),
   )
   const target = menuAdmin.find((m) => m.ingredients.length > 0)
-  test.skip(!target, 'seed ไม่มีเมนูที่ผูกวัตถุดิบหลัก')
+  // seed + migration menu_item_ingredients ผูก ข้าวไข่เจียว → ไข่ ไว้เสมอ ไม่มี = seed เพี้ยน ต้องล้ม ไม่ใช่ข้าม
+  expect(target, 'seed ไม่มีเมนูที่ผูกวัตถุดิบหลัก').toBeTruthy()
   const ingredientId = target!.ingredients[0].ingredient.id
   expect(ingredients.find((i) => i.id === ingredientId)?.isAvailable).toBe(true)
 

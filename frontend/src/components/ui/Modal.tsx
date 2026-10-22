@@ -55,7 +55,7 @@ export function Modal({
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       // ไม่ใช่กล่องบนสุด → ปล่อยให้กล่องบนจัดการ
-      if (modalStack[modalStack.length - 1] !== id) return
+      if (modalStack.at(-1) !== id) return
       // กัน close-watcher ของเบราว์เซอร์ปิด <dialog> เอง ต้องให้พ่อเป็นคนสั่ง unmount
       // ไม่งั้น DOM ปิดไปแล้วแต่ state ฝั่ง React ยังคิดว่าเปิดอยู่ กดเปิดใหม่ไม่ขึ้น
       e.preventDefault()
@@ -63,8 +63,17 @@ export function Modal({
     }
     document.addEventListener('keydown', onKey)
 
+    // คลิกฉากหลัง: เนื้อหาอยู่ใน <div> ลูก คลิกโดนเนื้อหา target จะเป็น div นั้น
+    // จะเท่ากับตัว <dialog> ก็ต่อเมื่อคลิกพื้นที่ว่างรอบกล่องเท่านั้น
+    // เป็นทางลัดของเมาส์/นิ้วเท่านั้น — คีย์บอร์ดใช้ Esc (onKey ด้านบน) จึงผูกผ่าน DOM ไม่ใช่ onClick ใน JSX
+    const onBackdropClick = (e: MouseEvent) => {
+      if (e.target === dialog) onCloseRef.current()
+    }
+    dialog.addEventListener('click', onBackdropClick)
+
     return () => {
       document.removeEventListener('keydown', onKey)
+      dialog.removeEventListener('click', onBackdropClick)
       const index = modalStack.indexOf(id)
       if (index >= 0) modalStack.splice(index, 1)
       if (modalStack.length === 0) document.body.style.overflow = ''
@@ -81,11 +90,6 @@ export function Modal({
       onCancel={(e) => {
         e.preventDefault()
         onClose()
-      }}
-      // คลิกฉากหลัง: เนื้อหาอยู่ใน <div> ลูก คลิกโดนเนื้อหา target จะเป็น div นั้น
-      // จะเท่ากับตัว <dialog> ก็ต่อเมื่อคลิกพื้นที่ว่างรอบกล่องเท่านั้น
-      onClick={(e) => {
-        if (e.target === dialogRef.current) onClose()
       }}
       className="print-shell m-0 h-full max-h-none w-full max-w-none items-center justify-center bg-transparent p-4 backdrop:bg-black/40 open:flex"
     >

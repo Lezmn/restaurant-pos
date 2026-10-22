@@ -224,6 +224,42 @@ export class PaymentSlipService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /** ผลตรวจซ้ำ → ค่าที่จะบันทึกลงบิล (ยังไม่รวมจำนวนครั้ง/เวลาตรวจ) */
+  private async recheckOutcome(
+    result: SlipCheckResult,
+    payment: { id: string; amount: Prisma.Decimal; tableSession: { openedAt: Date } },
+    attempts: number,
+  ): Promise<Prisma.PaymentUpdateInput> {
+    if (result.kind === 'verified') {
+      const problem = await this.findProblem(
+        result,
+        payment.amount,
+        payment.tableSession.openedAt,
+        payment.id,
+      );
+      if (problem) return { slipStatus: SlipStatus.FAILED, slipMessage: problem };
+      return {
+        slipStatus: SlipStatus.VERIFIED,
+        slipTransRef: result.transRef,
+        slipAmount: new Prisma.Decimal(result.amount),
+        slipTransAt: result.transAt,
+        slipSendingBank: result.sendingBank,
+        slipMessage: 'ตรวจผ่าน (ตรวจซ้ำ)',
+      };
+    }
+    if (result.kind === 'rejected') {
+      return { slipStatus: SlipStatus.FAILED, slipMessage: result.message };
+    }
+    // ระบบตรวจล่ม/ตอบช้า: ลองใหม่รอบหน้า จนครบจำนวนครั้งค่อยตัดสินว่าไม่ผ่าน
+    if (attempts >= this.maxAttempts) {
+      return {
+        slipStatus: SlipStatus.FAILED,
+        slipMessage: `ตรวจไม่สำเร็จภายในเวลาที่กำหนด: ${result.message}`,
+      };
+    }
+    return { slipMessage: result.message };
+  }
+
   /** ตรวจซ้ำ 1 บิล (เรียกจากรอบอัตโนมัติ หรือพนักงานกด "ตรวจอีกครั้ง") */
   async recheck(paymentId: string) {
     const payment = await this.prisma.payment.findUnique({
@@ -240,35 +276,7 @@ export class PaymentSlipService implements OnModuleInit, OnModuleDestroy {
 
     const attempts = payment.slipAttempts + 1;
     const result = await this.slipOk.check(payment.slipPayload, Number(payment.amount));
-    let data: Prisma.PaymentUpdateInput;
-
-    if (result.kind === 'verified') {
-      const problem = await this.findProblem(
-        result,
-        payment.amount,
-        payment.tableSession.openedAt,
-        payment.id,
-      );
-      data = problem
-        ? { slipStatus: SlipStatus.FAILED, slipMessage: problem }
-        : {
-            slipStatus: SlipStatus.VERIFIED,
-            slipTransRef: result.transRef,
-            slipAmount: new Prisma.Decimal(result.amount),
-            slipTransAt: result.transAt,
-            slipSendingBank: result.sendingBank,
-            slipMessage: 'ตรวจผ่าน (ตรวจซ้ำ)',
-          };
-    } else if (result.kind === 'rejected') {
-      data = { slipStatus: SlipStatus.FAILED, slipMessage: result.message };
-    } else if (attempts >= this.maxAttempts) {
-      data = {
-        slipStatus: SlipStatus.FAILED,
-        slipMessage: `ตรวจไม่สำเร็จภายในเวลาที่กำหนด: ${result.message}`,
-      };
-    } else {
-      data = { slipMessage: result.message };
-    }
+    const data = await this.recheckOutcome(result, payment, attempts);
 
     let updated;
     try {

@@ -55,7 +55,8 @@ function crc16(input: string) {
   let crc = 0xffff
 
   for (let i = 0; i < input.length; i++) {
-    crc ^= input.charCodeAt(i) << 8
+    // payload เป็น ASCII ล้วน — codePointAt ให้ค่าเท่า charCodeAt
+    crc ^= (input.codePointAt(i) ?? 0) << 8
     for (let bit = 0; bit < 8; bit++) {
       crc = crc & 0x8000 ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff
     }

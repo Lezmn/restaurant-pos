@@ -40,33 +40,19 @@ test('admin เข้าหน้า owner dashboard และ finance ได้
 //
 // fallbackPath ของ ProtectedRoute คือ /employee ก็จริง แต่ /employee เองก็แค่ EmployeeHome
 // ที่ redirect ต่อทันทีตาม homeByRole (STAFF -> /employee/check) เลยต้องเช็คปลายทางสุดท้ายนี้แทน
-test('STAFF เข้าหน้า manage (ADMIN เท่านั้น) ไม่ได้ ต้องถูกเด้งกลับหน้าแรกของ STAFF (/employee/check)', async ({
-  page,
-  request,
-}) => {
-  await loginAsStaff(page, request)
-  await page.goto('/employee/manage')
-
-  await expect(page).toHaveURL(/\/employee\/check$/)
-})
-
-test('STAFF เข้าหน้า users (ADMIN เท่านั้น) ไม่ได้ ต้องถูกเด้งกลับหน้าแรกของ STAFF (/employee/check)', async ({
-  page,
-  request,
-}) => {
-  await loginAsStaff(page, request)
-  await page.goto('/employee/users')
-
-  await expect(page).toHaveURL(/\/employee\/check$/)
-})
-
 // หน้าเจ้าของร้าน: ProtectedRoute ใช้ fallbackPath="/employee" (ไม่มี /owner/login แยกแล้ว)
-test('STAFF เข้าหน้า owner ไม่ได้ ต้องถูกเด้งกลับหน้าแรกของ STAFF (/employee/check)', async ({
-  page,
-  request,
-}) => {
-  await loginAsStaff(page, request)
-  await page.goto('/owner/dashboard')
+for (const { name, path } of [
+  { name: 'manage (ADMIN เท่านั้น)', path: '/employee/manage' },
+  { name: 'users (ADMIN เท่านั้น)', path: '/employee/users' },
+  { name: 'owner', path: '/owner/dashboard' },
+]) {
+  test(`STAFF เข้าหน้า ${name} ไม่ได้ ต้องถูกเด้งกลับหน้าแรกของ STAFF (/employee/check)`, async ({
+    page,
+    request,
+  }) => {
+    await loginAsStaff(page, request)
+    await page.goto(path)
 
-  await expect(page).toHaveURL(/\/employee\/check$/)
-})
+    await expect(page).toHaveURL(/\/employee\/check$/)
+  })
+}

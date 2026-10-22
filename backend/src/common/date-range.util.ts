@@ -45,12 +45,12 @@ export function resolveDateRange(params: {
   const from = params.from
     ? { gte: isDateOnly(params.from) ? localDate(params.from) : new Date(params.from) }
     : {};
-  const to = params.to
-    ? isDateOnly(params.to)
-      ? { lt: addDays(localDate(params.to), 1) }
-      : { lte: new Date(params.to) }
-    : {};
-  return { ...from, ...to };
+  return { ...from, ...upperBound(params.to) };
+}
+
+function upperBound(to: string | undefined) {
+  if (!to) return {};
+  return isDateOnly(to) ? { lt: addDays(localDate(to), 1) } : { lte: new Date(to) };
 }
 
 const isDateOnly = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);

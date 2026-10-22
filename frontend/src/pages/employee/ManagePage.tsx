@@ -31,6 +31,29 @@ type Tab = 'menu' | 'ingredient'
  */
 const TOGGLE_DELAY_MS = 600
 
+interface MenuFilter {
+  keyword: string
+  /** '' = ทุกหมวด */
+  categoryId: string
+  onlySoldOut: boolean
+}
+
+const matchesFilter = (item: MenuItem, f: MenuFilter) =>
+  (!f.categoryId || item.categoryId === f.categoryId) &&
+  (!f.onlySoldOut || isSoldOut(item)) &&
+  (!f.keyword || item.name.toLowerCase().includes(f.keyword))
+
+/** ข้อความตอนกรองแล้วไม่เหลือเมนู — บอกเหตุผลตามตัวกรองที่ใช้อยู่ */
+function emptyMessage(f: MenuFilter, canEdit: boolean) {
+  if (f.onlySoldOut && !f.keyword) return 'ไม่มีเมนูที่ปิดขายอยู่ ทุกเมนูพร้อมขาย'
+  if (f.categoryId && !f.keyword) {
+    return canEdit
+      ? 'หมวดนี้ยังไม่มีเมนู กด "เพิ่มเมนู" แล้วเลือกหมวดนี้ได้เลย'
+      : 'หมวดนี้ยังไม่มีเมนู'
+  }
+  return 'ไม่พบเมนูที่ค้นหา'
+}
+
 export function ManagePage() {
   const itemsQuery = useMenuItems()
   const items = itemsQuery.data
@@ -73,15 +96,14 @@ export function ManagePage() {
     [items],
   )
 
-  const visible = useMemo(() => {
-    const keyword = search.trim().toLowerCase()
-    return (items ?? []).filter(
-      (i) =>
-        (!categoryId || i.categoryId === categoryId) &&
-        (!onlySoldOut || isSoldOut(i)) &&
-        (!keyword || i.name.toLowerCase().includes(keyword)),
-    )
-  }, [items, search, categoryId, onlySoldOut])
+  const filter: MenuFilter = useMemo(
+    () => ({ keyword: search.trim().toLowerCase(), categoryId, onlySoldOut }),
+    [search, categoryId, onlySoldOut],
+  )
+  const visible = useMemo(
+    () => (items ?? []).filter((i) => matchesFilter(i, filter)),
+    [items, filter],
+  )
 
   /** จำนวนเมนูต่อหมวด ไว้โชว์ท้ายชื่อชิป */
   const countByCategory = useMemo(() => {
@@ -118,8 +140,7 @@ export function ManagePage() {
     }
     if (done.length === 0) return
 
-    const what =
-      done.length === 1 ? (itemName.get(done[0]) ?? 'เมนู') : `${done.length} เมนู`
+    const what = done.length > 1 ? `${done.length} เมนู` : (itemName.get(done[0]) ?? 'เมนู')
     toast(`${next ? 'เปิดขาย' : 'ปิดขาย'} ${what} แล้ว`, {
       label: 'เลิกทำ',
       run: () => applyAvailability(done, !next),
@@ -203,11 +224,8 @@ export function ManagePage() {
 
       {/* แท็บเมนู/วัตถุดิบ + ค้นหา */}
       <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div
-          role="group"
-          aria-label="เลือกสิ่งที่จะจัดการ"
-          className="inline-flex self-start rounded-lg bg-gray-100 p-1"
-        >
+        <fieldset className="inline-flex self-start rounded-lg bg-gray-100 p-1">
+          <legend className="sr-only">เลือกสิ่งที่จะจัดการ</legend>
           <Segment
             active={tab === 'menu'}
             onClick={() => setTab('menu')}
@@ -223,7 +241,7 @@ export function ManagePage() {
           >
             วัตถุดิบ
           </Segment>
-        </div>
+        </fieldset>
 
         {tab === 'menu' && (
           <label className="relative block w-full sm:w-72">
@@ -323,13 +341,7 @@ export function ManagePage() {
 
             {!itemsQuery.isPending && !itemsFailed && visible.length === 0 && (
               <p className="rounded-xl border-2 border-gray-200 px-6 py-10 text-center text-base text-gray-600">
-                {onlySoldOut && !search.trim()
-                  ? 'ไม่มีเมนูที่ปิดขายอยู่ ทุกเมนูพร้อมขาย'
-                  : categoryId && !search.trim()
-                    ? canEdit
-                      ? 'หมวดนี้ยังไม่มีเมนู กด "เพิ่มเมนู" แล้วเลือกหมวดนี้ได้เลย'
-                      : 'หมวดนี้ยังไม่มีเมนู'
-                    : 'ไม่พบเมนูที่ค้นหา'}
+                {emptyMessage(filter, canEdit)}
               </p>
             )}
 
@@ -355,8 +367,7 @@ export function ManagePage() {
           </div>
 
           {selected && (
-            <div
-              role="region"
+            <section
               aria-label="จัดการเมนูที่เลือก"
               className="fixed inset-x-4 bottom-24 z-30 mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-xl bg-black p-3 text-white shadow-lg"
             >
@@ -386,7 +397,7 @@ export function ManagePage() {
               >
                 {busyIds.size > 0 ? 'กำลังบันทึก...' : 'ปิดขาย'}
               </button>
-            </div>
+            </section>
           )}
         </>
       )}
@@ -478,7 +489,7 @@ function MenuCard({
   onSelect,
   onToggle,
   onEdit,
-}: {
+}: Readonly<{
   item: MenuItem
   category: string | undefined
   busy: boolean
@@ -488,12 +499,15 @@ function MenuCard({
   onToggle: (next: boolean) => void
   /** ไม่ส่ง = ไม่มีสิทธิ์แก้ไขเมนู (ครัว) ซ่อนปุ่มแก้ไข */
   onEdit?: () => void
-}) {
+}>) {
   const soldOut = isSoldOut(item)
   // ปิดขายเอง กับ วัตถุดิบหลักหมด ต่างกันตรงที่ต้องไปแก้คนละที่ — บอกให้ชัดว่าเพราะอะไร
   const soldOutLabel = !item.isAvailable
     ? 'ปิดขาย'
     : `${item.ingredientsOutOfStock.join(', ')} หมด`
+  let statusLabel = 'เปิดขาย'
+  if (busy) statusLabel = 'กำลังบันทึก...'
+  else if (soldOut) statusLabel = soldOutLabel
 
   const body = (
     <>
@@ -539,7 +553,7 @@ function MenuCard({
               <span
                 className={`text-sm font-bold ${soldOut ? 'text-danger-ink' : 'text-black'}`}
               >
-                {busy ? 'กำลังบันทึก...' : soldOut ? soldOutLabel : 'เปิดขาย'}
+                {statusLabel}
               </span>
               <Switch
                 checked={item.isAvailable}
@@ -564,13 +578,10 @@ function MenuCard({
     </>
   )
 
-  const frame = `flex w-full flex-col overflow-hidden rounded-xl border-2 ${
-    selected
-      ? 'border-brand-500 bg-brand-50'
-      : soldOut
-        ? 'border-gray-300 bg-gray-50'
-        : 'border-gray-200 bg-white'
-  }`
+  let frameTone = 'border-gray-200 bg-white'
+  if (selected) frameTone = 'border-brand-500 bg-brand-50'
+  else if (soldOut) frameTone = 'border-gray-300 bg-gray-50'
+  const frame = `flex w-full flex-col overflow-hidden rounded-xl border-2 ${frameTone}`
 
   if (selecting) {
     return (
@@ -589,7 +600,7 @@ function MenuCard({
   return <article className={frame}>{body}</article>
 }
 
-function Count({ children }: { children: ReactNode }) {
+function Count({ children }: Readonly<{ children: ReactNode }>) {
   return <span className="font-normal tabular-nums opacity-80">({children})</span>
 }
 
@@ -599,12 +610,12 @@ function Chip({
   tone = 'brand',
   onClick,
   children,
-}: {
+}: Readonly<{
   active: boolean
   tone?: 'brand' | 'danger'
   onClick: () => void
   children: ReactNode
-}) {
+}>) {
   const on =
     tone === 'danger'
       ? 'border-danger-ink bg-danger-ink text-white'
@@ -628,11 +639,11 @@ function Segment({
   active,
   onClick,
   children,
-}: {
+}: Readonly<{
   active: boolean
   onClick: () => void
   children: string
-}) {
+}>) {
   return (
     <button
       type="button"

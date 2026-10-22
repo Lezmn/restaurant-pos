@@ -17,7 +17,7 @@ const niceMax = (value: number) => {
  * กราฟพื้นที่แบบง่าย เขียน SVG เอง — ข้อมูลมีแค่ 7 จุด
  * ไม่คุ้มที่จะลง chart library ทั้งก้อนเพื่อกราฟเดียว
  */
-export function TrendChart({ points }: { points: RevenuePoint[] }) {
+export function TrendChart({ points }: Readonly<{ points: RevenuePoint[] }>) {
   const gradientId = useId()
 
   if (points.length === 0) {

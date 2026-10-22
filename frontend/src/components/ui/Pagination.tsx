@@ -7,7 +7,7 @@ export function Pagination({
   total,
   onChange,
   unit = 'รายการ',
-}: {
+}: Readonly<{
   page: number
   totalPages: number
   from: number
@@ -16,7 +16,7 @@ export function Pagination({
   onChange: (page: number) => void
   /** หน่วยที่จะแสดงต่อท้ายจำนวน เช่น "บิล" */
   unit?: string
-}) {
+}>) {
   if (totalPages <= 1) return null
 
   return (
@@ -35,9 +35,9 @@ export function Pagination({
           onClick={() => onChange(page - 1)}
         />
 
-        {pageNumbers(page, totalPages).map((n, i) =>
-          n === null ? (
-            <span key={`gap-${i}`} className="px-1 text-sm text-gray-400">
+        {pageNumbers(page, totalPages).map((n) =>
+          typeof n === 'string' ? (
+            <span key={n} className="px-1 text-sm text-gray-400">
               …
             </span>
           ) : (
@@ -71,11 +71,11 @@ function PageButton({
   label,
   disabled,
   onClick,
-}: {
+}: Readonly<{
   label: string
   disabled: boolean
   onClick: () => void
-}) {
+}>) {
   return (
     <button
       type="button"
@@ -92,7 +92,8 @@ function PageButton({
  * เลขหน้าที่จะโชว์ — หน้าแรก หน้าสุดท้าย และรอบ ๆ หน้าปัจจุบัน
  * null = จุดไข่ปลา กันแถวยาวเป็นพรืดตอนมีหลายสิบหน้า
  */
-function pageNumbers(page: number, totalPages: number): (number | null)[] {
+/** เลขหน้าที่จะโชว์ — ช่วงที่ข้ามเป็น "gap-ก่อนหน้าที่ N" (ใช้เป็น key ได้ ไม่ซ้ำกัน) */
+function pageNumbers(page: number, totalPages: number): (number | `gap-${number}`)[] {
   if (totalPages <= 7) {
     return Array.from({ length: totalPages }, (_, i) => i + 1)
   }
@@ -103,6 +104,6 @@ function pageNumbers(page: number, totalPages: number): (number | null)[] {
     .sort((a, b) => a - b)
 
   return visible.flatMap((n, i) =>
-    i > 0 && n - visible[i - 1] > 1 ? [null, n] : [n],
+    i > 0 && n - visible[i - 1] > 1 ? [`gap-${n}` as const, n] : [n],
   )
 }
