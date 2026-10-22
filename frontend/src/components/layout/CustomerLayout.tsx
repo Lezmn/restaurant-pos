@@ -66,7 +66,7 @@ export function CustomerLayout() {
   useCustomerLiveEvents(token)
   const lines = useCart((s) => s.lines)
   const bindToken = useCart((s) => s.bindToken)
-  const clearCart = useCart((s) => s.clear)
+  const releaseToken = useCart((s) => s.releaseToken)
   const count = cartCount(lines)
 
   // ปิดบิลแล้ว = ทั้งกรณี backend ตอบ 400 และกรณี session โหลดมาแล้วสถานะไม่ใช่ OPEN
@@ -74,15 +74,20 @@ export function CustomerLayout() {
     (isError && isClosedSessionError(error)) ||
     (session !== undefined && session.status !== TableSessionStatus.OPEN)
 
+  const isOpen = session?.status === TableSessionStatus.OPEN
+
   // สแกน QR โต๊ะใหม่บนเครื่องเดิม ต้องไม่เอาตะกร้าโต๊ะเก่ามาด้วย
+  // แต่ผูกเฉพาะเมื่อยืนยันแล้วว่าโต๊ะมีจริงและยังเปิดอยู่ — เดิมผูกทันทีจาก URL
+  // เปิดลิงก์ผิด/QR เก่าที่หมดอายุแล้ว ตะกร้าของโต๊ะที่นั่งอยู่จริงหายไปด้วย
   useEffect(() => {
-    if (token) bindToken(token)
-  }, [token, bindToken])
+    if (token && isOpen) bindToken(token)
+  }, [token, isOpen, bindToken])
 
   // โต๊ะปิดแล้ว ของในตะกร้าสั่งไม่ได้อีก — ล้างทิ้งกันค้างใน localStorage
+  // เฉพาะตะกร้าของโต๊ะนี้ เปิดลิงก์โต๊ะเก่าที่ปิดไปแล้วต้องไม่ล้างตะกร้าโต๊ะปัจจุบัน
   useEffect(() => {
-    if (isClosed) clearCart()
-  }, [isClosed, clearCart])
+    if (isClosed && token) releaseToken(token)
+  }, [isClosed, token, releaseToken])
 
   // แคชเชียร์ปิดบิลไปแล้ว (ทั้งตอนเปิดหน้าใหม่ และระหว่างที่ลูกค้าเปิดหน้าค้างไว้)
   if (isClosed) {

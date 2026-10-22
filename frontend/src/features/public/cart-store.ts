@@ -27,8 +27,13 @@ interface CartState {
   lines: CartLine[]
   /** ชื่อเมนูที่ราคาเปลี่ยนระหว่างอยู่ในตะกร้า — ไว้บอกลูกค้า (ไม่ persist) */
   repriced: string[]
-  /** เรียกตอนเข้าหน้าลูกค้า: ถ้าเป็นคนละโต๊ะให้ล้างตะกร้าทิ้ง */
+  /**
+   * ผูกตะกร้ากับโต๊ะนี้: ถ้าเป็นคนละโต๊ะให้ล้างตะกร้าทิ้ง
+   * เรียกได้เฉพาะเมื่อยืนยันแล้วว่าโต๊ะมีจริงและยังเปิดอยู่ (ดู CustomerLayout)
+   */
   bindToken: (token: string) => void
+  /** โต๊ะนี้ปิดแล้ว: ล้างตะกร้าเฉพาะเมื่อตะกร้าเป็นของโต๊ะนี้ ไม่แตะตะกร้าของโต๊ะอื่น */
+  releaseToken: (token: string) => void
   add: (line: Omit<CartLine, 'lineId'>) => void
   setQuantity: (lineId: string, quantity: number) => void
   remove: (lineId: string) => void
@@ -118,6 +123,11 @@ export const useCart = create<CartState>()(
       bindToken: (token) =>
         set((state) =>
           state.token === token ? state : { token, lines: [], repriced: [] },
+        ),
+
+      releaseToken: (token) =>
+        set((state) =>
+          state.token === token ? { token: null, lines: [], repriced: [] } : state,
         ),
 
       add: (line) =>

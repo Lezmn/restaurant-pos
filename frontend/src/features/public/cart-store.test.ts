@@ -87,6 +87,16 @@ describe('cart-store', () => {
     expect(state().token).toBe('t2')
   })
 
+  it('releaseToken: ล้างเฉพาะตะกร้าของโต๊ะนั้น โต๊ะอื่น (ลิงก์โต๊ะเก่าที่ปิดแล้ว) ไม่แตะ', () => {
+    state().bindToken('t1')
+    state().add(kaprao)
+    state().releaseToken('old')
+    expect(state()).toMatchObject({ token: 't1' })
+    expect(state().lines).toHaveLength(1)
+    state().releaseToken('t1')
+    expect(state()).toMatchObject({ token: null, lines: [] })
+  })
+
   it('persist ลง localStorage (refresh แล้วตะกร้ายังอยู่)', () => {
     state().bindToken('t1')
     state().add(kaprao)
