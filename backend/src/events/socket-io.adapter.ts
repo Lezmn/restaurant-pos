@@ -15,10 +15,10 @@ export class SocketIoAdapter extends IoAdapter {
     super(app);
   }
 
-  createIOServer(port: number, options?: ServerOptions) {
+  createIOServer(port: number, options?: Partial<ServerOptions>) {
     return super.createIOServer(port, {
       ...options,
       cors: { origin: this.origins, credentials: true },
-    });
+    } as ServerOptions);
   }
 }

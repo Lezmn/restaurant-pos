@@ -2,7 +2,7 @@
 #   dev    : docker-compose.yml (dev) — ติดตั้งทุกอย่าง + start:dev (mount src เข้ามา hot reload)
 #   build  : compose prod service "migrate" — มี prisma CLI / ts-node ไว้รัน migrate deploy + seed:prod
 #   prod   : compose prod service "api" — เฉพาะ dist + dependencies จริง ไม่มี devDependencies/source
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 # Prisma engine ต้องการ OpenSSL — alpine ไม่มีติดตั้งมาให้ ทำให้ engine crash
 RUN apk add --no-cache openssl
 WORKDIR /app

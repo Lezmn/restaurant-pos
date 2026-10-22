@@ -1,6 +1,6 @@
 # build ไฟล์ static ด้วย node แล้วเสิร์ฟด้วย Caddy (HTTPS อัตโนมัติ + reverse proxy ไป API)
 # ค่า VITE_* ถูกฝังลงไฟล์ตอน build — เปลี่ยนโดเมน/เบอร์พร้อมเพย์ต้อง build ใหม่
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
