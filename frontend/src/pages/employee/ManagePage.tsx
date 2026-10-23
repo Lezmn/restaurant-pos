@@ -211,15 +211,6 @@ export function ManagePage() {
             </p>
           )}
         </div>
-        {tab === 'menu' && canEdit && (
-          <button
-            type="button"
-            onClick={() => setEditing('new')}
-            className={button('primary', 'lg')}
-          >
-            เพิ่มเมนู
-          </button>
-        )}
       </div>
 
       {/* แท็บเมนู/วัตถุดิบ + ค้นหา */}
@@ -304,14 +295,26 @@ export function ManagePage() {
               เฉพาะที่ปิดขาย <Count>{soldOutCount}</Count>
             </Chip>
 
-            <button
-              type="button"
-              aria-pressed={selected !== null}
-              onClick={() => setSelected((prev) => (prev ? null : new Set()))}
-              className={`${button(selected ? 'primary' : 'secondary', 'md')} sm:ml-auto`}
-            >
-              {selected ? 'เลิกเลือก' : 'เลือกหลายเมนู'}
-            </button>
+            {/* ปุ่มจัดการเมนูอยู่ท้ายแถวตัวกรองด้วยกัน — ระหว่างเลือกหลายเมนูซ่อน "เพิ่มเมนู" กันกดสลับงานกลางคัน */}
+            <div className="flex gap-2 sm:ml-auto">
+              <button
+                type="button"
+                aria-pressed={selected !== null}
+                onClick={() => setSelected((prev) => (prev ? null : new Set()))}
+                className={button(selected ? 'primary' : 'secondary', 'md')}
+              >
+                {selected ? 'เลิกเลือก' : 'เลือกหลายเมนู'}
+              </button>
+              {canEdit && !selected && (
+                <button
+                  type="button"
+                  onClick={() => setEditing('new')}
+                  className={button('primary', 'md')}
+                >
+                  เพิ่มเมนู
+                </button>
+              )}
+            </div>
           </div>
 
           <p className="mt-3 text-sm text-gray-600">
