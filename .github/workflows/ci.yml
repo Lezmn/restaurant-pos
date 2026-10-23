@@ -108,13 +108,15 @@ jobs:
           npx prisma migrate deploy
           npm run prisma:seed
           npm run build
-      - name: Start API (port 3000, login limit เปิดกว้างเพราะเทสต์ login ทุกเคส)
+      - name: Start API (port 3000, rate limit เปิดกว้างเพราะเทสต์ยิงจาก IP เดียวทั้งชุด)
         working-directory: backend
         env:
           PORT: 3000
           JWT_SECRET: ci-only-secret-not-for-production
           CORS_ORIGIN: http://localhost:5173
           LOGIN_THROTTLE_LIMIT: 1000
+          # ทั้งชุด (~110 เทสต์) ยิงจาก localhost เกิน 1000 ครั้ง/นาทีของเพดานต่อ IP — เปิดกว้างเฉพาะ E2E
+          THROTTLE_IP_LIMIT: 100000
           SLIPOK_MOCK: 'true'
         run: |
           nohup node dist/main > ../api.log 2>&1 &

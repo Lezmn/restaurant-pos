@@ -10,7 +10,7 @@ export const PAGE_SIZE = 10
  * ถ้าไม่ clamp แล้วอยู่หน้า 3 พอเหลือ 5 แถวจะกลายเป็นหน้าว่าง
  */
 export function usePagination<T>(items: T[], pageSize = PAGE_SIZE) {
-  const [requestedPage, setPage] = useState(1)
+  const [requestedPage, setRequestedPage] = useState(1)
 
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize))
   const page = Math.min(requestedPage, totalPages)
@@ -22,7 +22,7 @@ export function usePagination<T>(items: T[], pageSize = PAGE_SIZE) {
 
   return {
     page,
-    setPage,
+    setPage: setRequestedPage,
     totalPages,
     pageItems,
     total: items.length,

@@ -147,13 +147,13 @@ function OptionGroupBlock({
   multiValue,
   onSingle,
   onMulti,
-}: {
+}: Readonly<{
   group: MenuOptionGroup
   singleValue: string | undefined
   multiValue: Record<string, boolean>
   onSingle: (optionId: string) => void
   onMulti: (optionId: string, checked: boolean) => void
-}) {
+}>) {
   return (
     <fieldset className="mt-5">
       <legend className="text-sm md:text-base font-semibold text-gray-700">

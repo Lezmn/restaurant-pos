@@ -8,7 +8,7 @@
                      │
                      └────────► api:3000   https://API_DOMAIN  (REST + WebSocket)
                                    │
-                    postgres ◄─────┘   ◄── backup (pg_dump ทุกวัน → ./backups)
+                    postgres ◄─────┘   ◄── backup (pg_dump ทุกวัน → ./backups) ──► offsite (rclone → cloud)
 ```
 
 | service | หน้าที่ |
@@ -17,7 +17,8 @@
 | `migrate` | รัน `prisma migrate deploy` ก่อน API ทุกครั้งที่ deploy แล้วจบ |
 | `api` | NestJS ที่ build แล้ว (ไม่มี devDependencies) มี HEALTHCHECK ที่ `/health` |
 | `web` | Caddy: HTTPS อัตโนมัติจาก Let's Encrypt + เสิร์ฟหน้าเว็บ + reverse proxy ไป API |
-| `backup` | `pg_dump` ทุกวันตอน `BACKUP_HOUR` เก็บ `BACKUP_KEEP_DAYS` วัน |
+| `backup` | `pg_dump` ทุกวันตอน `BACKUP_HOUR` เก็บ `BACKUP_KEEP_DAYS` วัน (ping healthchecks.io ถ้าตั้ง `BACKUP_PING_URL`) |
+| `offsite` | คัดลอก `./backups` ขึ้น cloud ทุกชั่วโมงด้วย rclone — เปิดด้วย `COMPOSE_PROFILES=offsite` หลังตั้ง remote |
 
 ## สิ่งที่ต้องมีก่อน
 
@@ -60,8 +61,9 @@ docker compose -f docker-compose.prod.yml run --rm \
 
 ### หลัง deploy
 
-1. ตั้ง uptime monitor ยิง `https://API_DOMAIN/health` ทุก 1–5 นาที (ดู [OPERATIONS.md](OPERATIONS.md#การเฝ้าระวังระบบ))
-2. ตั้งการคัดลอก `./backups` ออกนอกเครื่อง (ดู [OPERATIONS.md](OPERATIONS.md#สำรองและกู้ข้อมูล))
+1. ตั้ง UptimeRobot เฝ้า `https://API_DOMAIN/health` + หน้าเว็บ และ healthchecks.io เฝ้าการสำรอง (ดู [OPERATIONS.md](OPERATIONS.md#การเฝ้าระวังระบบ))
+2. ตั้ง rclone remote แล้วเปิด service `offsite` (ดู [OPERATIONS.md](OPERATIONS.md#สำรองนอกเครื่อง-service-offsite))
+   แล้ว **ซ้อมกู้ครั้งแรกทันที**: `sh deploy/restore-drill.sh`
 3. ใส่ `SLIPOK_API_KEY` / `SLIPOK_BRANCH_ID` ถ้าใช้ตรวจสลิปอัตโนมัติ (ไม่ใส่ = สลิปค้าง "รอตรวจ" ADMIN ยืนยันเอง)
 
 ## อัปเดตเวอร์ชัน

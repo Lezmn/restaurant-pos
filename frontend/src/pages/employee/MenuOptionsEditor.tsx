@@ -31,11 +31,11 @@ const inputClass =
 export function MenuOptionsEditor({
   menuItemId,
   onDraftChange,
-}: {
+}: Readonly<{
   menuItemId: Id
   /** แถวเพิ่มตัวเลือกมีข้อความค้างหรือไม่ — ฟอร์มใช้เตือนก่อนปิด */
   onDraftChange?: (dirty: boolean) => void
-}) {
+}>) {
   const { data: item } = useMenuItem(menuItemId)
   const createOption = useCreateMenuOption()
   const updateOption = useUpdateMenuOption()
@@ -143,11 +143,11 @@ export function PendingOptionsEditor({
   options,
   onChange,
   onDraftChange,
-}: {
+}: Readonly<{
   options: MenuOptionInput[]
   onChange: (next: MenuOptionInput[]) => void
   onDraftChange?: (dirty: boolean) => void
-}) {
+}>) {
   return (
     <section className="rounded-xl border border-gray-200 bg-gray-50 p-3">
       <h3 className="text-sm font-bold text-gray-800">ตัวเลือกของเมนู</h3>
@@ -258,7 +258,7 @@ function UsageInput({ value, onChange }: Readonly<{ value: string; onChange: (v:
       className="flex items-center gap-1 text-sm text-gray-600"
       title="ตัดสต็อกวัตถุดิบกี่หน่วยต่อจาน (0 = ผูกไว้ให้หมดตาม แต่ไม่ตัดสต็อก)"
     >
-      ใช้
+      <span>ใช้</span>
       <input
         type="number"
         min="0"
@@ -284,7 +284,7 @@ function OptionRow({
   disabled,
   onSave,
   onDelete,
-}: {
+}: Readonly<{
   option: MenuOption
   disabled: boolean
   onSave: (input: {
@@ -295,7 +295,7 @@ function OptionRow({
     usageQty: number
   }) => void
   onDelete: () => void
-}) {
+}>) {
   const { data: ingredients } = useIngredients()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(option.name)
@@ -587,11 +587,9 @@ function NewOptionRow({
 
 /** "หมด" / "เหลือ 12" / "มีของ" (+ "ใช้ 2" ถ้าไม่ใช่ 1) — ป้ายสถานะของตัวเลือกที่ผูกวัตถุดิบ */
 function stockLabel(option: MenuOption) {
-  const status = option.ingredientOutOfStock
-    ? 'หมด'
-    : option.ingredientStockQty === null
-      ? 'มีของ'
-      : `เหลือ ${option.ingredientStockQty}`
+  let status = `เหลือ ${option.ingredientStockQty}`
+  if (option.ingredientOutOfStock) status = 'หมด'
+  else if (option.ingredientStockQty === null) status = 'มีของ'
   if (option.ingredientStockQty === null || option.usageQty === 1) return status
   return option.usageQty === 0 ? `${status} · ไม่ตัดสต็อก` : `${status} · ใช้ ${option.usageQty}`
 }

@@ -131,7 +131,7 @@ export class SlipOkService {
       return { kind: 'rejected', code, message };
     }
     // QR อ่านได้แต่ไม่ใช่รายการที่ตรวจได้ (data.success = false) ก็ถือว่าสลิปใช้ไม่ได้
-    if (body?.success && data && data.success === false) {
+    if (body?.success && data?.success === false) {
       return { kind: 'rejected', code, message: data.message || 'สลิปไม่ถูกต้อง' };
     }
     return { kind: 'unavailable', code, message };

@@ -292,7 +292,7 @@ export class PaymentsService {
       if (
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code === 'P2002' &&
-        String(e.meta?.target ?? '').includes('slipTransRef')
+        JSON.stringify(e.meta?.target ?? '').includes('slipTransRef')
       ) {
         throw new ConflictException('สลิปนี้ถูกใช้กับบิลอื่นแล้ว');
       }

@@ -70,19 +70,7 @@ export class UsersService {
 
   async update(id: string, dto: UpdateUserDto, currentUserId: string) {
     const user = await this.findOne(id);
-
-    // แก้บัญชีตัวเอง: ห้ามลดสิทธิ์/ปิดตัวเอง — กดพลาดทีเดียวหลุดจากหน้าจัดการทันทีและกลับเข้ามาแก้ไม่ได้
-    if (id === currentUserId) {
-      if (dto.role !== undefined && dto.role !== user.role) {
-        throw new BadRequestException('เปลี่ยนสิทธิ์ของบัญชีตัวเองไม่ได้ — ให้ ADMIN อีกคนเปลี่ยนให้');
-      }
-      if (dto.isActive === false) {
-        throw new BadRequestException('ปิดใช้งานบัญชีตัวเองไม่ได้');
-      }
-      if (dto.logoutEverywhere) {
-        throw new BadRequestException('สั่งออกจากระบบทุกเครื่องกับบัญชีตัวเองไม่ได้');
-      }
-    }
+    if (id === currentUserId) this.assertSafeSelfEdit(user.role, dto);
 
     const losesAdmin =
       user.role === Role.ADMIN &&
@@ -114,6 +102,19 @@ export class UsersService {
       return updated;
     } catch (e) {
       throw this.mapPrismaError(e);
+    }
+  }
+
+  /** แก้บัญชีตัวเอง: ห้ามลดสิทธิ์/ปิดตัวเอง — กดพลาดทีเดียวหลุดจากหน้าจัดการทันทีและกลับเข้ามาแก้ไม่ได้ */
+  private assertSafeSelfEdit(currentRole: Role, dto: UpdateUserDto) {
+    if (dto.role !== undefined && dto.role !== currentRole) {
+      throw new BadRequestException('เปลี่ยนสิทธิ์ของบัญชีตัวเองไม่ได้ — ให้ ADMIN อีกคนเปลี่ยนให้');
+    }
+    if (dto.isActive === false) {
+      throw new BadRequestException('ปิดใช้งานบัญชีตัวเองไม่ได้');
+    }
+    if (dto.logoutEverywhere) {
+      throw new BadRequestException('สั่งออกจากระบบทุกเครื่องกับบัญชีตัวเองไม่ได้');
     }
   }
 

@@ -6,13 +6,13 @@ export function QuantityStepper({
   min = 1,
   max = MAX_ITEM_QUANTITY,
   size = 'md',
-}: {
+}: Readonly<{
   value: number
   onChange: (next: number) => void
   min?: number
   max?: number
   size?: 'sm' | 'md'
-}) {
+}>) {
   const button =
     size === 'sm'
       ? 'h-7 w-7 text-base'

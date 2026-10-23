@@ -13,10 +13,10 @@ export type BadgeTone = keyof typeof tones
 export function Badge({
   tone = 'gray',
   children,
-}: {
+}: Readonly<{
   tone?: BadgeTone
   children: ReactNode
-}) {
+}>) {
   return (
     <span
       className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${tones[tone]}`}

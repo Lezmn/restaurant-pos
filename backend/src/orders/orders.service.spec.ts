@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { OrderStatus, Prisma, TableSessionStatus, TableStatus } from '@prisma/client';
 import { OrdersService } from './orders.service';
 
@@ -109,6 +114,23 @@ describe('OrdersService', () => {
       prisma.order.updateMany.mockResolvedValue({ count: 0 });
       await expect(service.updateStatus('o1', OrderStatus.CANCELLED)).rejects.toBeInstanceOf(
         ConflictException,
+      );
+    });
+
+    it('connection pool เต็ม เริ่ม transaction ไม่ทัน (P2028) → 503 ให้กดใหม่ ไม่ใช่ 500 และรอนานกว่าค่า default', async () => {
+      prisma.order.findUnique.mockResolvedValue(storedOrder(OrderStatus.PENDING));
+      prisma.$transaction.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unable to start a transaction in the given time.', {
+          code: 'P2028',
+          clientVersion: 'x',
+        }),
+      );
+      await expect(service.updateStatus('o1', OrderStatus.PREPARING)).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
+      );
+      expect(prisma.$transaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({ maxWait: 10_000 }),
       );
     });
 

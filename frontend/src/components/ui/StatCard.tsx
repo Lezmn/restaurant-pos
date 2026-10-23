@@ -18,13 +18,13 @@ export function StatCard({
   tone = 'brand',
   icon,
   size = 'md',
-}: {
+}: Readonly<{
   label: string
   value: string
   tone?: StatTone
   icon?: ReactNode
   size?: 'md' | 'lg'
-}) {
+}>) {
   return (
     <div className={`rounded-xl border-2 bg-white p-4 ${tones[tone]}`}>
       <div className="flex items-center gap-2">

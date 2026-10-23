@@ -171,10 +171,10 @@ export function TablesPage() {
 function QrDialog({
   session,
   onClose,
-}: {
+}: Readonly<{
   session: TableSession
   onClose: () => void
-}) {
+}>) {
   const [copied, setCopied] = useState(false)
   const url = customerUrl(session.token)
 

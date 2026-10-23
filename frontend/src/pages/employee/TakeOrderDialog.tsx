@@ -58,10 +58,10 @@ const selectedOptionIds = (line: DraftLine, item: MenuItem) => {
 export function TakeOrderDialog({
   session,
   onClose,
-}: {
+}: Readonly<{
   session: TableSession
   onClose: () => void
-}) {
+}>) {
   const { data: items, isPending } = useMenuItems()
   const createOrder = useCreateOrder()
   // isPending ยังไม่ทันเป็น true ตอนกดครั้งที่สอง — ล็อกแบบ sync กันออเดอร์ซ้ำ
@@ -95,6 +95,17 @@ export function TakeOrderDialog({
     setLines((prev) =>
       prev.map((line) => (line.key === key ? { ...line, ...patch } : line)),
     )
+
+  /** กดชิปตัวเลือก — กลุ่มเลือกอันเดียวแทนที่ตัวเดิม, กลุ่มเลือกหลายอันสลับติ๊ก/เอาออก */
+  const pickOption = (line: DraftLine, group: MenuOptionGroup, optionId: Id, checked: boolean) => {
+    if (group.selectType === 'single') {
+      updateLine(line.key, { single: { ...line.single, [group.id]: optionId } })
+      return
+    }
+    updateLine(line.key, {
+      multi: checked ? line.multi.filter((id) => id !== optionId) : [...line.multi, optionId],
+    })
+  }
 
   const removeLine = (key: number) =>
     setLines((prev) => prev.filter((line) => line.key !== key))
@@ -266,17 +277,7 @@ export function TakeOrderDialog({
                             key={option.id}
                             type="button"
                             aria-pressed={checked}
-                            onClick={() =>
-                              group.selectType === 'single'
-                                ? updateLine(line.key, {
-                                    single: { ...line.single, [group.id]: option.id },
-                                  })
-                                : updateLine(line.key, {
-                                    multi: checked
-                                      ? line.multi.filter((id) => id !== option.id)
-                                      : [...line.multi, option.id],
-                                  })
-                            }
+                            onClick={() => pickOption(line, group, option.id, checked)}
                             className={`rounded-full border px-2.5 py-1 text-xs transition ${
                               checked
                                 ? 'border-brand-300 bg-brand-300 font-bold text-white'

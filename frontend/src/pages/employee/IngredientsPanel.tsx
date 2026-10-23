@@ -21,7 +21,7 @@ import { useState } from 'react'
  *
  * canEdit = เพิ่ม/ลบวัตถุดิบได้ (ADMIN) — ครัวสลับมีของ/หมดและตั้งยอดคงเหลือได้อย่างเดียว
  */
-export function IngredientsPanel({ canEdit }: { canEdit: boolean }) {
+export function IngredientsPanel({ canEdit }: Readonly<{ canEdit: boolean }>) {
   const { data: ingredients, isPending } = useIngredients()
   const create = useCreateIngredient()
   const update = useUpdateIngredient()
@@ -196,11 +196,7 @@ export function IngredientsPanel({ canEdit }: { canEdit: boolean }) {
           subject={deleting.name}
           detail={usageText(deleting)}
           consequence={
-            deleting.menuOptionCount > 0
-              ? 'ลบแล้วกู้คืนไม่ได้ ตัวเลือกที่ยังไม่เคยถูกสั่งจะถูกลบ ส่วนที่เคยถูกสั่งแล้วจะถูกปิดขาย (ประวัติออเดอร์ยังอยู่ครบ) ถ้าแค่ของหมด ให้ปิดสวิตช์แทน'
-              : deleting.menuItemCount > 0
-                ? 'ลบแล้วกู้คืนไม่ได้ เมนูที่ใช้วัตถุดิบนี้จะถูกปลดออก (เมนูยังอยู่) ถ้าแค่ของหมด ให้ปิดสวิตช์แทน'
-                : 'ลบแล้วกู้คืนไม่ได้ ถ้าแค่ของหมด ให้ปิดสวิตช์แทน'
+            deleteConsequence(deleting)
           }
           confirmLabel="ลบวัตถุดิบ"
           pendingLabel="กำลังลบ..."
@@ -225,6 +221,19 @@ export function IngredientsPanel({ canEdit }: { canEdit: boolean }) {
 }
 
 /** "ใช้ใน 1 เมนู · 4 ตัวเลือก" — บอกให้รู้ว่าปิดแล้วกระทบอะไรบ้าง */
+/** ผลของการลบวัตถุดิบ — บอกตามสิ่งที่ผูกอยู่จริง */
+function deleteConsequence(item: Ingredient) {
+  const base = 'ลบแล้วกู้คืนไม่ได้'
+  const tail = 'ถ้าแค่ของหมด ให้ปิดสวิตช์แทน'
+  if (item.menuOptionCount > 0) {
+    return `${base} ตัวเลือกที่ยังไม่เคยถูกสั่งจะถูกลบ ส่วนที่เคยถูกสั่งแล้วจะถูกปิดขาย (ประวัติออเดอร์ยังอยู่ครบ) ${tail}`
+  }
+  if (item.menuItemCount > 0) {
+    return `${base} เมนูที่ใช้วัตถุดิบนี้จะถูกปลดออก (เมนูยังอยู่) ${tail}`
+  }
+  return `${base} ${tail}`
+}
+
 function usageText(item: Ingredient) {
   const parts = [
     item.menuItemCount > 0 ? `${item.menuItemCount} เมนู` : '',
@@ -280,7 +289,7 @@ function StockForm({
   onCancel: () => void
   onSave: (stockQty: number | null, lowStockAt: number | null) => void
 }>) {
-  const [stock, setStockValue] = useState(item.stockQty === null ? '' : String(item.stockQty))
+  const [stock, setStock] = useState(item.stockQty === null ? '' : String(item.stockQty))
   const [warn, setWarn] = useState(item.lowStockAt === null ? '' : String(item.lowStockAt))
 
   const stockNum = Number(stock)
@@ -305,7 +314,7 @@ function StockForm({
             min="0"
             step="1"
             value={stock}
-            onChange={(e) => setStockValue(e.target.value)}
+            onChange={(e) => setStock(e.target.value)}
             placeholder="เช่น 30"
             aria-invalid={stock.trim() !== '' && !stockValid}
             className={`${field} mt-1 tabular-nums`}

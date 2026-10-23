@@ -123,8 +123,7 @@ export const useCart = create<CartState>()(
       add: (line) =>
         set((state) => {
           const lineId = makeLineId(line.menuItemId, line.options, line.note)
-          const existing = state.lines.find((l) => l.lineId === lineId)
-          if (existing) {
+          if (state.lines.some((l) => l.lineId === lineId)) {
             return {
               lines: state.lines.map((l) =>
                 l.lineId === lineId

@@ -195,7 +195,7 @@ export function PaidBills() {
         unit="บิล"
       />
 
-      {viewing && viewing.id === viewId && (
+      {viewing?.id === viewId && (
         <ReceiptDialog payment={viewing} onClose={() => setViewId(null)} />
       )}
 
@@ -226,14 +226,14 @@ function VoidDialog({
   error,
   onCancel,
   onConfirm,
-}: {
+}: Readonly<{
   payment: Payment
   isSaving: boolean
   /** error ต้องโชว์ในกล่องนี้ — ErrorNote ของหน้าอยู่หลัง modal มองไม่เห็น */
   error: unknown
   onCancel: () => void
   onConfirm: (reason: string) => void
-}) {
+}>) {
   const [reason, setReason] = useState('')
 
   return (

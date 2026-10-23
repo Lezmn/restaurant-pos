@@ -1,5 +1,5 @@
 /** แถบแจ้งเตือนเมื่อ mutation ล้มเหลว — เดิมกดปุ่มแล้ว fail เงียบ ผู้ใช้ไม่รู้ตัว */
-export function ErrorNote({ error }: { error: unknown }) {
+export function ErrorNote({ error }: Readonly<{ error: unknown }>) {
   if (!error) return null
 
   return (

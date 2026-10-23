@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { checkTableTile, loginAsCashier } from '../helpers'
+import { checkTableTile, loginAsCashier, pickFreeTable, tablesPageCard } from '../helpers'
 
 // เขียนจากการกระทำจริงที่ record ไว้ด้วย `npx playwright codegen --channel=chrome`:
 // cashier เปิดโต๊ะ -> เอาลิงก์ QR ไปให้ "ลูกค้า" (จำลองด้วยแท็บใหม่) -> ลูกค้าสั่งข้าวผัด (หมู)
@@ -18,12 +18,12 @@ test('cashier เปิดโต๊ะ ลูกค้าสั่งอาห�
   await page.goto('/employee/tables')
 
   // เลือกโต๊ะแรกที่ยัง "ว่าง" แทนการ hardcode เลขโต๊ะ กันเทสพังถ้าลำดับ/จำนวนโต๊ะใน seed เปลี่ยน
-  const availableTable = page.locator('article', { hasText: 'ว่าง' }).first()
-  await expect(availableTable).toBeVisible()
+  // สุ่มโต๊ะว่างแล้วอ้างด้วยชื่อ — .first() ประเมินใหม่ทุกครั้ง เทสอื่นเปิดโต๊ะนั้นไปก่อนจะกดผิดโต๊ะ
+  const tableCardText = await pickFreeTable(page)
+  const availableTable = tablesPageCard(page, tableCardText)
   // จำชื่อโต๊ะไว้ ใช้หาแถวที่ถูกต้องในหน้า Check ทีหลัง เพราะโต๊ะอื่นที่เปิดค้างจากรันเทสรอบก่อน ๆ
   // ก็มีป้าย "รอเสิร์ฟ N ออเดอร์" เหมือนกัน ถ้าไม่ระบุเจาะจงโต๊ะ จะชนกันกลายเป็น strict mode violation
   // ตัดคำว่า "โต๊ะ" ออกเหลือแค่ชื่อ แล้วให้ checkTableTile ประกอบหัวการ์ด "โต๊ะ {name}" เอง
-  const tableCardText = (await availableTable.locator('p.text-xl').innerText()).trim()
   const tableName = tableCardText.replace(/^โต๊ะ\s*/, '')
   await availableTable.getByRole('button', { name: 'เปิดโต๊ะ + สร้าง QR' }).click()
 

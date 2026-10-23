@@ -19,14 +19,14 @@ export function LoginPage({
   redirectTo,
   allowedRoles,
   hint,
-}: {
+}: Readonly<{
   title: string
   subtitle: string
   redirectTo: string
   /** ถ้าระบุ แล้ว role ไม่ตรง จะไม่ให้เข้าและเด้งออกทันที */
   allowedRoles?: Role[]
   hint: string
-}) {
+}>) {
   const user = useAuth((s) => s.user)
   const signOut = useAuth((s) => s.signOut)
   const navigate = useNavigate()
@@ -74,7 +74,7 @@ export function LoginPage({
         </div>
 
         <label className="block text-sm font-semibold text-gray-700">
-          ผู้ใช้
+          <span>ผู้ใช้</span>
           <input
             type="text"
             value={username}
@@ -88,7 +88,7 @@ export function LoginPage({
         </label>
 
         <label className="mt-4 block text-sm font-semibold text-gray-700">
-          รหัสผ่าน
+          <span>รหัสผ่าน</span>
           <input
             type="password"
             value={password}

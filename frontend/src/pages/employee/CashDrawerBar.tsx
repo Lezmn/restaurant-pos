@@ -26,7 +26,7 @@ const thaiDay = (ymd: string) =>
   })
 
 /** ผลต่างตอนปิดยอด: 0 = ตรง, บวก = เกิน, ลบ = ขาด */
-function DifferenceText({ value }: { value: number }) {
+function DifferenceText({ value }: Readonly<{ value: number }>) {
   if (value === 0) return <span className="font-bold text-black">ตรงพอดี</span>
   return value > 0 ? (
     <span className="font-bold text-brand-500">เงินเกิน {formatBaht(value)}</span>
@@ -41,12 +41,12 @@ function LedgerRow({
   value,
   strong = false,
   negative = false,
-}: {
+}: Readonly<{
   label: ReactNode
   value: string
   strong?: boolean
   negative?: boolean
-}) {
+}>) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-2">
       <dt className={strong ? 'font-bold text-black' : 'text-gray-700'}>{label}</dt>
@@ -116,7 +116,7 @@ export function CashDrawerBar() {
           strong
           label={
             <>
-              เงินสดสุทธิ
+              <span>เงินสดสุทธิ</span>
               <span className="block text-sm font-normal text-gray-600">
                 ไม่รวมเงินทอนตั้งต้น
               </span>
@@ -224,7 +224,7 @@ export function CashDrawerBar() {
   )
 }
 
-function ClosedSummary({ cashClose }: { cashClose: ApiCashClose }) {
+function ClosedSummary({ cashClose }: Readonly<{ cashClose: ApiCashClose }>) {
   return (
     <div className="mx-4 mt-3 rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-700">
       <p className="font-bold text-black">ปิดยอดแล้ว {formatTime(cashClose.closedAt)}</p>
@@ -237,7 +237,7 @@ function ClosedSummary({ cashClose }: { cashClose: ApiCashClose }) {
   )
 }
 
-function DrawerExpenseDialog({ onClose }: { onClose: () => void }) {
+function DrawerExpenseDialog({ onClose }: Readonly<{ onClose: () => void }>) {
   const addDrawerExpense = useAddDrawerExpense()
   const [amount, setAmount] = useState('')
   const [detail, setDetail] = useState('')
@@ -330,10 +330,10 @@ function DrawerExpenseDialog({ onClose }: { onClose: () => void }) {
 function CashCloseDialog({
   preview,
   onClose,
-}: {
+}: Readonly<{
   preview: ApiCashClosePreview
   onClose: () => void
-}) {
+}>) {
   const createCashClose = useCreateCashClose()
   const [openingFloat, setOpeningFloat] = useState(
     preview.suggestedOpeningFloat === null ? '' : String(preview.suggestedOpeningFloat),

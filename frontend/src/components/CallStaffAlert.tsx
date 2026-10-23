@@ -20,7 +20,7 @@ export function CallStaffAlert() {
       r.status === ServiceRequestStatus.PENDING,
   )
 
-  const current = pending[pending.length - 1]
+  const current = pending.at(-1)
   if (!current) return null
 
   return (

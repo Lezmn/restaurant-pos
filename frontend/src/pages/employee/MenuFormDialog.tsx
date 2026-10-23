@@ -8,6 +8,43 @@ import type { Id, MenuItem } from '@/types/models'
 import { useState } from 'react'
 import { MenuOptionsEditor, PendingOptionsEditor } from './MenuOptionsEditor'
 
+function priceError(price: string) {
+  if (price.trim() === '') return 'กรอกราคา (ใส่ 0 ได้ถ้าแจกฟรี)'
+  const value = Number(price)
+  return Number.isFinite(value) && value >= 0 ? '' : 'ราคาต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป'
+}
+
+// บังคับเลือก — เดิมไม่เลือกแล้วเมนูไปตกหมวดแรก (ของหวาน) เงียบ ๆ
+function categoryError(categoryId: string, hasCategories: boolean) {
+  if (categoryId) return ''
+  return hasCategories ? 'เลือกหมวดหมู่' : 'ยังไม่มีหมวดหมู่ในระบบ'
+}
+
+/**
+ * ข้อความผิดของแต่ละช่อง ('' = ผ่าน) — เรียงตามลำดับช่องบนฟอร์ม ใช้หาช่องแรกที่ผิดด้วย
+ * เดิมส่งชื่อว่าง/ราคาว่างไปให้ backend ตอบ 400 กลับมาเป็นข้อความรวม ๆ — ตรวจที่ฟอร์มก่อน บอกตรงช่อง
+ */
+function validateMenuForm(form: Readonly<{
+  name: string
+  price: string
+  imageUrl: string
+  categoryId: string
+  hasCategories: boolean
+  /** โหมดเพิ่มเมนู: แถวตัวเลือกมีข้อความค้างที่ยังไม่ได้กด "+ เพิ่ม" */
+  hasUnaddedOption: boolean
+}>) {
+  const url = form.imageUrl.trim()
+  return {
+    name: form.name.trim() === '' ? 'กรอกชื่อเมนู' : '',
+    price: priceError(form.price),
+    category: categoryError(form.categoryId, form.hasCategories),
+    options: form.hasUnaddedOption
+      ? 'ตัวเลือกที่พิมพ์ไว้ยังไม่ได้เพิ่ม กด "+ เพิ่ม" หรือลบข้อความออกก่อน'
+      : '',
+    imageUrl: url && !/^https?:\/\//.test(url) ? 'ลิงก์รูปต้องขึ้นต้นด้วย http:// หรือ https://' : '',
+  }
+}
+
 /** ฟอร์มเพิ่ม/แก้ไขเมนู — ใช้ตัวเดียวกันทั้งสองกรณี ต่างแค่ค่าเริ่มต้น */
 export function MenuFormDialog({
   item,
@@ -17,7 +54,7 @@ export function MenuFormDialog({
   onCancel,
   onDelete,
   onSubmit,
-}: {
+}: Readonly<{
   /** ไม่ส่งมา = โหมดเพิ่มเมนูใหม่ */
   item?: MenuItem
   /** โหมดเพิ่มเมนู: หมวดที่กำลังกรองอยู่ในหน้า Manage — ตั้งให้เป็นค่าเริ่มต้น */
@@ -29,7 +66,7 @@ export function MenuFormDialog({
   onDelete?: () => void
   /** โหมดเพิ่มเมนูใหม่จะได้ options ที่ผู้ใช้ใส่ไว้มาด้วย (โหมดแก้ไขยิง API ตรงจาก editor เอง) */
   onSubmit: (input: MenuItemInput, pendingOptions: MenuOptionInput[]) => void
-}) {
+}>) {
   const { data: categories } = useCategories()
 
   const [name, setName] = useState(item?.name ?? '')
@@ -56,31 +93,16 @@ export function MenuFormDialog({
     onCancel()
   }
 
-  // เดิมส่งชื่อว่าง/ราคาว่างไปให้ backend ตอบ 400 กลับมาเป็นข้อความรวม ๆ — ตรวจที่ฟอร์มก่อน บอกตรงช่อง
   const priceNum = Number(price)
-  const errors = {
-    name: name.trim() === '' ? 'กรอกชื่อเมนู' : '',
-    price:
-      price.trim() === ''
-        ? 'กรอกราคา (ใส่ 0 ได้ถ้าแจกฟรี)'
-        : !Number.isFinite(priceNum) || priceNum < 0
-          ? 'ราคาต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป'
-          : '',
-    // บังคับเลือก — เดิมไม่เลือกแล้วเมนูไปตกหมวดแรก (ของหวาน) เงียบ ๆ
-    category: categoryId
-      ? ''
-      : categories?.length
-        ? 'เลือกหมวดหมู่'
-        : 'ยังไม่มีหมวดหมู่ในระบบ',
-    options:
-      !item && optionDraftDirty
-        ? 'ตัวเลือกที่พิมพ์ไว้ยังไม่ได้เพิ่ม กด "+ เพิ่ม" หรือลบข้อความออกก่อน'
-        : '',
-    imageUrl:
-      imageUrl.trim() && !/^https?:\/\//.test(imageUrl.trim())
-        ? 'ลิงก์รูปต้องขึ้นต้นด้วย http:// หรือ https://'
-        : '',
-  }
+  const errors = validateMenuForm({
+    name,
+    price,
+    imageUrl,
+    categoryId,
+    hasCategories: Boolean(categories?.length),
+    hasUnaddedOption: !item && optionDraftDirty,
+  })
+  const saveLabel = item ? 'บันทึกข้อมูลเมนู' : 'บันทึก'
   const firstError = (Object.keys(errors) as (keyof typeof errors)[]).find((k) => errors[k])
   const show = (key: keyof typeof errors) => (attempted ? errors[key] : '')
 
@@ -227,7 +249,7 @@ export function MenuFormDialog({
             disabled={isSaving}
             className={button('primary', 'lg')}
           >
-            {isSaving ? 'กำลังบันทึก...' : item ? 'บันทึกข้อมูลเมนู' : 'บันทึก'}
+            {isSaving ? 'กำลังบันทึก...' : saveLabel}
           </button>
         </div>
         {item && (
@@ -325,7 +347,7 @@ function MainIngredientsPicker({
   )
 }
 
-function FieldError({ id, message }: { id: string; message: string }) {
+function FieldError({ id, message }: Readonly<{ id: string; message: string }>) {
   if (!message) return null
   return (
     <span id={id} role="alert" className="mt-1 block text-sm font-semibold text-danger-ink">

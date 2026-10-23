@@ -5,6 +5,12 @@
 
 # ไฟล์สำรองฐานข้อมูลจาก service backup — ข้อมูลร้านจริง ห้ามเข้า git
 backups/
+# rclone.conf มี token ของบัญชี cloud ที่เก็บไฟล์สำรองนอกเครื่อง + ไฟล์ที่ดึงกลับมาซ้อมกู้
+deploy/rclone/
+offsite-check/
+
+# ผล test coverage (สร้างใหม่ทุกครั้งที่รัน — Sonar อ่านจากไฟล์นี้)
+coverage/
 
 # Claude Code — ค่าตั้งส่วนตัวของแต่ละเครื่อง และสำเนา repo ชั่วคราวของ session อื่น
 # (agents/skills ใน .claude/ ยังเก็บใน git ให้คนที่ clone ใช้ได้)

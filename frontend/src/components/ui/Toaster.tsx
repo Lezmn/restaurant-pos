@@ -23,7 +23,7 @@ export function Toaster() {
   )
 }
 
-function ToastRow({ item }: { item: ToastItem }) {
+function ToastRow({ item }: Readonly<{ item: ToastItem }>) {
   const dismiss = useToasts((s) => s.dismiss)
 
   useEffect(() => {

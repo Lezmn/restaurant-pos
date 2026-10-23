@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { checkTableTile, loginAsCashier } from '../helpers'
+import { checkTableTile, loginAsCashier, pickFreeTable } from '../helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data ที่ localhost:3000
 // เดิมสมมติว่าโต๊ะว่างครบ 6 โต๊ะ แต่ seed มีโต๊ะเปิดค้างไว้เป็นตัวอย่าง (โต๊ะ 2, 4)
@@ -25,8 +25,8 @@ test('cashier เปิดโต๊ะที่ 1 แล้วจำนวนโ
   await expect(page).toHaveURL(/\/employee\/tables$/)
 
   // 4. กดปุ่ม เปิดโต๊ะ + สร้าง QR ของโต๊ะว่างตัวแรก (เปิดสำเร็จจะเด้ง QR modal ขึ้นมาเอง)
-  const firstAvailable = page.locator('article', { hasText: 'ว่าง' }).first()
-  const tableCardText = (await firstAvailable.locator('p.text-xl').innerText()).trim()
+  // สุ่มโต๊ะว่าง (หลาย worker เปิดโต๊ะพร้อมกัน ตัวแรกจะชนกัน)
+  const tableCardText = await pickFreeTable(page)
   const tableName = tableCardText.replace(/^โต๊ะ\s*/, '')
   const table1Card = page
     .locator('article')

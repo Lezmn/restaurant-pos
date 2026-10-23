@@ -113,7 +113,8 @@ test('ปิดยอดวันนี้: ตัวเลข "ควรมี�
   await expect(page.getByText(/-?฿10|ขาด/).first()).toBeVisible()
 })
 
-test('Dashboard ของเจ้าของ: ยอดขายวันนี้ตรงกับ /reports และเพิ่มขึ้นหลังเก็บเงินสด', async ({ page, request }) => {
+// @totals-dashboard: เทียบยอดขายทั้งวัน — รันแยกหลังเทสอื่นจบ (playwright.config.ts)
+test('Dashboard ของเจ้าของ: ยอดขายวันนี้ตรงกับ /reports และเพิ่มขึ้นหลังเก็บเงินสด', { tag: '@totals-dashboard' }, async ({ page, request }) => {
   const admin = await api(request, 'admin')
   const before = await (await request.get(`${API_URL}/reports/dashboard`, { headers: admin })).json()
   const { tableName } = await servedTable(request)
