@@ -124,7 +124,10 @@ jobs:
           ssh_vps() { ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 "$TARGET" "$@"; }
           # ส่ง token ทาง stdin — ไม่โผล่ใน command line/ps ของ VPS
           printf '%s' "$GHCR_TOKEN" | ssh_vps "docker login ghcr.io -u '${{ github.actor }}' --password-stdin"
-          ssh_vps "cd ~/app && export IMAGE_TAG=$TAG && docker compose pull && docker compose up -d --remove-orphans; rc=\$?; docker logout ghcr.io >/dev/null; exit \$rc"
+          # เขียน IMAGE_TAG ลง .env — คำสั่ง docker compose ที่รันเองทีหลัง (seed:prod, backup once, logs) ใช้ image ชุดที่ deploy อยู่
+          # ไม่งั้นจะหา :latest ที่ไม่มีในเครื่อง แล้ว pull ไม่ได้ (VPS ไม่เก็บ login ของ GHCR) — unauthorized
+          ssh_vps "cd ~/app && { grep -q '^IMAGE_TAG=' .env && sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=$TAG/' .env || echo 'IMAGE_TAG=$TAG' >> .env; }"
+          ssh_vps "cd ~/app && docker compose pull && docker compose up -d --remove-orphans; rc=\$?; docker logout ghcr.io >/dev/null; exit \$rc"
           ssh_vps "echo $TAG > ~/app/DEPLOYED_TAG && docker image prune -f >/dev/null"
 
       - name: เช็คว่าระบบขึ้นจริง
