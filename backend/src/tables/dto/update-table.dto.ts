@@ -1,6 +1,6 @@
 import { ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { TableStatus } from '@prisma/client';
-import { IsEnum, IsOptional } from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional } from 'class-validator';
 import { CreateTableDto } from './create-table.dto';
 
 export class UpdateTableDto extends PartialType(CreateTableDto) {
@@ -8,4 +8,12 @@ export class UpdateTableDto extends PartialType(CreateTableDto) {
   @IsOptional()
   @IsEnum(TableStatus)
   status?: TableStatus;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: 'false = ปิดใช้งาน (ยกโต๊ะออก) ใช้แทนการลบเมื่อโต๊ะมีประวัติการขาย — ต้องไม่มีลูกค้านั่งอยู่',
+  })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }

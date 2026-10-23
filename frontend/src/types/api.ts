@@ -39,6 +39,7 @@ export interface ApiTable {
   number: number
   seats: number
   status: TableStatus
+  isActive: boolean
 }
 
 export interface ApiMenuOption {

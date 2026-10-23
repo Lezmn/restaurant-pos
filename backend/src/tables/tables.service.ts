@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { OrderStatus, Prisma, TableStatus } from '@prisma/client';
+import { OrderStatus, Prisma, TableSessionStatus, TableStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTableDto } from './dto/create-table.dto';
 import { UpdateTableDto } from './dto/update-table.dto';
@@ -28,9 +28,10 @@ export class TablesService {
     }
   }
 
-  findAll(status?: TableStatus) {
+  findAll(status?: TableStatus, includeInactive = false) {
     return this.prisma.restaurantTable.findMany({
-      where: { status },
+      // หน้าพนักงานเห็นเฉพาะโต๊ะที่ใช้งาน — หน้าจัดการโต๊ะของ ADMIN ขอรวมที่ปิดไว้ด้วย
+      where: { status, isActive: includeInactive ? undefined : true },
       orderBy: { number: 'asc' },
     });
   }
@@ -53,6 +54,15 @@ export class TablesService {
 
   async update(id: string, dto: UpdateTableDto) {
     await this.assertExists(id);
+    // ลูกค้ายังนั่งอยู่ (QR เปิดอยู่) ปิดโต๊ะทิ้งไม่ได้ — QR ในมือลูกค้าจะใช้ต่อไม่ได้ / บิลค้าง
+    if (dto.isActive === false) {
+      const open = await this.prisma.tableSession.count({
+        where: { tableId: id, status: TableSessionStatus.OPEN },
+      });
+      if (open > 0) {
+        throw new ConflictException('ปิดใช้งานไม่ได้: โต๊ะนี้ยังมีลูกค้าอยู่ ปิดโต๊ะ (เก็บเงิน) ก่อน');
+      }
+    }
     try {
       return await this.prisma.restaurantTable.update({
         where: { id },
@@ -79,7 +89,7 @@ export class TablesService {
         e.code === 'P2003'
       ) {
         throw new ConflictException(
-          'ลบไม่ได้: โต๊ะนี้มีประวัติออเดอร์หรือใบเสร็จอยู่ ซึ่งต้องเก็บไว้เป็นหลักฐานการขาย',
+          'ลบไม่ได้: โต๊ะนี้มีประวัติออเดอร์หรือใบเสร็จอยู่ ซึ่งต้องเก็บไว้เป็นหลักฐานการขาย — ให้ "ปิดใช้งาน" แทน',
         );
       }
       throw e;

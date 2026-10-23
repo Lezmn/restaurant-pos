@@ -32,7 +32,7 @@ export class TablesController {
   @Get()
   @ApiOperation({ summary: 'ดึงโต๊ะทั้งหมด (filter ตามสถานะได้ เช่น ?status=AVAILABLE)' })
   findAll(@Query() query: FindTablesQueryDto) {
-    return this.tablesService.findAll(query.status);
+    return this.tablesService.findAll(query.status, query.includeInactive);
   }
 
   @Get(':id')
