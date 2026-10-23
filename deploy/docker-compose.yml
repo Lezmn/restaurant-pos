@@ -1,0 +1,119 @@
+# Production บน VPS แบบ "image จาก GHCR + Nginx บนเครื่อง" (ดู docs/DEPLOY.md)
+#   - GitHub Actions build image แล้ว push ขึ้น ghcr.io (.github/workflows/deploy.yml) — VPS แค่ pull ไม่ build เอง
+#   - API/หน้าเว็บผูกเฉพาะ 127.0.0.1 — เข้าจากนอกเครื่องได้ทาง Nginx (HTTPS, certbot) เท่านั้น
+#     (Docker เปิดพอร์ตทะลุ ufw ได้ ถ้าผูก 0.0.0.0 พอร์ต 3000/8080 จะเปิดสู่อินเทอร์เน็ตทั้งที่ ufw ไม่อนุญาต)
+# อยู่ที่ ~/app ของ user deploy คู่กับ .env (สร้างด้วย make-env.sh), backup.sh, offsite.sh, restore*.sh
+#   docker compose pull && docker compose up -d
+name: restaurant
+
+x-db-url: &db-url "postgresql://${POSTGRES_USER:-restaurant}:${POSTGRES_PASSWORD:?ตั้ง POSTGRES_PASSWORD ใน .env}@postgres:5432/${POSTGRES_DB:-restaurant_db}?schema=public"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-restaurant}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?ตั้ง POSTGRES_PASSWORD ใน .env}
+      POSTGRES_DB: ${POSTGRES_DB:-restaurant_db}
+      TZ: ${TZ:-Asia/Bangkok}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    # ไม่มี ports: — เข้าถึงได้เฉพาะ service ใน network นี้
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # migration ก่อน API ทุกครั้งแล้วจบ — image "-migrator" (backend target build มี prisma CLI)
+  # สร้าง ADMIN คนแรก: docker compose run --rm -e ADMIN_EMAIL=... -e ADMIN_PASSWORD=... -e TABLE_COUNT=10 migrate npm run prisma:seed:prod
+  migrate:
+    image: ${IMAGE_PREFIX:?ตั้ง IMAGE_PREFIX ใน .env}-migrator:${IMAGE_TAG:-latest}
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: *db-url
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    image: ${IMAGE_PREFIX}-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      DATABASE_URL: *db-url
+      PORT: 3000
+      NODE_ENV: production
+      # "วันนี้" ของ Dashboard, ขอบเดือนในรายงาน และเลขรันใบเสร็จ อิงเวลาเครื่อง
+      TZ: ${TZ:-Asia/Bangkok}
+      JWT_SECRET: ${JWT_SECRET:?ตั้ง JWT_SECRET ใน .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      CORS_ORIGIN: https://${APP_DOMAIN:?ตั้ง APP_DOMAIN ใน .env}
+      # อยู่หลัง Nginx — Nginx เขียน X-Forwarded-For เป็น IP จริงของลูกค้า (ไม่ส่งต่อค่าที่ลูกค้าปลอมมา)
+      TRUST_PROXY: "true"
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT:-600}
+      THROTTLE_IP_LIMIT: ${THROTTLE_IP_LIMIT:-1000}
+      LOGIN_THROTTLE_LIMIT: 5
+      SWAGGER_ENABLED: "false"
+      SLIPOK_API_KEY: ${SLIPOK_API_KEY:-}
+      SLIPOK_BRANCH_ID: ${SLIPOK_BRANCH_ID:-}
+      SLIPOK_MOCK: "false"
+      SLIP_RECHECK_INTERVAL_MS: ${SLIP_RECHECK_INTERVAL_MS:-120000}
+      SLIP_RECHECK_MAX_ATTEMPTS: ${SLIP_RECHECK_MAX_ATTEMPTS:-15}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # ค่า VITE_* (โดเมน API, พร้อมเพย์, ชื่อร้าน) ฝังตอน build ใน GitHub Actions จาก repository variables
+  web:
+    image: ${IMAGE_PREFIX}-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # สำรองเองทันที (ก่อนอัปเดตใหญ่): docker compose run --rm backup once
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    entrypoint: ["sh", "/backup.sh"]
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-restaurant}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-restaurant_db}
+      TZ: ${TZ:-Asia/Bangkok}
+      BACKUP_HOUR: ${BACKUP_HOUR:-03}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_PING_URL: ${BACKUP_PING_URL:-}
+    volumes:
+      - ./backup.sh:/backup.sh:ro
+      - ./backups:/backups
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # คัดลอก ./backups ออกนอกเครื่อง — เปิดด้วย COMPOSE_PROFILES=offsite ใน .env หลังตั้ง rclone (docs/OPERATIONS.md)
+  offsite:
+    image: rclone/rclone:1.68
+    profiles: ["offsite"]
+    restart: unless-stopped
+    entrypoint: ["sh", "/offsite.sh"]
+    environment:
+      TZ: ${TZ:-Asia/Bangkok}
+      RCLONE_REMOTE: ${RCLONE_REMOTE:-}
+      OFFSITE_EVERY_MIN: ${OFFSITE_EVERY_MIN:-60}
+      OFFSITE_KEEP_DAYS: ${OFFSITE_KEEP_DAYS:-90}
+      OFFSITE_PING_URL: ${OFFSITE_PING_URL:-}
+    volumes:
+      - ./offsite.sh:/offsite.sh:ro
+      - ./backups:/backups:ro
+      - ./rclone:/config/rclone
+
+volumes:
+  pg_data:

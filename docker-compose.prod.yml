@@ -94,6 +94,9 @@ services:
       # ใบรับรอง HTTPS — ห้ามลบ volume นี้ ไม่งั้นต้องขอใหม่และอาจติด rate limit ของ Let's Encrypt
       - caddy_data:/data
       - caddy_config:/config
+    # HEALTHCHECK ของ image เช็ค :8080 (โหมดหลัง Nginx) — Caddyfile ชุดนี้ฟัง 80/443 แทน
+    healthcheck:
+      disable: true
     depends_on:
       api:
         condition: service_healthy

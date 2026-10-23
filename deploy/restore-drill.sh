@@ -9,7 +9,9 @@ set -eu
 file="${1:-$(ls -t backups/*.dump 2>/dev/null | head -n 1)}"
 [ -n "$file" ] && [ -f "$file" ] || { echo "ไม่พบไฟล์สำรอง (ระบุเอง: sh deploy/restore-drill.sh <ไฟล์.dump>)" >&2; exit 1; }
 
-compose="docker compose -f docker-compose.prod.yml"
+# รันในโฟลเดอร์ราก repo (docker-compose.prod.yml) หรือ ~/app บน VPS (docker-compose.yml)
+compose="docker compose"
+[ -f docker-compose.prod.yml ] && compose="docker compose -f docker-compose.prod.yml"
 psql_in() { $compose exec -T postgres sh -c "psql -v ON_ERROR_STOP=1 -qAt -U \"\$POSTGRES_USER\" -d $1"; }
 
 counts="SELECT 'users', count(*)::text FROM users

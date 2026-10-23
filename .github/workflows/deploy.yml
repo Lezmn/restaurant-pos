@@ -1,0 +1,138 @@
+# Deploy — หลัง CI ผ่านบน main: build image ขึ้น GHCR แล้ว SSH สั่ง VPS pull + รันใหม่ (ดู docs/DEPLOY.md)
+#
+# ตั้งค่าที่ repo → Settings → Secrets and variables → Actions
+#   Secrets:   VPS_HOST, VPS_USER (deploy), VPS_SSH_KEY (private key ของ user deploy)
+#   Variables: APP_URL (https://pos.ร้าน.com — ไม่ตั้ง = build อย่างเดียว ข้าม deploy)
+#              VITE_API_URL, VITE_PROMPTPAY_ID, VITE_RESTAURANT_NAME (ฝังในหน้าเว็บตอน build)
+# VPS ไม่ต้องเก็บ token ของ GHCR: job deploy login ด้วย GITHUB_TOKEN ชั่วคราว (หมดอายุเมื่อ job จบ) แล้ว logout
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+# deploy ทีละรอบ — push ติดกันสองครั้ง ให้รอบหลังรอรอบแรกจบ ไม่ยกเลิกกลางทาง
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  build-push:
+    # มาจาก CI: ต้องผ่าน และเป็น push เข้า main (ไม่ใช่ PR) / กดเอง: รันได้เลย
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - id: meta
+        name: ชื่อ image (GHCR ต้องตัวพิมพ์เล็ก) + tag sha
+        run: |
+          echo "prefix=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/restaurant-pos" >> "$GITHUB_OUTPUT"
+          echo "tag=sha-$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: ต้องตั้ง variables ของหน้าเว็บก่อน
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+        run: |
+          case "$VITE_API_URL" in
+            https://*) ;;
+            *) echo "::error::ตั้ง repository variable VITE_API_URL เป็น https://api.โดเมน ก่อน"; exit 1 ;;
+          esac
+
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: API
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          target: prod
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.prefix }}-api:${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.prefix }}-api:latest
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+
+      - name: Migrator (prisma migrate deploy / seed:prod)
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          target: build
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.prefix }}-migrator:${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.prefix }}-migrator:latest
+          cache-from: type=gha,scope=migrator
+          cache-to: type=gha,scope=migrator,mode=max
+
+      - name: Web
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          push: true
+          build-args: |
+            VITE_API_URL=${{ vars.VITE_API_URL }}
+            VITE_PROMPTPAY_ID=${{ vars.VITE_PROMPTPAY_ID }}
+            VITE_RESTAURANT_NAME=${{ vars.VITE_RESTAURANT_NAME }}
+            VITE_LOGIN_EMAIL_DOMAIN=${{ vars.VITE_LOGIN_EMAIL_DOMAIN }}
+          tags: |
+            ${{ steps.meta.outputs.prefix }}-web:${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.prefix }}-web:latest
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+
+  deploy:
+    needs: build-push
+    # ยังไม่ได้ตั้ง APP_URL (VPS ยังไม่พร้อม) = build อย่างเดียว ข้ามขั้นนี้
+    if: vars.APP_URL != ''
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    env:
+      TAG: ${{ needs.build-push.outputs.tag }}
+      TARGET: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+    steps:
+      - name: SSH key
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: Pull + รันเวอร์ชันใหม่บน VPS
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ssh_vps() { ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 "$TARGET" "$@"; }
+          # ส่ง token ทาง stdin — ไม่โผล่ใน command line/ps ของ VPS
+          printf '%s' "$GHCR_TOKEN" | ssh_vps "docker login ghcr.io -u '${{ github.actor }}' --password-stdin"
+          ssh_vps "cd ~/app && export IMAGE_TAG=$TAG && docker compose pull && docker compose up -d --remove-orphans; rc=\$?; docker logout ghcr.io >/dev/null; exit \$rc"
+          ssh_vps "echo $TAG > ~/app/DEPLOYED_TAG && docker image prune -f >/dev/null"
+
+      - name: เช็คว่าระบบขึ้นจริง
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+          API_URL: ${{ vars.VITE_API_URL }}
+        run: |
+          curl -fsS --retry 12 --retry-delay 5 --retry-all-errors "$API_URL/health"
+          echo
+          curl -fsS -o /dev/null --retry 6 --retry-delay 5 --retry-all-errors "$APP_URL/"
+          echo "deploy $TAG สำเร็จ — $APP_URL"
