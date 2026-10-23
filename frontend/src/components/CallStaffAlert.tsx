@@ -2,7 +2,10 @@ import {
   useResolveServiceRequest,
   useServiceRequests,
 } from '@/features/service-requests/hooks'
+import { installAudioUnlock, playAlert } from '@/lib/alert-sound'
+import { useNewArrivals } from '@/lib/use-new-arrivals'
 import { ServiceRequestStatus, ServiceRequestType } from '@/types/enums'
+import { useEffect } from 'react'
 
 /**
  * แจ้งเตือน "เรียกพนักงาน" — วางไว้ที่ layout จึงขึ้นทุกหน้าของฝั่งพนักงาน
@@ -19,6 +22,10 @@ export function CallStaffAlert() {
       r.type === ServiceRequestType.CALL_STAFF &&
       r.status === ServiceRequestStatus.PENDING,
   )
+
+  // คำขอใหม่ → ปี๊บ 3 ครั้ง (แคชเชียร์อาจก้มนับเงินอยู่ ไม่ได้มองจอ) — ค่าเริ่มต้นเปิด (ปุ่มปิดอยู่บนจอครัว ซึ่งเครื่องแคชเชียร์เข้าไม่ได้ — ปิดที่ลำโพงเครื่องแทน)
+  useEffect(installAudioUnlock, [])
+  useNewArrivals(requests && pending.map((r) => r.id), () => playAlert('call'))
 
   const current = pending.at(-1)
   if (!current) return null
