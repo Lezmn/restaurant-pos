@@ -70,6 +70,9 @@ cd ~/app && docker compose run --rm -e ADMIN_EMAIL=<ชื่อ>@restaurant.loc
 รูปเมนูที่อัปโหลดเก็บที่ `~/app/uploads` (สร้างเป็นของ user deploy ก่อน deploy ครั้งแรก: `mkdir -p ~/app/uploads`
 ถ้าไม่สร้าง Docker จะสร้างให้เป็นของ root แล้ว API เขียนรูปไม่ได้) — ไม่อยู่ในไฟล์สำรอง DB ต้องสำรองแยก
 
+Deploy เขียน `IMAGE_TAG=sha-xxxxxxx` ลง `~/app/.env` ทุกครั้ง — คำสั่ง `docker compose` ที่รันเองจึงใช้ image ชุดที่ deploy อยู่
+(VPS ไม่เก็บ login ของ GHCR ถ้าไปหา `:latest` ที่ไม่มีในเครื่องจะได้ `unauthorized`)
+
 คำสั่งดูแลประจำ (`backup once`, `restore-drill.sh`, logs) ใช้ `docker compose` ใน `~/app` แทน `docker compose -f docker-compose.prod.yml` ได้ทุกคำสั่งในเอกสารนี้และ OPERATIONS.md
 
 ## B. Caddy ในเครื่องเดียว
