@@ -4,6 +4,27 @@ import { API_URL, call, customerOrder, menuItemByName, openNewSession, tokens, t
 
 // ⚠️ ยิง backend จริง — DB ทดสอบเท่านั้น
 
+/**
+ * server ตรวจ token หลัง handshake (ต่อ DB แบบ async) แล้วค่อยตัด — ตอนรันขนานหลาย worker อาจเกิน 400ms ของ connect()
+ * จึงรอ "ถูกตัดจริง" แทนการจับเวลา (ยังไม่ผ่านการตรวจ = ยังไม่เข้า room ไม่ได้รับ event ระหว่างนั้น)
+ */
+function expectRejected(auth: Record<string, string>) {
+  return new Promise<void>((resolve, reject) => {
+    const socket = io(API_URL, { auth, transports: ['websocket'], reconnection: false })
+    const timer = setTimeout(() => {
+      socket.close()
+      reject(new Error(`server ไม่ตัดการเชื่อมต่อ ${JSON.stringify(auth)} ภายใน 5 วินาที`))
+    }, 5000)
+    const rejected = () => {
+      clearTimeout(timer)
+      socket.close()
+      resolve()
+    }
+    socket.on('disconnect', rejected)
+    socket.on('connect_error', rejected)
+  })
+}
+
 function connect(auth: Record<string, string>) {
   return new Promise<Socket>((resolve, reject) => {
     const socket = io(API_URL, { auth, transports: ['websocket'], reconnection: false })
@@ -89,9 +110,9 @@ test.describe('Socket.IO', () => {
   })
 
   test('handshake ไม่มี token / token ผิด / QR ปิดแล้ว → ถูกตัด', async () => {
-    await expect(connect({})).rejects.toThrow()
-    await expect(connect({ token: 'not-a-jwt' })).rejects.toThrow()
-    await expect(connect({ sessionToken: 'demo-table-1-paid-session' })).rejects.toThrow()
+    await expectRejected({})
+    await expectRejected({ token: 'not-a-jwt' })
+    await expectRejected({ sessionToken: 'demo-table-1-paid-session' })
   })
 })
 

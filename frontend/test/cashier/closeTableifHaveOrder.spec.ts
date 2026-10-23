@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAsAdmin, loginAsCashier, openTableAndPlaceOrder, tablesPageCard } from '../helpers'
+import { loginAsAdmin, loginAsCashier, openTableAndPlaceOrder, pickFreeTable, tablesPageCard } from '../helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data ที่ localhost:3000
 // ทดสอบ business rule ฝั่ง backend: ปิดโต๊ะไม่ได้ถ้ายังมีออเดอร์ที่ไม่ใช่ PAID/CANCELLED ค้างอยู่
@@ -14,9 +14,9 @@ test('ปิดโต๊ะที่มีลูกค้าสั่งอา�
   await loginAsCashier(page, request)
   await page.goto('/employee/tables')
 
-  const availableTable = page.locator('article', { hasText: 'ว่าง' }).first()
-  await expect(availableTable).toBeVisible()
-  const tableCardText = (await availableTable.locator('p.text-xl').innerText()).trim()
+  // สุ่มโต๊ะว่างแล้วอ้างด้วยชื่อ — .first() ประเมินใหม่ทุกครั้ง เทสอื่นเปิดโต๊ะนั้นไปก่อนจะกดผิดโต๊ะ
+  const tableCardText = await pickFreeTable(page)
+  const availableTable = tablesPageCard(page, tableCardText)
 
   await availableTable.getByRole('button', { name: 'เปิดโต๊ะ + สร้าง QR' }).click()
 

@@ -22,11 +22,12 @@ async function freshOrder(request: import('@playwright/test').APIRequestContext)
   const water = menu.flatMap((c: { menuItems: { id: string; name: string }[] }) => c.menuItems).find(
     (m: { name: string }) => m.name === 'น้ำเปล่า',
   )
-  const order = await (
-    await request.post(`${API_URL}/public/orders`, {
-      data: { sessionToken: session.token, items: [{ menuItemId: water.id, quantity: 2 }] },
-    })
-  ).json()
+  const res = await request.post(`${API_URL}/public/orders`, {
+    data: { sessionToken: session.token, items: [{ menuItemId: water.id, quantity: 2 }] },
+  })
+  // สั่งไม่สำเร็จให้บอกสาเหตุตรง ๆ (เช่น 429 rate limit) แทน "อ่าน id ของ undefined"
+  if (!res.ok()) throw new Error(`สร้างออเดอร์ทดสอบไม่สำเร็จ ${res.status()} ${await res.text()}`)
+  const order = await res.json()
   return { tableName: String(table.number), token: session.token as string, orderRef: order.id.slice(0, 6).toUpperCase() }
 }
 
@@ -97,6 +98,18 @@ test('KITCHEN เข้าหน้า Manage ได้: เปิด/ปิด�
   page,
   request,
 }) => {
+  // เมนูของเทสนี้เอง — ปิดขายน้ำเปล่าของ seed จะทำให้เทสอื่นที่สั่งน้ำพร้อมกันพัง
+  const admin = await loginViaApi(request, 'admin', SEED_PASSWORD)
+  const adminHeaders = { Authorization: `Bearer ${admin.accessToken}` }
+  const [category] = await (await request.get(`${API_URL}/categories`, { headers: adminHeaders })).json()
+  const menuName = `สวิตช์ครัว ${Date.now().toString(36)}`
+  const menu = await (
+    await request.post(`${API_URL}/menu`, {
+      headers: adminHeaders,
+      data: { name: menuName, price: 1, categoryId: category.id },
+    })
+  ).json()
+
   await loginAsKitchen(page, request)
   await page.goto('/employee/manage')
   await expect(page.getByRole('heading', { name: 'จัดการเมนู' })).toBeVisible()
@@ -105,23 +118,24 @@ test('KITCHEN เข้าหน้า Manage ได้: เปิด/ปิด�
   await expect(page.getByRole('button', { name: 'แก้ไข' })).toHaveCount(0)
 
   // ปิดขาย/เปิดขายใช้ PATCH /menu/:id/availability @Roles(ADMIN, KITCHEN) — ต้องสำเร็จ ไม่ใช่ 403
-  const water = page.getByRole('switch', { name: 'เปิดขาย น้ำเปล่า' })
+  const water = page.getByRole('switch', { name: `เปิดขาย ${menuName}` })
   await expect(water).toBeChecked()
-  const statuses: number[] = []
-  page.on('response', (res) => {
-    if (res.url().includes('/availability')) statuses.push(res.status())
-  })
-  await water.click()
+  // สวิตช์หน่วง 600ms แล้วบันทึกเฉพาะค่าสุดท้าย (กดปิดแล้วเปิดกลับทันที = ไม่ยิงเลย) — รอผลทีละครั้ง
+  const saved = () => page.waitForResponse((res) => res.url().includes('/availability'))
+  const [off] = await Promise.all([saved(), water.click()])
+  expect(off.status()).toBe(200)
   await expect(water).not.toBeChecked()
-  await water.click()
+  const [on] = await Promise.all([saved(), water.click()])
+  expect(on.status()).toBe(200)
   await expect(water).toBeChecked()
-  expect(statuses).toEqual([200, 200])
 
   // แท็บวัตถุดิบ: สลับมีของ/หมดได้ แต่เพิ่ม/ลบไม่ได้
   await page.getByRole('button', { name: 'วัตถุดิบ', exact: true }).click()
   await expect(page.getByRole('switch', { name: /^มีของ / }).first()).toBeVisible()
   await expect(page.getByRole('button', { name: 'เพิ่มวัตถุดิบ' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'ลบ', exact: true })).toHaveCount(0)
+
+  await request.delete(`${API_URL}/menu/${menu.id}`, { headers: adminHeaders })
 })
 
 test('จอครัวไม่ยิง /service-requests (ADMIN/STAFF เท่านั้น) — ไม่มี 403 เต็ม console', async ({ page, request }) => {

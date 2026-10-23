@@ -97,7 +97,8 @@ test('มีคนลาออก: ตั้งรหัสใหม่ + ออ
   await dialog.getByLabel('ยืนยันรหัสผ่านใหม่').fill('NewShared22')
   await expect(dialog.getByLabel('ออกจากระบบทุกเครื่องที่ใช้บัญชีนี้')).toBeChecked()
   await dialog.getByRole('button', { name: 'ตั้งรหัสผ่าน' }).click()
-  await expect(page.getByText(/ทุกเครื่องต้อง login ใหม่/)).toBeVisible()
+  // bcrypt (cost 12) ช้าตั้งใจ — ตอนรันขนานหลาย worker CPU เต็ม บันทึกเกิน 5 วินาทีได้
+  await expect(page.getByText(/ทุกเครื่องต้อง login ใหม่/)).toBeVisible({ timeout: 15_000 })
 
   const me = await request.get(`${API_URL}/auth/me`, {
     headers: { Authorization: `Bearer ${tablet.accessToken}` },

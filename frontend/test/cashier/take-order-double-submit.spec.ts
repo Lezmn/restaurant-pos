@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAsCashier, tablesPageCard } from '../helpers'
+import { loginAsCashier, pickFreeTable, tablesPageCard } from '../helpers'
 
 // ⚠️ ยิง backend จริง — เปิดโต๊ะ 1 โต๊ะและสร้างออเดอร์ค้างไว้ 1 ใบ (DB ทดสอบเท่านั้น)
 
@@ -10,9 +10,9 @@ test('STAFF กด "ส่งเข้าครัว" สองครั้ง�
   await loginAsCashier(page, request)
   await page.goto('/employee/tables')
 
-  const availableTable = page.locator('article', { hasText: 'ว่าง' }).first()
-  await expect(availableTable).toBeVisible()
-  const tableCardText = (await availableTable.locator('p.text-xl').innerText()).trim()
+  // สุ่มโต๊ะว่างแล้วอ้างด้วยชื่อ — .first() ประเมินใหม่ทุกครั้ง เทสอื่นเปิดโต๊ะนั้นไปก่อนจะกดผิดโต๊ะ
+  const tableCardText = await pickFreeTable(page)
+  const availableTable = tablesPageCard(page, tableCardText)
 
   await availableTable.getByRole('button', { name: 'เปิดโต๊ะ + สร้าง QR' }).click()
   const qrDialog = page.getByRole('dialog', { name: /^QR โต๊ะ/ })

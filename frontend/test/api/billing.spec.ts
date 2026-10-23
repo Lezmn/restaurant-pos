@@ -15,7 +15,7 @@ import {
 
 // ⚠️ ยิง backend จริง — DB ทดสอบเท่านั้น (SLIPOK_MOCK=true)
 // flow เงินทั้งเส้น: สั่ง → เสิร์ฟ → เก็บเงิน → ใบเสร็จ → ยอดใน dashboard / ปิดยอด ตรงกัน
-// เทียบยอดก่อน/หลังใน dashboard — รันด้วย --workers=1 เพื่อไม่ให้ไฟล์อื่นจ่ายเงินแทรกระหว่างวัด
+// เทียบยอดก่อน/หลังใน dashboard — เทสที่ติด @totals-billing รันแยกทีละตัวหลังชุดหลักจบ (playwright.config.ts)
 
 let t: Record<Role, string>
 let water: Awaited<ReturnType<typeof menuItemByName>>
@@ -37,7 +37,8 @@ const preview = async (request: Parameters<typeof tokens>[0]) =>
     await call(request, 'GET', '/cash-closes/preview', { token: t.STAFF }),
   )
 
-test('ยอดบิล ส่วนลด ใบเสร็จ และยอดใน dashboard/ปิดยอด ตรงกัน แล้วยกเลิกบิลยอดต้องหายคืน', async ({ request }) => {
+// @totals-billing: เทียบยอดขายทั้งวัน — รันแยกหลังเทสอื่นจบ (playwright.config.ts) ไม่ให้บิลของเทสอื่นปนยอด
+test('ยอดบิล ส่วนลด ใบเสร็จ และยอดใน dashboard/ปิดยอด ตรงกัน แล้วยกเลิกบิลยอดต้องหายคืน', { tag: '@totals-billing' }, async ({ request }) => {
   const before = await dashboard(request)
   const beforeClose = await preview(request)
 
@@ -142,7 +143,8 @@ test('แยกบิล: จ่ายบางออเดอร์ โต๊�
   expect(p2.closedSessionIds).toEqual([session.id])
 })
 
-test('PromptPay (SlipOK จำลอง): ผ่าน / สลิปซ้ำ / ยอดไม่ตรง / ระบบล่ม / ไม่มีสลิป', async ({ request }) => {
+// @totals-billing: เทียบยอดขายทั้งวัน — รันแยกหลังเทสอื่นจบ (playwright.config.ts)
+test('PromptPay (SlipOK จำลอง): ผ่าน / สลิปซ้ำ / ยอดไม่ตรง / ระบบล่ม / ไม่มีสลิป', { tag: '@totals-billing' }, async ({ request }) => {
   const mk = async () => {
     const { session } = await openNewSession(request, t)
     const o = await customerOrder(request, session.token, [{ menuItemId: water.id, quantity: 1 }])

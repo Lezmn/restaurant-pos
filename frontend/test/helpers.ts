@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto'
 import { expect, type APIRequestContext, type Page } from '@playwright/test'
 
 // ชี้ API อื่นได้ด้วย E2E_API_URL (เช่น API ทดสอบที่ต่อ DB restaurant_test)
@@ -91,11 +92,8 @@ export async function openTableAndPlaceOrder(
 ): Promise<{ tableCardText: string; orderRef: string }> {
   await page.goto('/employee/tables')
 
-  const availableTable = page.locator('article', { hasText: 'ว่าง' }).first()
-  await expect(availableTable).toBeVisible()
-  const tableCardText = (await availableTable.locator('p.text-xl').innerText()).trim()
-
-  await availableTable.getByRole('button', { name: 'เปิดโต๊ะ + สร้าง QR' }).click()
+  const tableCardText = await pickFreeTable(page)
+  await tablesPageCard(page, tableCardText).getByRole('button', { name: 'เปิดโต๊ะ + สร้าง QR' }).click()
   // ปิด QR dialog ที่เด้งขึ้นมาเองหลังเปิดโต๊ะสำเร็จ — รอให้ขึ้นก่อน ไม่งั้น Escape ไปก่อน dialog (ตอนไม่มี slowMo)
   const qrDialog = page.getByRole('dialog', { name: /^QR โต๊ะ/ })
   await expect(qrDialog).toBeVisible()
@@ -131,6 +129,18 @@ export async function openTableAndPlaceOrder(
   await expect(orderDialog).not.toBeVisible()
 
   return { tableCardText, orderRef }
+}
+
+/**
+ * สุ่มโต๊ะว่าง 1 ตัวในหน้า /employee/tables แล้วคืนหัวการ์ด ("โต๊ะ 7")
+ * หลาย worker เปิดโต๊ะพร้อมกัน — เลือกตัวแรกเหมือนกันหมดจะชนกัน ("มี QR session ที่เปิดอยู่แล้ว")
+ * คืนเป็นชื่อแทน locator: locator แบบ nth/first ประเมินใหม่ทุกครั้ง พอเทสอื่นเปิดโต๊ะไปก่อน จะชี้ไปโต๊ะอื่น
+ */
+export async function pickFreeTable(page: Page) {
+  const free = page.locator('article', { hasText: 'ว่าง' })
+  await expect(free.first()).toBeVisible()
+  const pick = free.nth(randomInt(await free.count()))
+  return (await pick.locator('p.text-xl').innerText()).trim()
 }
 
 /**
