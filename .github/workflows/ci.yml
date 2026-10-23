@@ -126,6 +126,8 @@ jobs:
         run: |
           npm ci
           npx playwright install-deps chromium
+          # Safari ของลูกค้า iPhone / จอครัว iPad (project "webkit" ใน playwright.config.ts)
+          npx playwright install --with-deps webkit
       - name: Playwright
         working-directory: frontend
         env:

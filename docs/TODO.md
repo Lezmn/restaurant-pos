@@ -4,7 +4,7 @@
 
 ## P0 — ต้องทำก่อนส่งงาน / ก่อนเปิดใช้จริง
 
-1. **E2E รวดเดียว** — ✅ ผ่านครบ 111/112 (2026-10-23, DB สด, 3 workers) ข้าม 1 ตั้งใจ (rate limit login ต้องใช้ API แยก)
+1. **E2E รวดเดียว** — ✅ ผ่านครบ 122/123 รวม Safari/WebKit 11 เทสต์ (หน้าลูกค้า + ครัว) — เดิม 111/112 (2026-10-23, DB สด, 3 workers) ข้าม 1 ตั้งใจ (rate limit login ต้องใช้ API แยก)
    - เพิ่มเทสต์: สต็อกอัตโนมัติ, จำนวนลูกค้า (API + QR dialog), บังคับเปลี่ยนรหัส ADMIN (API + หน้าเว็บ), ใบเสร็จพิมพ์เอง
    - รันบนเครื่อง: reset DB ทดสอบก่อนทุกครั้ง (`npx prisma migrate reset --force` กับ DB ทดสอบ) — ข้อมูลค้างจากรอบก่อน
      (โต๊ะเปิดค้างเป็นร้อย) ทำหน้า Check ช้าจนเทสต์หมดเวลา; API ทดสอบต้องตั้ง `LOGIN_THROTTLE_LIMIT=1000`,
@@ -57,6 +57,12 @@
 - `S8783` `click({ force: true })` ใน opentable — คลิกแรกตั้งใจให้ไปโดน modal ที่บังอยู่เพื่อปิดมัน
 
 ## หมายเหตุเทคนิค
+
+- E2E มี project `webkit` (Safari) สำหรับหน้าลูกค้า + ครัว — ติดตั้งครั้งแรก `npx playwright install webkit`
+  ถ้าเครือข่ายทำให้ตัวดาวน์โหลดของ Playwright หมดเวลา (curl โหลดได้แต่ Node ไม่ได้): โหลด zip ด้วย curl จาก
+  `https://playwright.download.prss.microsoft.com/dbazure/download/playwright/builds/<ชื่อ>/<เวอร์ชัน>/<ไฟล์>.zip`
+  (webkit, ffmpeg, winldd — ชื่อ/เวอร์ชันดูจากข้อความ error) ไว้ในโฟลเดอร์ `builds/...` เดียวกัน แล้วเปิด
+  `python -m http.server 8799` ในโฟลเดอร์นั้น และรัน `PLAYWRIGHT_DOWNLOAD_HOST=http://127.0.0.1:8799 npx playwright install webkit`
 
 - lockfile ของ backend สร้างด้วย npm 10 (ตรงกับ node:22 ใน Docker/CI) — ถ้าเครื่อง dev ใช้ npm 11 แล้ว `npm install` ทำให้ lockfile เปลี่ยน
   ให้สร้างใหม่ใน container: `docker run --rm -v "$PWD:/app" -w /app node:22-alpine npm install --package-lock-only`
