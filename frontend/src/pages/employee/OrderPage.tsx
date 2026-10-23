@@ -5,10 +5,13 @@ import {
 } from '@/features/orders/hooks'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ErrorNote } from '@/components/ui/ErrorNote'
+import { installAudioUnlock, playAlert, unlockAudio, useAlertSound } from '@/lib/alert-sound'
 import { LIVE_POLL_MS } from '@/lib/live'
+import { useNewArrivals } from '@/lib/use-new-arrivals'
+import { useWakeLock } from '@/lib/use-wake-lock'
 import { OrderStatus } from '@/types/enums'
 import type { Order, OrderItem } from '@/types/models'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 // socket สั่ง refetch ให้อยู่แล้ว — poll นี้เป็นตัวสำรองตอน socket หลุด
 const POLL_MS = LIVE_POLL_MS
@@ -117,6 +120,37 @@ const columns: {
   },
 ]
 
+/**
+ * แถบบนจอครัว: เสียงแจ้งเตือนออเดอร์ใหม่ (เปิด/ปิดต่อเครื่อง) + สถานะกันจอดับ
+ * แท็บเล็ตไม่ยอมเล่นเสียงจนกว่าจะแตะจอ 1 ครั้ง — ขึ้นปุ่มใหญ่ให้แตะตอนเปิดหน้ามา
+ */
+function KitchenAlertBar({ screenAwake }: Readonly<{ screenAwake: boolean }>) {
+  const { enabled, unlocked, setEnabled } = useAlertSound()
+
+  return (
+    <div className="mb-4 flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+      {enabled && !unlocked && (
+        <button
+          type="button"
+          onClick={unlockAudio}
+          className="mr-auto min-h-11 rounded-lg bg-status-queue px-4 text-sm font-bold text-white"
+        >
+          แตะเพื่อเปิดเสียงแจ้งเตือนออเดอร์ใหม่
+        </button>
+      )}
+      {screenAwake && <span className="text-sm text-gray-600">หน้าจอเปิดค้างไว้ระหว่างอยู่หน้านี้</span>}
+      <button
+        type="button"
+        aria-pressed={enabled}
+        onClick={() => setEnabled(!enabled)}
+        className="min-h-11 rounded-lg border-2 border-gray-300 bg-white px-3 text-sm font-bold text-black transition hover:bg-gray-50"
+      >
+        เสียงแจ้งเตือน: {enabled ? 'เปิด' : 'ปิด'}
+      </button>
+    </div>
+  )
+}
+
 export function OrderPage() {
   const { data: orders, isPending } = useOrders({ refetchInterval: POLL_MS })
   const updateStatus = useUpdateOrderStatus()
@@ -131,6 +165,14 @@ export function OrderPage() {
   // ไม่งั้นรีเฟรชก็กลับมา จอครัวอีกเครื่องก็ยังเห็น และพอแคชเชียร์ยกเลิกบิล
   // ออเดอร์ที่เสิร์ฟไปนานแล้วจะเด้งกลับขึ้นบอร์ดเหมือนมีของต้องทำใหม่
   const visible = (orders ?? []).filter((o) => !o.clearedAt)
+
+  // ออเดอร์ใหม่เข้าคิว → ติ๊งต่อง (ครัวไม่ได้จ้องจอตลอด) / จอไม่ดับระหว่างเปิดหน้านี้
+  useEffect(installAudioUnlock, [])
+  const screenAwake = useWakeLock()
+  useNewArrivals(
+    orders && visible.filter((o) => o.status === OrderStatus.PENDING).map((o) => o.id),
+    () => playAlert('order'),
+  )
 
   const toggleItem = (itemId: string, isChecked: boolean) => {
     setChecked((prev) => ({ ...prev, [itemId]: isChecked }))
@@ -149,6 +191,7 @@ export function OrderPage() {
 
   return (
     <div className="relative">
+      <KitchenAlertBar screenAwake={screenAwake} />
       <ErrorNote error={updateStatus.error ?? clearOrder.error} />
 
       {isPending && <p className="text-sm text-gray-500">กำลังโหลด...</p>}
