@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import {
   OrderStatus,
@@ -68,6 +69,9 @@ const ACTIVE_ORDERS_WHERE = (): Prisma.OrderWhereInput => ({
   ],
 });
 
+/** เท่ากับ BILLING_TX_OPTIONS ของ payments — รอคิว connection ได้ 10 วิ, รันได้ 15 วิ */
+const ORDER_TX_OPTIONS = { maxWait: 10_000, timeout: 15_000 } as const;
+
 @Injectable()
 export class OrdersService {
   constructor(
@@ -75,6 +79,22 @@ export class OrdersService {
     private readonly events: EventsGateway,
     private readonly tableSessions: TableSessionsService,
   ) {}
+
+  /**
+   * transaction ของออเดอร์ (สร้าง/เพิ่ม/ลบรายการ/เปลี่ยนสถานะ ตัด-คืนสต็อก) — ค่า default ของ Prisma (รอ 2 วิ)
+   * สั้นไปตอนช่วงเที่ยงหลายโต๊ะสั่งพร้อมกัน connection pool เต็ม แล้วลูกค้าได้ 500 เปล่า ๆ
+   * รอได้นานขึ้นแบบเดียวกับงานเงิน และถ้ายังเริ่มไม่ทัน (P2028) ทุกอย่าง rollback แล้ว บอกให้กดส่งใหม่ได้เลย
+   */
+  private async runOrderTransaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    try {
+      return await this.prisma.$transaction(fn, ORDER_TX_OPTIONS);
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2028') {
+        throw new ServiceUnavailableException('ระบบตอบช้าชั่วคราว ยังไม่ได้บันทึกรายการนี้ กรุณากดส่งใหม่อีกครั้ง');
+      }
+      throw e;
+    }
+  }
 
   async create(dto: CreateOrderDto) {
     const table = await this.prisma.restaurantTable.findUnique({
@@ -94,7 +114,7 @@ export class OrdersService {
     // ใช้ transaction: สร้าง order + item ทั้งหมด ตัดสต็อก และอัปเดตสถานะโต๊ะ
     // ต้องสำเร็จพร้อมกันทั้งหมด ถ้าล้มเหลวจุดใดจุดหนึ่งให้ rollback ทั้งหมด
     let ingredientClosed = false;
-    const order = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const order = await this.runOrderTransaction(async (tx) => {
       // ออเดอร์ต้องผูกกับ session ที่เปิดอยู่เสมอ — POST /payments เก็บเงินได้เฉพาะออเดอร์ที่มี session
       // ออเดอร์ที่ไม่มี session จะค้างตลอดไป (เก็บเงินไม่ได้ / โต๊ะ OCCUPIED ค้าง)
       const openSession = await tx.tableSession.findFirst({
@@ -144,7 +164,7 @@ export class OrdersService {
     const { items: itemsData, usage } = this.buildOrderItems(items, menuItems);
 
     let ingredientClosed = false;
-    const order = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const order = await this.runOrderTransaction(async (tx) => {
       ingredientClosed = await deductStock(tx, usage);
 
       await tx.restaurantTable.update({
@@ -218,7 +238,7 @@ export class OrdersService {
     this.assertMenuIngredientsAvailable(menuItem);
     const { items: itemsData, usage } = this.buildOrderItems([dto], [menuItem]);
 
-    const ingredientClosed = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const ingredientClosed = await this.runOrderTransaction(async (tx) => {
       const closed = await deductStock(tx, usage);
       await tx.orderItem.create({ data: { orderId, ...itemsData[0] } });
       return closed;
@@ -243,7 +263,7 @@ export class OrdersService {
       throw new BadRequestException('ลบรายการสุดท้ายไม่ได้ — ยกเลิกทั้งออเดอร์แทน');
     }
 
-    const ingredientReopened = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const ingredientReopened = await this.runOrderTransaction(async (tx) => {
       await tx.orderItem.delete({ where: { id: orderItemId } });
       // ครัวยังไม่เริ่มทำ ของยังไม่ถูกใช้ — คืนสต็อก (เริ่มทำแล้วถือว่าใช้ไปแล้ว)
       return order.status === OrderStatus.PENDING
@@ -262,7 +282,7 @@ export class OrdersService {
 
     let sessionClosed = false;
     let ingredientReopened = false;
-    const updated = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const updated = await this.runOrderTransaction(async (tx) => {
       // เปลี่ยนเฉพาะถ้าสถานะยังเป็นค่าที่เพิ่งอ่านมา — กันกรณีแคชเชียร์เก็บเงินไปพอดี
       // แล้วครัวกดยกเลิกทับ ได้ออเดอร์ CANCELLED ที่มี payment ผูกอยู่
       const changed = await tx.order.updateMany({
