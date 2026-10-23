@@ -104,6 +104,7 @@ jobs:
     if: vars.APP_URL != ''
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       packages: read
     env:
       TAG: ${{ needs.build-push.outputs.tag }}
@@ -116,6 +117,19 @@ jobs:
           install -m 700 -d ~/.ssh
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          sparse-checkout: deploy
+
+      # compose/สคริปต์บน VPS ต้องตรงกับเวอร์ชันที่ deploy (เช่น เพิ่ม volume ใหม่) — ไม่งั้น image ใหม่รันด้วย compose เก่า
+      # ไม่แตะ .env (ค่าจริงของร้าน) และ nginx.conf (certbot แก้ไฟล์ที่ติดตั้งแล้ว ต้องแก้บนเครื่องเอง)
+      - name: คัดลอก compose + สคริปต์ขึ้น VPS
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new "$TARGET" "mkdir -p ~/app/uploads ~/app/backups"
+          files="deploy/docker-compose.yml deploy/make-env.sh deploy/backup.sh deploy/offsite.sh deploy/restore.sh deploy/restore-drill.sh"
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new $files "$TARGET:app/"
 
       - name: Pull + รันเวอร์ชันใหม่บน VPS
         env:

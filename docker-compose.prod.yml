@@ -68,6 +68,9 @@ services:
       SLIPOK_MOCK: "false"
       SLIP_RECHECK_INTERVAL_MS: ${SLIP_RECHECK_INTERVAL_MS:-120000}
       SLIP_RECHECK_MAX_ATTEMPTS: ${SLIP_RECHECK_MAX_ATTEMPTS:-15}
+    volumes:
+      # รูปเมนูที่อัปโหลด — ห้ามลบ volume นี้ (รูปไม่ได้อยู่ในไฟล์สำรอง DB)
+      - uploads:/app/uploads
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -145,5 +148,6 @@ services:
 
 volumes:
   pg_data:
+  uploads:
   caddy_data:
   caddy_config:

@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { DecimalInterceptor } from './common/interceptors/decimal.interceptor';
 import { SocketIoAdapter } from './events/socket-io.adapter';
+import { uploadDir } from './uploads/uploads.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -22,6 +23,21 @@ async function bootstrap() {
   // security headers มาตรฐาน — ปิด CSP เพราะ Swagger UI โหลด script inline
   // และ API นี้ไม่ได้เสิร์ฟหน้า HTML อื่นให้ CSP ปกป้องอยู่แล้ว
   app.use(helmet({ contentSecurityPolicy: false }));
+
+  // รูปเมนูที่อัปโหลด (POST /uploads/menu-image) — เปิดดูได้โดยไม่ต้อง login (รูปเมนูเห็นได้ทุกคนอยู่แล้ว)
+  // หน้าเว็บอยู่คนละโดเมน (pos.* vs api.*) — helmet ตั้ง Cross-Origin-Resource-Policy: same-origin ไว้ จะโหลดรูปไม่ขึ้น
+  // ชื่อไฟล์เป็น uuid ไม่ซ้ำ ไม่เปลี่ยนเนื้อหา → แคชได้ยาว
+  app.useStaticAssets(uploadDir(), {
+    prefix: '/uploads/',
+    index: false,
+    dotfiles: 'deny',
+    immutable: true,
+    maxAge: '365d',
+    setHeaders: (res) => {
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+    },
+  });
 
   // frontend รันคนละ origin (Vite dev server) ต้องเปิด CORS ไม่งั้น browser บล็อก
   // ใส่หลาย origin ได้โดยคั่นด้วย comma ใน CORS_ORIGIN
