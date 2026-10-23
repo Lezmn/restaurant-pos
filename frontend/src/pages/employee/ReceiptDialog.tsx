@@ -1,7 +1,9 @@
+import { useEffect, useRef, useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { button } from '@/components/ui/styles'
 import { formatBaht } from '@/lib/format'
 import { RESTAURANT_NAME } from '@/lib/config'
+import { printSettings } from '@/lib/print-settings'
 import { PaymentMethod, SlipStatus } from '@/types/enums'
 import type { Payment } from '@/types/models'
 
@@ -20,16 +22,36 @@ const issuedAt = (iso: string) =>
 export function ReceiptDialog({
   payment,
   tendered = null,
+  justPaid = false,
   onClose,
 }: {
   payment: Payment
   /** เงินที่ลูกค้ายื่นมา (เงินสด รับเงินเพิ่งเสร็จ) — โชว์เงินทอนให้แคชเชียร์ ไม่พิมพ์ลงกระดาษ */
   tendered?: number | null
+  /** เพิ่งรับเงินเสร็จ (ไม่ใช่เปิดดูย้อนหลัง) — เครื่องที่เปิด "พิมพ์ทันที" ไว้จะสั่งพิมพ์เอง */
+  justPaid?: boolean
   onClose: () => void
 }) {
   const receipt = payment.receipt
   // หมายเหตุอยู่ใน DB แล้ว — เปิดใบเสร็จย้อนหลังจาก PaidBills ก็เห็นเหมือนตอนพิมพ์ครั้งแรก
   const note = receipt?.note ?? payment.note
+  const [autoPrint, setAutoPrint] = useState(printSettings.getAutoPrintReceipt)
+
+  // ตัดสินตอนเปิดกล่องครั้งเดียว — ติ๊กเปิดทีหลังมีผลกับใบถัดไป ไม่พิมพ์ใบนี้ซ้ำ
+  const [printOnOpen] = useState(() => justPaid && printSettings.getAutoPrintReceipt())
+  // effect ของ Modal (ลูก) รันก่อน — ถึงตรงนี้ <dialog> showModal แล้ว เลื่อนไป task ถัดไปพอให้ render เสร็จ
+  // ใช้ setTimeout ไม่ใช้ requestAnimationFrame: rAF ไม่ทำงานตอนหน้าต่างถูกบังหรือย่อ = ใบเสร็จไม่ออก
+  // ตั้ง ref ตอนพิมพ์จริง: StrictMode รัน effect 2 รอบ รอบแรกถูก clear ไป — ref กันพิมพ์ซ้ำ 2 ใบ
+  // Chrome ที่เปิด --kiosk-printing จะพิมพ์ออกเครื่องพิมพ์หลักเลยโดยไม่ถาม (docs/PRINTING.md)
+  const printedRef = useRef(false)
+  useEffect(() => {
+    if (!printOnOpen || !receipt || printedRef.current) return
+    const timer = setTimeout(() => {
+      printedRef.current = true
+      window.print()
+    })
+    return () => clearTimeout(timer)
+  }, [printOnOpen, receipt])
 
   if (!receipt) {
     return (
@@ -149,7 +171,24 @@ export function ReceiptDialog({
         </p>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-3 print:hidden">
+      {/* ค่าของเครื่องนี้ — เปิดเฉพาะเครื่องที่ต่อเครื่องพิมพ์ใบเสร็จ */}
+      <label className="mt-5 flex cursor-pointer items-start gap-2 text-sm text-gray-700 print:hidden">
+        <input
+          type="checkbox"
+          checked={autoPrint}
+          onChange={(e) => {
+            setAutoPrint(e.target.checked)
+            printSettings.setAutoPrintReceipt(e.target.checked)
+          }}
+          className="mt-0.5 h-4 w-4 accent-brand-500"
+        />
+        <span>
+          พิมพ์ใบเสร็จทันทีหลังรับเงิน
+          <span className="block text-xs text-gray-500">ตั้งเฉพาะเครื่องนี้ — เปิดที่เครื่องที่ต่อเครื่องพิมพ์ใบเสร็จ</span>
+        </span>
+      </label>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 print:hidden">
         <button type="button" onClick={onClose} className={button('secondary', 'lg')}>
           ปิด
         </button>
