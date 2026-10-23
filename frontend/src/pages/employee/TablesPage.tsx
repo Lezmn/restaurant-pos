@@ -2,6 +2,7 @@ import { Badge, type BadgeTone } from '@/components/ui/Badge'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ErrorNote } from '@/components/ui/ErrorNote'
 import { Modal } from '@/components/ui/Modal'
+import { button } from '@/components/ui/styles'
 import { pageRoles } from '@/features/auth/permissions'
 import { useAuth } from '@/features/auth/use-auth'
 import {
@@ -15,6 +16,7 @@ import { TableSessionStatus, TableStatus } from '@/types/enums'
 import type { RestaurantTable, TableSession } from '@/types/models'
 import { RESTAURANT_NAME } from '@/lib/config'
 import { QRCodeSVG } from 'qrcode.react'
+import { ManageTablesDialog } from './ManageTablesDialog'
 import { TakeOrderDialog } from './TakeOrderDialog'
 import { useState } from 'react'
 
@@ -46,6 +48,9 @@ export function TablesPage() {
 
   // เปิดโต๊ะได้เฉพาะ ADMIN/STAFF ตาม @Roles ของ POST /table-sessions
   const canOpen = Boolean(user && pageRoles.openTable.includes(user.role))
+  // เพิ่ม/แก้/ปิดใช้งาน/ลบโต๊ะ — ADMIN เท่านั้น (POST/PATCH/DELETE /tables)
+  const canManageTables = Boolean(user && pageRoles.manageTables.includes(user.role))
+  const [managing, setManaging] = useState(false)
 
   const openSessionOf = (table: RestaurantTable) =>
     sessions?.find(
@@ -56,9 +61,18 @@ export function TablesPage() {
     <div>
       <ErrorNote error={openSession.error} />
 
-      <p className="mb-4 text-sm text-gray-600">
-        เปิดโต๊ะเพื่อสร้าง QR ให้ลูกค้าสแกนสั่งอาหาร · ปิดโต๊ะเมื่อลูกค้ากลับแล้ว
-      </p>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-gray-600">
+          เปิดโต๊ะเพื่อสร้าง QR ให้ลูกค้าสแกนสั่งอาหาร · ปิดโต๊ะเมื่อลูกค้ากลับแล้ว
+        </p>
+        {canManageTables && (
+          <button type="button" onClick={() => setManaging(true)} className={button('outline', 'md')}>
+            จัดการโต๊ะ
+          </button>
+        )}
+      </div>
+
+      {managing && <ManageTablesDialog onClose={() => setManaging(false)} />}
 
       {isPending && <p className="text-sm text-gray-500">กำลังโหลด...</p>}
 

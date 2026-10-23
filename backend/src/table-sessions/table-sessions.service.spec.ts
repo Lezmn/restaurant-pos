@@ -7,7 +7,7 @@ const D = (v: number) => new Prisma.Decimal(v);
 
 function makePrisma() {
   const prisma: any = {
-    restaurantTable: { findUnique: jest.fn().mockResolvedValue({ id: 't1' }), update: jest.fn() },
+    restaurantTable: { findUnique: jest.fn().mockResolvedValue({ id: 't1', isActive: true }), update: jest.fn() },
     tableSession: {
       findFirst: jest.fn().mockResolvedValue(null),
       findUnique: jest.fn(),
@@ -56,6 +56,12 @@ describe('TableSessionsService', () => {
     it('โต๊ะไม่มีจริง → 404', async () => {
       prisma.restaurantTable.findUnique.mockResolvedValue(null);
       await expect(service.create({ tableId: 't1' })).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('โต๊ะที่ปิดใช้งาน (ยกออกแล้ว) เปิด QR ไม่ได้ → 400', async () => {
+      prisma.restaurantTable.findUnique.mockResolvedValue({ id: 't1', isActive: false });
+      await expect(service.create({ tableId: 't1' })).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.tableSession.create).not.toHaveBeenCalled();
     });
 
     it('มี session เปิดอยู่ (ยังไม่หมดอายุ) → 409', async () => {

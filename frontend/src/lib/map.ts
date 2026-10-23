@@ -45,8 +45,10 @@ export const mapUser = (u: ApiUser): User => ({
 export const mapTable = (t: ApiTable): RestaurantTable => ({
   id: t.id,
   name: String(t.number),
+  number: t.number,
   seats: t.seats,
   status: t.status,
+  isActive: t.isActive ?? true,
 })
 
 /**

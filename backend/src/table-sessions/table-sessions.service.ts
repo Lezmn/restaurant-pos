@@ -42,6 +42,9 @@ export class TableSessionsService {
       if (!table) {
         throw new NotFoundException(`ไม่พบโต๊ะ id: ${dto.tableId}`);
       }
+      if (!table.isActive) {
+        throw new BadRequestException('โต๊ะนี้ปิดใช้งานอยู่ — เปิดใช้งานที่ "จัดการโต๊ะ" ก่อน');
+      }
 
       const activeSession = await tx.tableSession.findFirst({
         where: { tableId: dto.tableId, status: TableSessionStatus.OPEN },

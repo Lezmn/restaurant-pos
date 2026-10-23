@@ -97,8 +97,12 @@ export interface MenuItem {
 export interface RestaurantTable {
   id: Id
   name: string
+  /** เลขโต๊ะ (name คือเลขเดียวกันในรูปข้อความ) — ใช้ตอนแก้ไขในหน้าจัดการโต๊ะ */
+  number: number
   seats: number
   status: TableStatus
+  /** false = ปิดใช้งาน (ยกโต๊ะออก) — เห็นเฉพาะในหน้าจัดการโต๊ะ */
+  isActive: boolean
 }
 
 export interface TableSession {
