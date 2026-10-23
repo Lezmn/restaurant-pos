@@ -55,6 +55,14 @@ export async function updateMenuItem(vars: {
 }
 
 /** DELETE /menu/:id @Roles(ADMIN) */
+/** POST /uploads/menu-image @Roles(ADMIN) — คืน URL เต็มไว้ใส่ imageUrl ของเมนู (ย่อรูปก่อนด้วย resizeImage) */
+export async function uploadMenuImage(image: Blob): Promise<string> {
+  const form = new FormData()
+  form.append('file', image, image.type === 'image/webp' ? 'menu.webp' : 'menu.jpg')
+  const { url } = await apiClient<{ url: string }>('/uploads/menu-image', { method: 'POST', body: form })
+  return url
+}
+
 export async function deleteMenuItem(id: Id): Promise<void> {
   await apiClient<void>(`/menu/${id}`, { method: 'DELETE' })
 }

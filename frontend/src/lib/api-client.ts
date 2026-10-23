@@ -36,7 +36,8 @@ export async function apiClient<T>(
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
     headers: {
-      'Content-Type': 'application/json',
+      // อัปโหลดไฟล์ (FormData) ให้ browser ใส่ multipart + boundary เอง — ใส่ JSON ทับ backend จะอ่านไฟล์ไม่ได้
+      ...(init.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init.headers,
     },

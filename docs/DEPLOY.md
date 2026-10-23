@@ -67,6 +67,9 @@ certbot --nginx -d pos.ร้าน.com -d api.ร้าน.com --redirect -m <�
 cd ~/app && docker compose run --rm -e ADMIN_EMAIL=<ชื่อ>@restaurant.local -e ADMIN_PASSWORD='<รหัสชั่วคราว>' -e TABLE_COUNT=10 migrate npm run prisma:seed:prod
 ```
 
+รูปเมนูที่อัปโหลดเก็บที่ `~/app/uploads` (สร้างเป็นของ user deploy ก่อน deploy ครั้งแรก: `mkdir -p ~/app/uploads`
+ถ้าไม่สร้าง Docker จะสร้างให้เป็นของ root แล้ว API เขียนรูปไม่ได้) — ไม่อยู่ในไฟล์สำรอง DB ต้องสำรองแยก
+
 คำสั่งดูแลประจำ (`backup once`, `restore-drill.sh`, logs) ใช้ `docker compose` ใน `~/app` แทน `docker compose -f docker-compose.prod.yml` ได้ทุกคำสั่งในเอกสารนี้และ OPERATIONS.md
 
 ## B. Caddy ในเครื่องเดียว
