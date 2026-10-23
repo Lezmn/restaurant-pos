@@ -1,0 +1,125 @@
+# Production — รันทั้งระบบด้วยคำสั่งเดียว (ดูขั้นตอนเต็มที่ docs/DEPLOY.md)
+#   cp .env.prod.example .env   แล้วแก้ค่าให้ครบ
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# ต่างจาก backend/docker-compose.yml (dev):
+#   - ไม่ mount source เข้า container, ไม่เปิดพอร์ต Postgres ออกนอกเครื่อง
+#   - API รันโค้ดที่ build แล้ว (target prod) ไม่มี devDependencies
+#   - Caddy อยู่หน้าสุด ทำ HTTPS ให้ทั้งหน้าเว็บและ API
+#   - มี service สำรองฐานข้อมูลอัตโนมัติทุกวัน
+name: restaurant-prod
+
+x-db-url: &db-url "postgresql://${POSTGRES_USER:-restaurant}:${POSTGRES_PASSWORD:?ตั้ง POSTGRES_PASSWORD ใน .env}@postgres:5432/${POSTGRES_DB:-restaurant_db}?schema=public"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-restaurant}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?ตั้ง POSTGRES_PASSWORD ใน .env}
+      POSTGRES_DB: ${POSTGRES_DB:-restaurant_db}
+      TZ: ${TZ:-Asia/Bangkok}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    # ไม่มี ports: — เข้าถึงได้เฉพาะ service ใน network นี้
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # รัน migration ก่อน API ทุกครั้งที่ deploy แล้วจบ — ใช้ image target build ที่มี prisma CLI
+  # สร้าง ADMIN คนแรก: docker compose -f docker-compose.prod.yml run --rm -e ADMIN_EMAIL=... -e ADMIN_PASSWORD=... -e TABLE_COUNT=8 migrate npm run prisma:seed:prod
+  migrate:
+    build:
+      context: ./backend
+      target: build
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: *db-url
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ./backend
+      target: prod
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: *db-url
+      PORT: 3000
+      NODE_ENV: production
+      # "วันนี้" ของ Dashboard, ขอบเดือนในรายงาน และเลขรันใบเสร็จ อิงเวลาเครื่อง
+      TZ: ${TZ:-Asia/Bangkok}
+      JWT_SECRET: ${JWT_SECRET:?ตั้ง JWT_SECRET ใน .env (openssl rand -base64 48)}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      CORS_ORIGIN: https://${APP_DOMAIN:?ตั้ง APP_DOMAIN ใน .env}
+      # อยู่หลัง Caddy — ต้องเชื่อ X-Forwarded-For ไม่งั้น rate limit เห็นทั้งร้านเป็น IP เดียว
+      TRUST_PROXY: "true"
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT:-600}
+      THROTTLE_IP_LIMIT: ${THROTTLE_IP_LIMIT:-1000}
+      LOGIN_THROTTLE_LIMIT: 5
+      SWAGGER_ENABLED: "false"
+      SLIPOK_API_KEY: ${SLIPOK_API_KEY:-}
+      SLIPOK_BRANCH_ID: ${SLIPOK_BRANCH_ID:-}
+      SLIPOK_MOCK: "false"
+      SLIP_RECHECK_INTERVAL_MS: ${SLIP_RECHECK_INTERVAL_MS:-120000}
+      SLIP_RECHECK_MAX_ATTEMPTS: ${SLIP_RECHECK_MAX_ATTEMPTS:-15}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: https://${API_DOMAIN:?ตั้ง API_DOMAIN ใน .env}
+        VITE_PROMPTPAY_ID: ${VITE_PROMPTPAY_ID:-}
+        VITE_RESTAURANT_NAME: ${VITE_RESTAURANT_NAME:-}
+        VITE_LOGIN_EMAIL_DOMAIN: ${VITE_LOGIN_EMAIL_DOMAIN:-}
+    restart: unless-stopped
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?ตั้ง ACME_EMAIL ใน .env (Let's Encrypt แจ้งเตือนใบรับรองใกล้หมดอายุ)}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # ใบรับรอง HTTPS — ห้ามลบ volume นี้ ไม่งั้นต้องขอใหม่และอาจติด rate limit ของ Let's Encrypt
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # สำรองเองทันที (ก่อนอัปเดตระบบ/แก้ข้อมูลใหญ่): docker compose -f docker-compose.prod.yml run --rm backup once
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    entrypoint: ["sh", "/backup.sh"]
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-restaurant}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-restaurant_db}
+      TZ: ${TZ:-Asia/Bangkok}
+      BACKUP_HOUR: ${BACKUP_HOUR:-03}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ./deploy/backup.sh:/backup.sh:ro
+      - ./backups:/backups
+    # รอ migration เสร็จก่อน — ไม่งั้นไฟล์สำรองแรกตอน deploy ครั้งแรกจะเป็น DB เปล่า
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pg_data:
+  caddy_data:
+  caddy_config:

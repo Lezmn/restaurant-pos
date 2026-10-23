@@ -8,6 +8,7 @@ import {
   useCloseSession,
   useOpenSession,
   useSessions,
+  useSetGuestCount,
 } from '@/features/table-sessions/hooks'
 import { useTables } from '@/features/tables/hooks'
 import { TableSessionStatus, TableStatus } from '@/types/enums'
@@ -212,6 +213,8 @@ function QrDialog({
           ให้ลูกค้าสแกนเพื่อสั่งอาหารที่โต๊ะนี้
         </p>
 
+        <GuestCountPicker session={session} />
+
         <input
           readOnly
           value={url}
@@ -237,5 +240,57 @@ function QrDialog({
         </div>
       </div>
     </Modal>
+  )
+}
+
+const GUEST_CHOICES = [1, 2, 3, 4, 5, 6, 7, 8] as const
+
+/**
+ * จำนวนลูกค้าของโต๊ะ — ไม่บังคับ ไม่ขวางการเปิดโต๊ะ กดแล้วบันทึกทันที แก้ได้จนกว่าจะปิดบิล
+ * Dashboard รวมเป็น "ลูกค้าเข้าใช้บริการ" (โต๊ะที่ไม่ได้กดจะนับแยกเป็น "ไม่ได้ระบุ")
+ */
+function GuestCountPicker({ session }: Readonly<{ session: TableSession }>) {
+  const setGuests = useSetGuestCount()
+  const [picked, setPicked] = useState<number | null>(session.guestCount)
+
+  const pick = (count: number) => {
+    setPicked(count)
+    setGuests.mutate({ sessionId: session.id, guestCount: count })
+  }
+
+  return (
+    <fieldset className="mt-4 w-full print:hidden">
+      <legend className="text-sm font-semibold text-gray-700">
+        จำนวนลูกค้า <span className="font-normal text-gray-600">(ไม่บังคับ — ใช้ในสรุปของเจ้าของร้าน)</span>
+      </legend>
+      <div className="mt-2 grid grid-cols-8 gap-1.5">
+        {GUEST_CHOICES.map((n) => (
+          <button
+            key={n}
+            type="button"
+            aria-pressed={picked === n}
+            disabled={setGuests.isPending}
+            onClick={() => pick(n)}
+            className={`min-h-11 rounded-lg border-2 text-base font-bold tabular-nums transition ${
+              picked === n
+                ? 'border-brand-400 bg-brand-50 text-brand-500'
+                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            {n === GUEST_CHOICES.length ? `${n}+` : n}
+          </button>
+        ))}
+      </div>
+      {setGuests.isError ? (
+        <p role="alert" className="mt-1 text-sm font-semibold text-danger-ink">
+          บันทึกจำนวนลูกค้าไม่สำเร็จ — กดใหม่อีกครั้ง
+        </p>
+      ) : (
+        picked !== null &&
+        !setGuests.isPending && (
+          <p className="mt-1 text-sm text-gray-600">บันทึกแล้ว {picked} คน</p>
+        )
+      )}
+    </fieldset>
   )
 }

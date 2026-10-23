@@ -39,6 +39,7 @@ export const mapUser = (u: ApiUser): User => ({
   email: u.email,
   name: u.name,
   role: u.role,
+  mustChangePassword: u.mustChangePassword ?? false,
 })
 
 export const mapTable = (t: ApiTable): RestaurantTable => ({
@@ -156,6 +157,7 @@ export const mapSession = (s: ApiTableSession): TableSession => ({
   status: s.status,
   openedAt: s.openedAt,
   closedAt: s.closedAt,
+  guestCount: s.guestCount ?? null,
   total: s.total ?? 0,
 })
 

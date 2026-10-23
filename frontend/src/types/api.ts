@@ -25,6 +25,8 @@ export interface ApiUser {
   name: string
   email: string
   role: Role
+  /** true = ยังใช้รหัสชั่วคราว ต้องตั้งรหัสใหม่ก่อนใช้งาน (backend บล็อก API อื่นไว้) */
+  mustChangePassword?: boolean
 }
 
 export interface ApiLoginResponse {
@@ -128,6 +130,8 @@ export interface ApiTableSession {
   tableId: string
   table?: ApiTable
   orders?: ApiOrder[]
+  /** จำนวนลูกค้าที่พนักงานกดระบุ (null = ไม่ได้ระบุ) */
+  guestCount?: number | null
   /** backend คำนวณยอดรวมของ session มาให้แล้ว ไม่ต้องบวกเองฝั่ง frontend */
   total?: number
   billingStatus?: string
@@ -206,6 +210,8 @@ export interface ApiDashboardReport {
   revenueTrend: { date: string; revenue: number }[]
   /** บิล PromptPay ที่ยังยืนยันเงินเข้าไม่ได้ (ทุกวัน) */
   slipIssues?: { pending: number; failed: number }
+  /** ลูกค้าเข้าใช้บริการวันนี้ — tablesWithoutCount = โต๊ะที่ไม่ได้ระบุจำนวน */
+  guests?: { total: number; tables: number; tablesWithoutCount: number }
 }
 
 /** GET /reports/income-expense?month=YYYY-MM @Roles(ADMIN) */

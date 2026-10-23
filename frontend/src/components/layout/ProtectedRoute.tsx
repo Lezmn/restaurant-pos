@@ -1,6 +1,7 @@
 import { useAuth } from '@/features/auth/use-auth'
 import type { Role } from '@/types/enums'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { ForcePasswordChange } from './ForcePasswordChange'
 
 // กัน UI ไม่ให้เข้าหน้าที่ไม่มีสิทธิ์
 // หมายเหตุ: นี่ไม่ใช่ security จริง — ตัวจริงคือ RolesGuard ฝั่ง NestJS
@@ -20,6 +21,11 @@ export function ProtectedRoute({
 
   if (!user) {
     return <Navigate to={loginPath} state={{ from: location }} replace />
+  }
+
+  // รหัสชั่วคราว — ทุกหน้าถูกแทนด้วยหน้าตั้งรหัสใหม่ (backend ก็ตอบ 403 กับ API อื่นอยู่แล้ว)
+  if (user.mustChangePassword) {
+    return <ForcePasswordChange />
   }
 
   if (roles && !roles.includes(user.role)) {

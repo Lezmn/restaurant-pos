@@ -25,6 +25,10 @@ export interface TodayStatus {
   promptPayCount: number
   tablesInUse: number
   tablesTotal: number
+  /** ลูกค้าเข้าใช้บริการวันนี้ (รวมเฉพาะโต๊ะที่ระบุจำนวน) */
+  guests: number
+  /** โต๊ะที่เปิดวันนี้แต่ไม่ได้ระบุจำนวนลูกค้า — ยอดจริงอาจมากกว่า guests */
+  tablesWithoutGuestCount: number
 }
 
 /** บิลที่รับเงินวันนี้ — ใช้เป็นรายการแจ้งเตือนบน Dashboard */

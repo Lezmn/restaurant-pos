@@ -21,6 +21,14 @@ export async function openSession(tableId: Id): Promise<TableSession> {
   return mapSession(data)
 }
 
+/** PATCH /table-sessions/:id/guests @Roles(ADMIN, STAFF) — แก้ได้จนกว่าจะปิดบิล */
+export async function setGuestCount(vars: { sessionId: Id; guestCount: number }): Promise<void> {
+  await apiClient<unknown>(`/table-sessions/${vars.sessionId}/guests`, {
+    method: 'PATCH',
+    body: JSON.stringify({ guestCount: vars.guestCount }),
+  })
+}
+
 export async function closeSession(sessionId: Id): Promise<void> {
   await apiClient<unknown>(`/table-sessions/${sessionId}/close`, {
     method: 'PATCH',

@@ -38,6 +38,8 @@ export async function getSessionByToken(token: string): Promise<TableSession> {
     status: data.status,
     openedAt: data.openedAt,
     closedAt: data.closedAt ?? null,
+    // หน้าลูกค้าไม่ได้ใช้จำนวนลูกค้า (ข้อมูลภายในร้าน)
+    guestCount: null,
     // /public/sessions ไม่ได้ส่ง total มา ฝั่งลูกค้าใช้ยอดจากรายการออเดอร์แทน
     total: data.total ?? 0,
   }

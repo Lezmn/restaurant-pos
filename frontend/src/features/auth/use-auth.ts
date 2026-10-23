@@ -7,6 +7,8 @@ interface AuthState {
   user: User | null
   signIn: (token: string, user: User) => void
   signOut: () => void
+  /** แก้ข้อมูล user ที่เก็บไว้ (เช่น เปลี่ยนรหัสชั่วคราวเสร็จ) โดยไม่ต้อง login ใหม่ */
+  updateUser: (patch: Partial<User>) => void
 }
 
 export const useAuth = create<AuthState>((set) => ({
@@ -19,6 +21,14 @@ export const useAuth = create<AuthState>((set) => ({
     authStorage.clear()
     set({ user: null })
   },
+  updateUser: (patch) =>
+    set((s) => {
+      const token = authStorage.getToken()
+      if (!s.user || !token) return s
+      const user = { ...s.user, ...patch }
+      authStorage.save(token, user)
+      return { user }
+    }),
 }))
 
 export const useHasRole = (...roles: Role[]) => {

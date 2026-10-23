@@ -33,6 +33,9 @@ async function main() {
         name: process.env.ADMIN_NAME ?? 'Admin',
         role: Role.ADMIN,
         password: await bcrypt.hash(password, 12),
+        // ส่งมอบด้วยรหัสชั่วคราว → เจ้าของร้านต้องตั้งรหัสใหม่ที่รู้คนเดียวตอน login ครั้งแรก
+        // เจ้าของร้านพิมพ์รหัสเองตอนติดตั้ง → ตั้ง ADMIN_MUST_CHANGE_PASSWORD=false ได้
+        mustChangePassword: process.env.ADMIN_MUST_CHANGE_PASSWORD !== 'false',
       },
     });
     console.log(`สร้าง ADMIN ${email} แล้ว`);

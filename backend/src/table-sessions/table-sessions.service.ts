@@ -84,6 +84,7 @@ export class TableSessionsService {
             tableId: dto.tableId,
             token: this.generateToken(),
             expiresAt,
+            guestCount: dto.guestCount,
           },
           include: { table: true },
         })
@@ -156,6 +157,19 @@ export class TableSessionsService {
       throw new NotFoundException(`ไม่พบ QR session id: ${id}`);
     }
     return this.toSessionSummary(session);
+  }
+
+  /** แก้จำนวนลูกค้าได้ตลอดที่โต๊ะยังเปิดอยู่ (ลูกค้ามาเพิ่ม/กดผิด) — ปิดบิลแล้วไม่ให้แก้ ยอดใน Dashboard จะนิ่ง */
+  async setGuestCount(id: string, guestCount: number) {
+    const session = await this.findOne(id);
+    if (session.status !== TableSessionStatus.OPEN) {
+      throw new BadRequestException('โต๊ะนี้ปิดบิลไปแล้ว แก้จำนวนลูกค้าไม่ได้');
+    }
+    return this.prisma.tableSession.update({
+      where: { id },
+      data: { guestCount },
+      select: { id: true, guestCount: true },
+    });
   }
 
   async close(id: string) {

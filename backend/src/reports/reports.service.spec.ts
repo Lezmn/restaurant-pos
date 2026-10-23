@@ -12,6 +12,12 @@ function makePrisma() {
       findMany: jest.fn().mockResolvedValue([]),
     },
     restaurantTable: { groupBy: jest.fn().mockResolvedValue([]) },
+    tableSession: {
+      aggregate: jest.fn().mockResolvedValue({
+        _sum: { guestCount: 7 },
+        _count: { _all: 3, guestCount: 2 },
+      }),
+    },
   } as any;
 }
 
@@ -25,6 +31,11 @@ describe('ReportsService', () => {
   });
 
   describe('getDashboard', () => {
+    it('ลูกค้าเข้าใช้บริการ = รวมจำนวนที่ระบุ + บอกจำนวนโต๊ะที่ไม่ได้ระบุ', async () => {
+      const r = await service.getDashboard();
+      expect(r.guests).toEqual({ total: 7, tables: 3, tablesWithoutCount: 1 });
+    });
+
     it('ยอดขาย/กำไร/แยกวิธีจ่าย ของวันนี้', async () => {
       const now = new Date();
       prisma.payment.findMany

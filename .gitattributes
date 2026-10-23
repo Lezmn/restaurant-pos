@@ -1,0 +1,6 @@
+# ไฟล์ที่รันใน container Linux ต้องเป็น LF เสมอ — ถ้า checkout บน Windows แล้วกลายเป็น CRLF
+# sh จะอ่าน "\r" ติดท้ายคำสั่งแล้วพัง (backup.sh ไม่ทำงาน, สำรองข้อมูลเงียบหายโดยไม่มีใครรู้)
+*.sh            text eol=lf
+Caddyfile       text eol=lf
+Dockerfile      text eol=lf
+*.yml           text eol=lf

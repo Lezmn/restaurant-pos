@@ -1,0 +1,26 @@
+# .env ห้ามเข้า image — vite อ่าน .env ตอน build แล้วจะฝังค่า dev (localhost) ลงไฟล์จริง
+# ค่าจริงส่งเป็น build arg จาก docker-compose.prod.yml
+.env
+.env.*
+!.env.example
+
+node_modules
+dist
+coverage
+test-results
+playwright-report
+test
+
+.git
+.gitignore
+.vscode
+.idea
+
+issues.json
+sonar-project.properties
+sonar_report.py
+*.log
+
+Dockerfile
+.dockerignore
+nginx.conf.example

@@ -90,6 +90,10 @@ model User {
   /// เพิ่มทีละ 1 = "ออกจากระบบทุกเครื่อง" — token ที่ออกก่อนหน้า (tv เก่า) ใช้ไม่ได้ทันที
   /// ร้านใช้บัญชีกลางตามตำแหน่ง (ครัว/หน้าร้าน) พนักงานลาออก = ตั้งรหัสใหม่ + เตะทุกเครื่องที่ login ค้าง
   tokenVersion Int    @default(0)
+  /// true = ต้องตั้งรหัสใหม่ก่อนใช้งาน (backend ปฏิเสธทุก request ยกเว้น /auth/me, /auth/password)
+  /// ใช้กับบัญชี ADMIN เท่านั้น — รหัสชั่วคราวตอนส่งมอบระบบ / ADMIN ตั้งรหัสให้ ADMIN อีกคน
+  /// บัญชีกลางของครัว/หน้าร้านไม่บังคับ (คนแรกที่ login จะตั้งรหัสที่คนอื่นในตำแหน่งไม่รู้)
+  mustChangePassword Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -208,6 +212,8 @@ model TableSession {
   openedAt  DateTime           @default(now())
   closedAt  DateTime?
   expiresAt DateTime?
+  /// จำนวนลูกค้าโต๊ะนี้ (พนักงานกดเลือกตอนเปิดโต๊ะ) — null = ไม่ได้ระบุ, Dashboard รวมเป็น "ลูกค้าเข้าใช้บริการ"
+  guestCount Int?
 
   table   RestaurantTable @relation(fields: [tableId], references: [id])
   tableId String

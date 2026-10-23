@@ -1,13 +1,14 @@
 import { Global, Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { JwtModule } from '@nestjs/jwt';
+import { JwtModule, type JwtSignOptions } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { JwtStrategy } from './jwt.strategy';
+import { PasswordChangeGuard } from './guards/password-change.guard';
 
 @Global()
 @Module({
@@ -18,7 +19,10 @@ import { JwtStrategy } from './jwt.strategy';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.getOrThrow<string>('JWT_SECRET'),
-        signOptions: { expiresIn: config.get<string>('JWT_EXPIRES_IN') ?? '8h' },
+        // @nestjs/jwt 12 ใช้ type StringValue ของ ms ("8h", "30m") — ค่าจาก env เป็น string ธรรมดา ต้อง cast
+        signOptions: {
+          expiresIn: (config.get<string>('JWT_EXPIRES_IN') ?? '8h') as JwtSignOptions['expiresIn'],
+        },
       }),
     }),
   ],
@@ -28,6 +32,8 @@ import { JwtStrategy } from './jwt.strategy';
     JwtStrategy,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    // ลำดับสำคัญ: ต้องรู้ตัว user (JwtAuthGuard) ก่อนถึงจะเช็คว่าต้องเปลี่ยนรหัสหรือไม่
+    { provide: APP_GUARD, useClass: PasswordChangeGuard },
   ],
   // export JwtModule ให้ EventsGateway ตรวจ token ตอน WebSocket handshake ได้
   exports: [AuthService, JwtModule],

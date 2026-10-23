@@ -25,6 +25,13 @@ npm run dev
 
 รายละเอียดฝั่ง backend อยู่ใน `backend/README.md`
 
+## Production
+
+- ขึ้นเครื่องจริง: [`docs/DEPLOY.md`](docs/DEPLOY.md) — `docker-compose.prod.yml` (HTTPS อัตโนมัติ, สำรองข้อมูลทุกวัน)
+- ดูแลระบบ / สำรอง-กู้ข้อมูล / แผนสำรองเน็ตดับ / บัญชีผู้ใช้: [`docs/OPERATIONS.md`](docs/OPERATIONS.md)
+- งานที่เหลือเรียงตาม priority: [`docs/TODO.md`](docs/TODO.md)
+- CI: ทุก PR รัน typecheck + unit test + build + Docker image (E2E กดรันเองใน Actions)
+
 ## เทสต์ E2E (Playwright)
 
 อยู่ที่ `frontend/test/` — ยิง API `localhost:3000` และเว็บ `localhost:5173` ตรง ๆ และ **สร้างข้อมูลจริง**

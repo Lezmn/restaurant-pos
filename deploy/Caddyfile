@@ -1,0 +1,49 @@
+# Caddy = หน้าบ้านของระบบ: HTTPS อัตโนมัติ (Let's Encrypt ขอ/ต่ออายุใบรับรองเอง)
+#   APP_DOMAIN  → หน้าเว็บ (ไฟล์ static ใน /srv)
+#   API_DOMAIN  → reverse proxy ไป api:3000 (REST + socket.io/WebSocket)
+# ค่าโดเมนมาจาก .env ผ่าน docker-compose.prod.yml — DNS ของทั้งสองโดเมนต้องชี้มาที่เครื่องนี้ก่อน
+{
+	email {$ACME_EMAIL}
+}
+
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+		-Server
+	}
+}
+
+{$APP_DOMAIN} {
+	import security_headers
+	encode zstd gzip
+	root * /srv
+
+	header {
+		# ห้ามเว็บอื่นเอาหน้า POS ไปใส่ iframe (clickjacking) — CSP หลักฝังใน index.html ตอน build แล้ว
+		Content-Security-Policy "frame-ancestors 'none'"
+		X-Frame-Options "DENY"
+		Permissions-Policy "camera=(self), microphone=(), geolocation=(), payment=()"
+	}
+
+	# ไฟล์ใน assets มี hash ในชื่อ แคชได้ยาว — ส่วน index.html ห้ามแคช ให้ได้เวอร์ชันใหม่ทันทีหลัง deploy
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+	@page not path /assets/*
+	header @page Cache-Control "no-cache"
+
+	# SPA: /login, /t/<token>, /employee/... ทุก path ให้ index.html
+	try_files {path} /index.html
+	file_server
+}
+
+{$API_DOMAIN} {
+	import security_headers
+	encode zstd gzip
+	# ส่ง X-Forwarded-For ให้เอง — backend ตั้ง TRUST_PROXY=true เพื่อให้ rate limit เห็น IP จริง
+	reverse_proxy api:3000 {
+		health_uri /health
+		health_interval 30s
+	}
+}

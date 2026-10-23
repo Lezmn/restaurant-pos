@@ -9,6 +9,8 @@ import { SocketIoAdapter } from './events/socket-io.adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // docker stop ส่ง SIGTERM → ปิด Prisma/socket ให้เรียบร้อยก่อน process จบ (ไม่ทิ้ง transaction ค้าง)
+  app.enableShutdownHooks();
   const isProduction = process.env.NODE_ENV === 'production';
 
   // อยู่หลัง nginx/reverse proxy → ต้องเชื่อ X-Forwarded-For ไม่งั้น rate limit

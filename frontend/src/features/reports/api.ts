@@ -84,6 +84,8 @@ export async function getDashboard(): Promise<DashboardData> {
       promptPayCount: countByMethod(PaymentMethod.PROMPTPAY),
       tablesInUse: report.tables[TableStatus.OCCUPIED],
       tablesTotal: report.tables.total,
+      guests: report.guests?.total ?? 0,
+      tablesWithoutGuestCount: report.guests?.tablesWithoutCount ?? 0,
     },
     notifications,
     slipIssues: report.slipIssues ?? { pending: 0, failed: 0 },

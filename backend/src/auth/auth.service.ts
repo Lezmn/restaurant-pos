@@ -27,7 +27,14 @@ export class AuthService {
     return {
       // tv = tokenVersion ตอนออก token — ADMIN กด "ออกจากระบบทุกเครื่อง" แล้ว token นี้ใช้ไม่ได้
       accessToken: await this.jwt.signAsync({ sub: user.id, role: user.role, tv: user.tokenVersion }),
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        // true = หน้าเว็บพาไปตั้งรหัสใหม่ก่อน (backend ก็บล็อก API อื่นไว้อีกชั้น)
+        mustChangePassword: user.mustChangePassword,
+      },
     };
   }
 
@@ -48,7 +55,7 @@ export class AuthService {
 
     await this.prisma.user.update({
       where: { id: userId },
-      data: { password: await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS) },
+      data: { password: await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS), mustChangePassword: false },
     });
     return { ok: true };
   }

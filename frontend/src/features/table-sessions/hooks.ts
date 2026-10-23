@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { LIVE_STALE_TIME, useLivePollInterval } from '@/lib/live'
-import { closeSession, getSessions, openSession } from './api'
+import {
+  closeSession,
+  getSessions,
+  openSession,
+  setGuestCount,
+} from './api'
 
 export const sessionKeys = {
   all: ['table-sessions'] as const,
@@ -29,3 +34,4 @@ function useSessionMutation<TVars, TData>(fn: (vars: TVars) => Promise<TData>) {
 
 export const useOpenSession = () => useSessionMutation(openSession)
 export const useCloseSession = () => useSessionMutation(closeSession)
+export const useSetGuestCount = () => useSessionMutation(setGuestCount)
