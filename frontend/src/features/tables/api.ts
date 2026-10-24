@@ -11,7 +11,6 @@ export async function getTables(includeInactive = false): Promise<RestaurantTabl
 
 export interface TableInput {
   number: number
-  seats: number
 }
 
 /** POST /tables @Roles(ADMIN) — เลขซ้ำได้ 409 */

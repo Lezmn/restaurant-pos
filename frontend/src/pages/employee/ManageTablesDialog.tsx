@@ -14,54 +14,32 @@ import { TableStatus } from '@/types/enums'
 import type { RestaurantTable } from '@/types/models'
 import { useState } from 'react'
 
-/** เลขโต๊ะ/ที่นั่งต้องเป็นจำนวนเต็มบวก — '' = ยังไม่กรอก */
-function positiveIntError(value: string, what: string) {
-  if (value.trim() === '') return `กรอก${what}`
+/** เลขโต๊ะต้องเป็นจำนวนเต็มบวก — '' = ยังไม่กรอก */
+function tableNumberError(value: string) {
+  if (value.trim() === '') return 'กรอกเลขโต๊ะ'
   const n = Number(value)
-  return Number.isInteger(n) && n >= 1 ? '' : `${what}ต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป`
+  return Number.isInteger(n) && n >= 1 ? '' : 'เลขโต๊ะต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป'
 }
 
-/** เลขโต๊ะ + จำนวนที่นั่ง — ใช้ทั้งแถวเพิ่มโต๊ะและตอนแก้ไขโต๊ะเดิม */
-function TableFields({
+/** ช่องเลขโต๊ะ — ใช้ทั้งแถวเพิ่มโต๊ะและตอนแก้ไขโต๊ะเดิม (ร้านไม่ใช้จำนวนที่นั่ง — backend ตั้งค่าเริ่มต้นให้เอง) */
+function TableNumberField({
   idPrefix,
-  number,
-  seats,
-  onNumber,
-  onSeats,
-}: Readonly<{
-  idPrefix: string
-  number: string
-  seats: string
-  onNumber: (v: string) => void
-  onSeats: (v: string) => void
-}>) {
+  value,
+  onChange,
+}: Readonly<{ idPrefix: string; value: string; onChange: (v: string) => void }>) {
   return (
-    <>
-      <label htmlFor={`${idPrefix}-number`} className="block text-sm">
-        <span className={fieldLabel}>เลขโต๊ะ</span>
-        <input
-          id={`${idPrefix}-number`}
-          type="number"
-          inputMode="numeric"
-          min="1"
-          value={number}
-          onChange={(e) => onNumber(e.target.value)}
-          className={field}
-        />
-      </label>
-      <label htmlFor={`${idPrefix}-seats`} className="block text-sm">
-        <span className={fieldLabel}>ที่นั่ง</span>
-        <input
-          id={`${idPrefix}-seats`}
-          type="number"
-          inputMode="numeric"
-          min="1"
-          value={seats}
-          onChange={(e) => onSeats(e.target.value)}
-          className={field}
-        />
-      </label>
-    </>
+    <label htmlFor={`${idPrefix}-number`} className="block text-sm">
+      <span className={fieldLabel}>เลขโต๊ะ</span>
+      <input
+        id={`${idPrefix}-number`}
+        type="number"
+        inputMode="numeric"
+        min="1"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={field}
+      />
+    </label>
   )
 }
 
@@ -72,15 +50,14 @@ function TableRow({
   const update = useUpdateTable()
   const [editing, setEditing] = useState(false)
   const [number, setNumber] = useState(String(table.number))
-  const [seats, setSeats] = useState(String(table.seats))
   const occupied = table.status === TableStatus.OCCUPIED
 
-  const error = positiveIntError(number, 'เลขโต๊ะ') || positiveIntError(seats, 'จำนวนที่นั่ง')
+  const error = tableNumberError(number)
 
   const save = () => {
     if (error) return
     update.mutate(
-      { id: table.id, input: { number: Number(number), seats: Number(seats) } },
+      { id: table.id, input: { number: Number(number) } },
       {
         onSuccess: (saved) => {
           setEditing(false)
@@ -106,15 +83,7 @@ function TableRow({
   if (editing) {
     return (
       <li className="rounded-lg border-2 border-brand-300 bg-brand-50 p-3">
-        <div className="grid grid-cols-2 gap-3">
-          <TableFields
-            idPrefix={`edit-${table.id}`}
-            number={number}
-            seats={seats}
-            onNumber={setNumber}
-            onSeats={setSeats}
-          />
-        </div>
+        <TableNumberField idPrefix={`edit-${table.id}`} value={number} onChange={setNumber} />
         {error && <p className="mt-2 text-sm font-semibold text-danger-ink">{error}</p>}
         <ErrorNote error={update.error} />
         <div className="mt-3 flex justify-end gap-2">
@@ -123,7 +92,6 @@ function TableRow({
             onClick={() => {
               update.reset()
               setNumber(String(table.number))
-              setSeats(String(table.seats))
               setEditing(false)
             }}
             className={button('secondary', 'sm')}
@@ -153,7 +121,6 @@ function TableRow({
         <p className={`font-bold ${table.isActive ? 'text-black' : 'text-gray-500'}`}>
           โต๊ะ {table.name}
         </p>
-        <p className="text-sm text-gray-600">{table.seats} ที่นั่ง</p>
       </div>
       {!table.isActive && <Badge tone="gray">ปิดใช้งาน</Badge>}
       {occupied && <Badge tone="amber">มีลูกค้า</Badge>}
@@ -191,7 +158,7 @@ function TableRow({
 }
 
 /**
- * จัดการโต๊ะ (ADMIN) — เพิ่มโต๊ะ, แก้เลข/ที่นั่ง, ปิดใช้งาน (ยกโต๊ะออก), ลบโต๊ะที่ยังไม่เคยใช้
+ * จัดการโต๊ะ (ADMIN) — เพิ่มโต๊ะ, แก้เลขโต๊ะ, ปิดใช้งาน (ยกโต๊ะออก), ลบโต๊ะที่ยังไม่เคยใช้
  * โต๊ะที่มีประวัติการขายลบไม่ได้ (ต้องเก็บหลักฐาน) — backend ตอบ 409 แล้วเราแนะนำให้ปิดใช้งานแทน
  */
 export function ManageTablesDialog({ onClose }: Readonly<{ onClose: () => void }>) {
@@ -203,14 +170,13 @@ export function ManageTablesDialog({ onClose }: Readonly<{ onClose: () => void }
   // เลขถัดไป = มากสุด + 1 (ไม่ต้องไล่หาเองว่าเลขไหนยังว่าง)
   const nextNumber = (tables ?? []).reduce((max, t) => Math.max(max, t.number), 0) + 1
   const [number, setNumber] = useState('')
-  const [seats, setSeats] = useState('4')
   const numberValue = number === '' ? String(nextNumber) : number
-  const error = positiveIntError(numberValue, 'เลขโต๊ะ') || positiveIntError(seats, 'จำนวนที่นั่ง')
+  const error = tableNumberError(numberValue)
 
   const add = () => {
     if (error) return
     create.mutate(
-      { number: Number(numberValue), seats: Number(seats) },
+      { number: Number(numberValue) },
       {
         onSuccess: (created) => {
           setNumber('')
@@ -233,18 +199,12 @@ export function ManageTablesDialog({ onClose }: Readonly<{ onClose: () => void }
         className="rounded-lg border-2 border-gray-200 p-3"
       >
         <p className="mb-2 text-sm font-bold text-black">เพิ่มโต๊ะ</p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-          <TableFields
-            idPrefix="new-table"
-            number={numberValue}
-            seats={seats}
-            onNumber={setNumber}
-            onSeats={setSeats}
-          />
+        <div className="grid grid-cols-[1fr_auto] items-end gap-3">
+          <TableNumberField idPrefix="new-table" value={numberValue} onChange={setNumber} />
           <button
             type="submit"
             disabled={Boolean(error) || create.isPending}
-            className={`${button('primary', 'md')} col-span-2 sm:col-span-1`}
+            className={button('primary', 'md')}
           >
             {create.isPending ? 'กำลังเพิ่ม...' : 'เพิ่มโต๊ะ'}
           </button>
