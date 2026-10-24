@@ -26,6 +26,7 @@ type PageKey =
   | 'requests'
   | 'users'
   | 'openTable'
+  | 'manageTables'
   | 'owner'
 
 // ประกาศ type ตรง ๆ แทน satisfies เพราะ satisfies จะแคบค่าเป็น literal tuple
@@ -42,6 +43,8 @@ export const pageRoles: Record<PageKey, Role[]> = {
   users: [Role.ADMIN],
   /** เปิดโต๊ะ/สร้าง QR — POST /table-sessions @Roles(ADMIN, STAFF) */
   openTable: [Role.ADMIN, Role.STAFF],
+  /** เพิ่ม/แก้/ปิดใช้งาน/ลบโต๊ะ — POST/PATCH/DELETE /tables @Roles(ADMIN) */
+  manageTables: [Role.ADMIN],
   /** ฝั่งเจ้าของร้าน — backend ไม่มี role OWNER แยก ใช้ ADMIN แทน */
   owner: [Role.ADMIN],
 }

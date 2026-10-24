@@ -116,15 +116,6 @@ export function DashboardPage() {
               label="โต๊ะที่ใช้งานอยู่"
               value={`${todayStatus.tablesInUse}/${todayStatus.tablesTotal}`}
             />
-            {/* จำนวนที่พนักงานกดระบุตอนเปิดโต๊ะ — โต๊ะที่ไม่ได้ระบุบอกแยก ไม่เดาแทน */}
-            <StatusRow
-              label="ลูกค้าเข้าใช้บริการ"
-              value={
-                todayStatus.tablesWithoutGuestCount > 0
-                  ? `${todayStatus.guests.toLocaleString('th-TH')} คน (+${todayStatus.tablesWithoutGuestCount} โต๊ะไม่ระบุ)`
-                  : `${todayStatus.guests.toLocaleString('th-TH')} คน`
-              }
-            />
             <StatusRow
               label="รายจ่ายวันนี้"
               value={formatBaht(summary.expenseTotal)}

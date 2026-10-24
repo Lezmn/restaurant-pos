@@ -21,6 +21,11 @@ FROM caddy:2.10-alpine
 # รันเป็น user ธรรมดา ไม่ใช่ root (Sonar docker:S6471) — /usr/bin/caddy มี cap_net_bind_service มากับ image
 # จึงเปิดพอร์ต 80/443 ได้โดยไม่ต้องเป็น root; /data (ใบรับรอง) กับ /config ต้องเขียนได้
 RUN addgroup -S caddy && adduser -S -D -H -G caddy caddy && chown -R caddy:caddy /data /config
-# Caddyfile mount จาก deploy/Caddyfile (ดู docker-compose.prod.yml) — image นี้มีแค่ไฟล์ static
+# ค่าเริ่มต้น: HTTP ที่ :8080 หลัง Nginx บน VPS (deploy/docker-compose.yml)
+# docker-compose.prod.yml mount deploy/Caddyfile (HTTPS ในตัว) ทับไฟล์นี้
+COPY Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /app/dist /srv
 USER caddy
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1

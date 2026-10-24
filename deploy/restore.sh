@@ -7,7 +7,9 @@ set -eu
 file="${1:?ระบุไฟล์ .dump เช่น backups/restaurant_db_2026-10-22_0300.dump}"
 [ -f "$file" ] || { echo "ไม่พบไฟล์ $file" >&2; exit 1; }
 
-compose="docker compose -f docker-compose.prod.yml"
+# รันในโฟลเดอร์ราก repo (docker-compose.prod.yml) หรือ ~/app บน VPS (docker-compose.yml)
+compose="docker compose"
+[ -f docker-compose.prod.yml ] && compose="docker compose -f docker-compose.prod.yml"
 printf 'จะทับข้อมูลปัจจุบันด้วย %s — พิมพ์ yes เพื่อยืนยัน: ' "$file"
 read -r answer
 [ "$answer" = "yes" ] || { echo "ยกเลิก"; exit 1; }
