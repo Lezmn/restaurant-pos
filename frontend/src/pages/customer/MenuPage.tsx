@@ -35,8 +35,8 @@ export function CustomerMenuPage() {
         placeholder="ค้นหาเมนูอาหาร"
       />
 
-      {/* หมวดหมู่ */}
-      <div className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1">
+      {/* หมวดหมู่ — ปัดซ้ายขวาได้ แต่ซ่อนแถบเลื่อน (ดูเป็น slider) ขอบขวาจางบอกว่ายังมีหมวดต่อ */}
+      <div className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [&::-webkit-scrollbar]:hidden">
         <CategoryChip
           active={categoryId === null}
           onClick={() => setCategoryId(null)}
