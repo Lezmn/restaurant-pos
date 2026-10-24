@@ -8,7 +8,7 @@ import { useTables } from '@/features/tables/hooks'
 import { RESTAURANT_NAME } from '@/lib/config'
 import { Role, TableStatus } from '@/types/enums'
 import { useEffect, useState, type ReactNode } from 'react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 function IconChef() {
   return (
@@ -91,6 +91,7 @@ export function EmployeeLayout() {
   const user = useAuth((s) => s.user)
   const signOut = useAuth((s) => s.signOut)
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const { data: tables } = useTables()
   const [changingPassword, setChangingPassword] = useState(false)
   // ต่อ socket ที่ layout จึงได้ event ทุกหน้าของพนักงาน (ครัว / Check / โต๊ะ / คำขอ)
@@ -115,8 +116,9 @@ export function EmployeeLayout() {
             </p>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* หน้าโต๊ะ/QR ไม่ได้อยู่ในแถบล่าง 4 ปุ่มตามดีไซน์ จึงวางทางเข้าไว้ที่ header */}
-            {user && pageRoles.tables.includes(user.role) && (
+            {/* หน้าโต๊ะ/QR ไม่ได้อยู่ในแถบล่าง 4 ปุ่มตามดีไซน์ จึงวางทางเข้าไว้ที่ header
+                — อยู่หน้าโต๊ะแล้วซ่อนปุ่มนี้ */}
+            {user && pageRoles.tables.includes(user.role) && !pathname.startsWith('/employee/tables') && (
               <Link
                 to="/employee/tables"
                 title="เปิดโต๊ะและสร้าง QR ให้ลูกค้า"
@@ -126,8 +128,8 @@ export function EmployeeLayout() {
               </Link>
             )}
 
-            {/* จัดการบัญชีผู้ใช้ — เฉพาะ ADMIN (route + backend @Roles(ADMIN) กันอีกชั้น) */}
-            {user && pageRoles.users.includes(user.role) && (
+            {/* จัดการบัญชีผู้ใช้ — เฉพาะ ADMIN (route + backend @Roles(ADMIN) กันอีกชั้น) · อยู่หน้านี้แล้วซ่อน */}
+            {user && pageRoles.users.includes(user.role) && !pathname.startsWith('/employee/users') && (
               <Link
                 to="/employee/users"
                 className="hidden whitespace-nowrap rounded-lg border-2 border-brand-400 px-3 py-2 text-sm font-bold text-brand-500 transition hover:bg-brand-50 sm:block"
