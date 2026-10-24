@@ -36,7 +36,7 @@ export default defineConfig({
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
-      testMatch: /(customer|kitchen)[\/].*\.spec\.ts$/,
+      testMatch: /(customer|kitchen)[/].*\.spec\.ts$/,
       grepInvert: /@totals/,
     },
     // เทสที่เทียบ "ยอดขายทั้งวัน" ก่อน/หลัง — ถ้ารันพร้อมเทสอื่นที่รับเงิน ยอดจะปนกัน
