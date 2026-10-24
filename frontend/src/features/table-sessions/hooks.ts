@@ -4,7 +4,6 @@ import {
   closeSession,
   getSessions,
   openSession,
-  setGuestCount,
 } from './api'
 
 export const sessionKeys = {
@@ -34,4 +33,3 @@ function useSessionMutation<TVars, TData>(fn: (vars: TVars) => Promise<TData>) {
 
 export const useOpenSession = () => useSessionMutation(openSession)
 export const useCloseSession = () => useSessionMutation(closeSession)
-export const useSetGuestCount = () => useSessionMutation(setGuestCount)
