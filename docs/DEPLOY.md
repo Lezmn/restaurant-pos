@@ -73,6 +73,12 @@ cd ~/app && docker compose run --rm -e ADMIN_EMAIL=<ชื่อ>@restaurant.loc
 Deploy เขียน `IMAGE_TAG=sha-xxxxxxx` ลง `~/app/.env` ทุกครั้ง — คำสั่ง `docker compose` ที่รันเองจึงใช้ image ชุดที่ deploy อยู่
 (VPS ไม่เก็บ login ของ GHCR ถ้าไปหา `:latest` ที่ไม่มีในเครื่องจะได้ `unauthorized`)
 
+เมนูตั้งต้น (ไม่บังคับ — หมวด/เมนู/ตัวเลือก/วัตถุดิบ ไม่มีบัญชีหรือบิลตัวอย่าง รันซ้ำได้ ไม่ทับของที่ร้านแก้แล้ว):
+
+```bash
+cd ~/app && docker compose run --rm migrate npm run prisma:seed:menu
+```
+
 คำสั่งดูแลประจำ (`backup once`, `restore-drill.sh`, logs) ใช้ `docker compose` ใน `~/app` แทน `docker compose -f docker-compose.prod.yml` ได้ทุกคำสั่งในเอกสารนี้และ OPERATIONS.md
 
 ## B. Caddy ในเครื่องเดียว
