@@ -198,6 +198,15 @@ body {
     height: auto !important;
   }
 
+  /* visibility:hidden ยังกินพื้นที่ — หน้า Check ยาว ๆ ข้างหลังเลยดันใบเสร็จเป็น 2–3 หน้า (หน้าเปล่าต่อท้าย)
+     ยุบหน้าหลังเหลือสูง 0 แทน display:none เพราะ <dialog> อยู่ใน #root ด้วย ซ่อนพ่อแล้วกล่องหายตาม
+     ส่วน <dialog> อยู่ top layer จึงไม่โดน overflow ของ #root ตัด และใบเสร็จยาวยังไหลขึ้นหน้าใหม่ได้ */
+  body:has(dialog[open] .print-area) #root {
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
   @page {
     margin: 10mm;
   }
