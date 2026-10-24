@@ -380,8 +380,13 @@ export function ManagePage() {
               <button
                 type="button"
                 onClick={() => setSelected(new Set(visible.map((i) => i.id)))}
-                className="min-h-11 rounded-lg px-3 text-sm font-bold text-white transition hover:bg-white/10"
+                // แถบนี้พื้นดำ — ปุ่มไม่มีกรอบดูเหมือนข้อความเฉย ๆ ต้องมีพื้น + กรอบให้รู้ว่ากดได้
+                className="flex min-h-11 items-center gap-1.5 rounded-lg border-2 border-white/60 bg-white/15 px-3 text-sm font-bold text-white transition hover:border-white hover:bg-white/25"
               >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden className="h-4 w-4">
+                  <rect x="3" y="3" width="18" height="18" rx="4" />
+                  <path d="m8 12 3 3 5-6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
                 เลือกทั้งหมดที่เห็น ({visible.length})
               </button>
               <button

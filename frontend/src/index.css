@@ -67,6 +67,22 @@ body {
     outline-offset: 2px;
   }
 
+  /* Tailwind v4 ตั้ง cursor ของปุ่มเป็น default — คืนรูปมือให้ทุกอย่างที่กดได้ ไม่ต้องไล่ใส่ทีละปุ่ม
+     อยู่ใน :where() (specificity 0) เพื่อให้ disabled:cursor-not-allowed / cursor-wait ของแต่ละปุ่มยังชนะได้ */
+  :where(button, [role='button'], [role='switch'], [role='tab'], summary, select, input[type='checkbox'], input[type='radio'], input[type='file']):not(:disabled) {
+    cursor: pointer;
+  }
+
+  /* ป้ายที่ครอบ checkbox/radio กดตรงข้อความก็ติ๊กได้ — ต้องเป็นรูปมือทั้งป้าย ไม่ใช่แค่ตัวกล่อง */
+  :where(label:has(input[type='checkbox'], input[type='radio'])) {
+    cursor: pointer;
+  }
+
+  :where(button, select, input):disabled,
+  :where(label:has(input[type='checkbox']:disabled, input[type='radio']:disabled)) {
+    cursor: not-allowed;
+  }
+
   ::selection {
     background: var(--color-brand-75);
     color: var(--color-text);
