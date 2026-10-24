@@ -1,5 +1,6 @@
+import { homeByRole } from '@/features/auth/permissions'
 import { useAuth } from '@/features/auth/use-auth'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 function IconDashboard() {
   return (
@@ -26,6 +27,14 @@ function IconDrawer() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
       <rect x="3" y="11" width="18" height="9" rx="1.5" />
       <path d="M6 11V5.5A1.5 1.5 0 0 1 7.5 4h9A1.5 1.5 0 0 1 18 5.5V11M10 15.5h4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function IconBack() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+      <path d="M10 6l-6 6 6 6M4 12h16" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -64,6 +73,16 @@ export function OwnerLayout() {
             🍴
           </span>
           <p className="text-lg font-bold text-brand-400">ร้านอาหาร</p>
+          {/* จอเล็ก: แถบเมนูเลื่อนแนวนอน ปุ่มท้ายแถวจะหลุดจอ — วางปุ่มกลับไว้แถวชื่อร้านให้เห็นตลอด */}
+          {user && (
+            <Link
+              to={homeByRole[user.role]}
+              className="ml-auto flex items-center gap-1.5 rounded-lg border-2 border-brand-400/60 px-3 py-1.5 text-sm font-semibold text-brand-500 transition hover:bg-white/60 lg:hidden"
+            >
+              <IconBack />
+              <span>หน้าพนักงาน</span>
+            </Link>
+          )}
         </div>
 
         <nav className="flex gap-2 overflow-x-auto px-3 pb-3 lg:flex-1 lg:flex-col lg:overflow-visible lg:pb-0">
@@ -83,6 +102,17 @@ export function OwnerLayout() {
               <span>{item.label}</span>
             </NavLink>
           ))}
+
+          {/* กลับไปหน้าทำงานของร้าน (คิวครัว/เช็คบิล/โต๊ะ) — ฝั่งพนักงานมีปุ่ม Dashboard มาที่นี่อยู่แล้ว */}
+          {user && (
+            <Link
+              to={homeByRole[user.role]}
+              className="mt-3 hidden shrink-0 items-center gap-2 rounded-lg border-2 border-brand-400/60 px-3 py-2 text-sm font-semibold text-brand-500 transition hover:bg-white/60 lg:flex"
+            >
+              <IconBack />
+              <span>กลับหน้าพนักงาน</span>
+            </Link>
+          )}
 
           <button
             type="button"
