@@ -1,8 +1,10 @@
 import { button, field, fieldLabel } from '@/components/ui/styles'
 import { ErrorNote } from '@/components/ui/ErrorNote'
+import { FoodImage } from '@/components/ui/FoodImage'
 import { Modal } from '@/components/ui/Modal'
 import { useCategories } from '@/features/menu/hooks'
-import type { MenuItemInput, MenuOptionInput } from '@/features/menu/api'
+import { uploadMenuImage, type MenuItemInput, type MenuOptionInput } from '@/features/menu/api'
+import { resizeImage } from '@/lib/image-resize'
 import { useIngredients } from '@/features/ingredients/hooks'
 import type { Id, MenuItem } from '@/types/models'
 import { useState } from 'react'
@@ -103,6 +105,8 @@ export function MenuFormDialog({
     hasUnaddedOption: !item && optionDraftDirty,
   })
   const saveLabel = item ? 'บันทึกข้อมูลเมนู' : 'บันทึก'
+  /** กำลังย่อ/อัปโหลดรูปอยู่ — ห้ามบันทึกก่อนได้ลิงก์รูป ไม่งั้นเมนูจะบันทึกไปโดยไม่มีรูป */
+  const [imageUploading, setImageUploading] = useState(false)
   const firstError = (Object.keys(errors) as (keyof typeof errors)[]).find((k) => errors[k])
   const show = (key: keyof typeof errors) => (attempted ? errors[key] : '')
 
@@ -197,20 +201,13 @@ export function MenuFormDialog({
           </label>
         </div>
 
-        <label className="block text-sm">
-          <span className={fieldLabel}>ลิงก์รูปภาพ</span>
-          <input
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            name="imageUrl"
-            inputMode="url"
-            placeholder="https://... (ไม่ใส่ก็ได้)"
-            aria-invalid={Boolean(show('imageUrl'))}
-            aria-describedby={show('imageUrl') ? 'menu-image-error' : undefined}
-            className={`${field} ${show('imageUrl') ? 'border-danger' : ''}`}
-          />
-          <FieldError id="menu-image-error" message={show('imageUrl')} />
-        </label>
+        <MenuImagePicker
+          name={name}
+          value={imageUrl}
+          onChange={setImageUrl}
+          onUploadingChange={setImageUploading}
+          error={show('imageUrl')}
+        />
 
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -246,7 +243,7 @@ export function MenuFormDialog({
           </button>
           <button
             type="submit"
-            disabled={isSaving}
+            disabled={isSaving || imageUploading}
             className={button('primary', 'lg')}
           >
             {isSaving ? 'กำลังบันทึก...' : saveLabel}
@@ -343,6 +340,97 @@ function MainIngredientsPicker({
           ยังไม่มีวัตถุดิบ — เพิ่มได้ที่แท็บ "วัตถุดิบ"
         </p>
       )}
+    </fieldset>
+  )
+}
+
+/**
+ * รูปเมนู: เลือกไฟล์จากเครื่อง (ย่อแล้วอัปโหลดขึ้น API) หรือวางลิงก์รูปจากที่อื่นก็ได้
+ * ได้ URL กลับมาใส่ imageUrl เหมือนกันทั้งสองทาง — ฝั่งเมนูไม่ต้องรู้ว่ารูปมาจากไหน
+ */
+function MenuImagePicker({
+  name,
+  value,
+  onChange,
+  onUploadingChange,
+  error,
+}: Readonly<{
+  name: string
+  value: string
+  onChange: (url: string) => void
+  onUploadingChange: (uploading: boolean) => void
+  error: string
+}>) {
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+
+  const pick = async (file: File | undefined) => {
+    if (!file) return
+    setUploadError('')
+    setUploading(true)
+    onUploadingChange(true)
+    try {
+      onChange(await uploadMenuImage(await resizeImage(file)))
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : 'อัปโหลดรูปไม่สำเร็จ')
+    } finally {
+      setUploading(false)
+      onUploadingChange(false)
+    }
+  }
+
+  const url = value.trim()
+  return (
+    <fieldset className="text-sm">
+      <legend className={fieldLabel}>รูปภาพ (ไม่ใส่ก็ได้)</legend>
+      <div className="mt-1 flex flex-wrap items-center gap-3">
+        <div className="aspect-[4/3] w-32 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-brand-50">
+          <FoodImage src={/^https?:\/\//.test(url) ? url : null} alt={url ? `รูป ${name || 'เมนู'}` : ''} />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <label
+            className={`${button('outline', 'sm')} cursor-pointer ${uploading ? 'pointer-events-none opacity-60' : ''}`}
+          >
+            {uploading ? 'กำลังอัปโหลด...' : url ? 'เปลี่ยนรูป' : 'เลือกรูปจากเครื่อง'}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={uploading}
+              onChange={(e) => {
+                void pick(e.target.files?.[0])
+                // เลือกไฟล์เดิมซ้ำได้ (เช่น อัปโหลดล้มแล้วลองใหม่)
+                e.target.value = ''
+              }}
+              className="sr-only"
+            />
+          </label>
+          {url && !uploading && (
+            <button type="button" onClick={() => onChange('')} className={button('danger-outline', 'sm')}>
+              เอารูปออก
+            </button>
+          )}
+        </div>
+      </div>
+      {uploadError && (
+        <p role="alert" className="mt-1 text-sm font-semibold text-danger-ink">
+          {uploadError}
+        </p>
+      )}
+      <label htmlFor="menu-image-url" className="mt-2 block text-xs text-gray-600">
+        หรือวางลิงก์รูปจากที่อื่น
+      </label>
+      <input
+        id="menu-image-url"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        name="imageUrl"
+        inputMode="url"
+        placeholder="https://..."
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? 'menu-image-error' : undefined}
+        className={`${field} ${error ? 'border-danger' : ''}`}
+      />
+      <FieldError id="menu-image-error" message={error} />
     </fieldset>
   )
 }

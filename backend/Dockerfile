@@ -37,6 +37,9 @@ RUN npm ci --omit=dev && npm cache clean --force
 # prisma client ที่ generate แล้ว (อยู่ใน node_modules/.prisma) + โค้ดที่ build แล้วเท่านั้น
 COPY --from=build --chown=node:node /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build --chown=node:node /app/dist ./dist
+# รูปเมนูที่อัปโหลด (UPLOAD_DIR) — สร้างไว้เป็นของ node ก่อน: volume ใหม่จะได้สิทธิ์ตามโฟลเดอร์นี้ เขียนได้โดยไม่เป็น root
+RUN mkdir -p /app/uploads
+ENV UPLOAD_DIR=/app/uploads
 EXPOSE 3000
 # GET /health เช็ค DB ด้วย — compose/monitor ใช้ดูว่า API พร้อมรับงานจริงหรือยัง
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

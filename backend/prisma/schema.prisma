@@ -197,6 +197,8 @@ model RestaurantTable {
   number          Int              @unique
   seats           Int              @default(4)
   status          TableStatus      @default(AVAILABLE)
+  /// false = ปิดใช้งาน (ยกโต๊ะออก) — ไม่โผล่ในหน้าพนักงาน เปิด QR ไม่ได้ ใช้แทนการลบเมื่อมีประวัติการขาย
+  isActive        Boolean          @default(true)
   orders          Order[]
   sessions        TableSession[]
   serviceRequests ServiceRequest[]

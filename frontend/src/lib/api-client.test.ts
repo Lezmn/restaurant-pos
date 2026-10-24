@@ -92,6 +92,18 @@ describe('apiClient', () => {
   })
 
   /** Nest คืน 200 body ว่างเมื่อ handler return void (เช่น DELETE /users/:id ใน users.service) */
+  it('ส่งไฟล์ (FormData) → ไม่ใส่ Content-Type JSON ทับ ให้ browser ใส่ multipart boundary เอง', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(json(201, { url: 'https://api.x/uploads/a.webp' })))
+    vi.stubGlobal('fetch', fetchMock)
+    const form = new FormData()
+    form.append('file', new Blob(['x'], { type: 'image/webp' }), 'menu.webp')
+    await apiClient('/uploads/menu-image', { method: 'POST', body: form })
+    expect(fetchMock.mock.calls[0][1].headers['Content-Type']).toBeUndefined()
+
+    await apiClient('/menu', { method: 'POST', body: '{}' })
+    expect(fetchMock.mock.calls[1][1].headers['Content-Type']).toBe('application/json')
+  })
+
   it('200 body ว่าง → สำเร็จ ไม่ใช่ error (กันเคสลบสำเร็จแต่จอขึ้น error)', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 200 })))
     await expect(apiClient('/users/1', { method: 'DELETE' })).resolves.toBeUndefined()

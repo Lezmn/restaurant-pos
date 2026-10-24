@@ -5,6 +5,8 @@
 
 # ไฟล์สำรองฐานข้อมูลจาก service backup — ข้อมูลร้านจริง ห้ามเข้า git
 backups/
+# รูปเมนูที่อัปโหลดตอน dev (production อยู่บนโฟลเดอร์ ~/app/uploads ของ VPS)
+backend/uploads/
 # rclone.conf มี token ของบัญชี cloud ที่เก็บไฟล์สำรองนอกเครื่อง + ไฟล์ที่ดึงกลับมาซ้อมกู้
 deploy/rclone/
 offsite-check/
