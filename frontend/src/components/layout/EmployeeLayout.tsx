@@ -128,17 +128,7 @@ export function EmployeeLayout() {
               </Link>
             )}
 
-            {/* จัดการบัญชีผู้ใช้ — เฉพาะ ADMIN (route + backend @Roles(ADMIN) กันอีกชั้น) · อยู่หน้านี้แล้วซ่อน */}
-            {user && pageRoles.users.includes(user.role) && !pathname.startsWith('/employee/users') && (
-              <Link
-                to="/employee/users"
-                className="hidden whitespace-nowrap rounded-lg border-2 border-brand-400 px-3 py-2 text-sm font-bold text-brand-500 transition hover:bg-brand-50 sm:block"
-              >
-                บัญชีผู้ใช้
-              </Link>
-            )}
-
-            {/* ADMIN = เจ้าของร้าน มีหน้า Dashboard แยกอีกชุด */}
+            {/* ADMIN = เจ้าของร้าน มีหน้า Dashboard แยกอีกชุด (บัญชีผู้ใช้อยู่ในนั้นด้วย) */}
             {user?.role === Role.ADMIN && (
               <Link
                 to="/owner"

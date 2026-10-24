@@ -93,10 +93,6 @@ const RequestsPage = lazy(() =>
     default: m.RequestsPage,
   })),
 )
-const UsersPage = lazy(() =>
-  import('@/pages/employee/UsersPage').then((m) => ({ default: m.UsersPage })),
-)
-
 const DashboardPage = lazy(() =>
   import('@/pages/owner/DashboardPage').then((m) => ({
     default: m.DashboardPage,
@@ -107,6 +103,9 @@ const FinancePage = lazy(() =>
 )
 const CashClosesPage = lazy(() =>
   import('@/pages/owner/CashClosesPage').then((m) => ({ default: m.CashClosesPage })),
+)
+const UsersPage = lazy(() =>
+  import('@/pages/owner/UsersPage').then((m) => ({ default: m.UsersPage })),
 )
 
 /** ครอบ Suspense ให้ทุก element ที่โหลดแบบ lazy กันจอว่างระหว่างดึงไฟล์ */
@@ -185,10 +184,8 @@ export const router = createBrowserRouter([
             element: <ProtectedRoute roles={pageRoles.requests} />,
             children: [{ path: 'requests', element: s(<RequestsPage />) }],
           },
-          {
-            element: <ProtectedRoute roles={pageRoles.users} />,
-            children: [{ path: 'users', element: s(<UsersPage />) }],
-          },
+          // บัญชีผู้ใช้ย้ายไปอยู่ฝั่งเจ้าของร้านแล้ว — ลิงก์เก่าที่อาจถูก bookmark ไว้
+          { path: 'users', element: <Navigate to="/owner/users" replace /> },
         ],
       },
     ],
@@ -208,6 +205,10 @@ export const router = createBrowserRouter([
           { path: 'dashboard', element: s(<DashboardPage />) },
           { path: 'finance', element: s(<FinancePage />) },
           { path: 'cash-closes', element: s(<CashClosesPage />) },
+          {
+            element: <ProtectedRoute roles={pageRoles.users} fallbackPath="/owner" />,
+            children: [{ path: 'users', element: s(<UsersPage />) }],
+          },
         ],
       },
     ],
