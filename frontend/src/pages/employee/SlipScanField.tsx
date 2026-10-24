@@ -1,5 +1,6 @@
 import { field, fieldLabel } from '@/components/ui/styles'
-import { useEffect, useRef } from 'react'
+import { readQrFromImage, SlipImageError } from '@/lib/slip-qr'
+import { useEffect, useRef, useState } from 'react'
 import type { SlipInput } from './slip-input'
 
 /**
@@ -8,6 +9,9 @@ import type { SlipInput } from './slip-input'
  * ใช้กับเครื่องสแกน 2D แบบคีย์บอร์ด (ยิงที่จอมือถือลูกค้าแล้วเครื่องพิมพ์ข้อความ + Enter ให้)
  * หรือวางข้อความเองก็ได้ — เปิดหน้ามาช่องนี้ focus รอไว้เลย ยิงได้ทันที
  * Enter จากเครื่องสแกนต้องไม่ไป submit ฟอร์ม (แคชเชียร์อาจยังแก้ยอดอยู่)
+ *
+ * ไม่มีเครื่องสแกน: กด "แนบรูป" เลือกรูปสลิป/ถ่ายจากกล้องแท็บเล็ต — อ่าน QR ในเบราว์เซอร์แล้วเติมข้อความลงช่องเดิม
+ * (รูปไม่ถูกส่งไปไหน)
  */
 export function SlipScanField({
   value,
@@ -21,6 +25,14 @@ export function SlipScanField({
 }>) {
   const scanned = value.payload.trim() !== ''
   const inputRef = useRef<HTMLInputElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [reading, setReading] = useState(false)
+  const [imageError, setImageError] = useState<string | null>(null)
+  // อ่านรูปใช้เวลา ระหว่างนั้นแคชเชียร์อาจติ๊กยืนยันเอง/ยิงเครื่องสแกนไปแล้ว — ใช้ค่าล่าสุด ไม่ใช่ค่าตอนกดปุ่ม
+  const latest = useRef(value)
+  useEffect(() => {
+    latest.current = value
+  }, [value])
 
   // focus หลัง <dialog> เปิดแล้ว — autoFocus ของ React ทำงานตอนกล่องยังปิดอยู่ (โฟกัสไม่ได้)
   // แล้ว showModal() ของ Modal ย้ายโฟกัสไปปุ่มแรกแทน ทำให้ยิงเครื่องสแกนแล้วข้อความไม่ลงช่อง
@@ -28,6 +40,33 @@ export function SlipScanField({
     const id = setTimeout(() => inputRef.current?.focus(), 0)
     return () => clearTimeout(id)
   }, [])
+
+  const readImage = async (file: File) => {
+    setReading(true)
+    setImageError(null)
+    try {
+      const payload = await readQrFromImage(file)
+      const current = latest.current
+      if (current.override || current.payload.trim() !== '') return
+      if (payload) {
+        onChange({ ...current, payload: payload.trim() })
+      } else {
+        setImageError('ไม่พบ QR ในรูป — ให้เห็น QR มุมขวาล่างของสลิปชัด ๆ แล้วลองใหม่')
+      }
+    } catch (e) {
+      setImageError(e instanceof SlipImageError ? e.message : 'อ่านรูปไม่สำเร็จ ลองใหม่อีกครั้ง')
+    } finally {
+      setReading(false)
+      // อ่านไม่ได้ก็ยังยิงเครื่องสแกน/วางข้อความต่อได้ทันที
+      inputRef.current?.focus()
+    }
+  }
+
+  const hint = () => {
+    if (reading) return 'กำลังอ่าน QR จากรูป…'
+    if (scanned) return '✓ อ่าน QR ได้แล้ว — กดบันทึกเพื่อตรวจกับ SlipOK (ยอด / บัญชีร้าน / สลิปซ้ำ)'
+    return 'ระบบตรวจกับข้อมูลธนาคารผ่าน SlipOK — ดูแค่รูปสลิปไม่พอ สลิปปลอมทำได้ง่าย'
+  }
 
   return (
     <div className="mb-4 rounded-xl border-2 border-gray-200 p-3">
@@ -40,7 +79,10 @@ export function SlipScanField({
             ref={inputRef}
             value={value.payload}
             disabled={value.override}
-            onChange={(e) => onChange({ ...value, payload: e.target.value })}
+            onChange={(e) => {
+              setImageError(null)
+              onChange({ ...value, payload: e.target.value })
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') e.preventDefault()
             }}
@@ -63,14 +105,45 @@ export function SlipScanField({
               ล้าง
             </button>
           )}
+          {!scanned && !value.override && (
+            <button
+              type="button"
+              disabled={reading}
+              onClick={() => fileRef.current?.click()}
+              className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-gray-300 px-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden className="h-4 w-4">
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <circle cx="9" cy="10" r="1.5" />
+                <path d="m21 16-5-5-8 8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {reading ? 'กำลังอ่าน…' : 'แนบรูป'}
+            </button>
+          )}
         </div>
       </label>
+      {/* ไม่ใส่ capture — แท็บเล็ตจะให้เลือกได้ทั้งถ่ายจากกล้องหรือเลือกรูปในเครื่อง */}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        aria-label="แนบรูปสลิป"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          // ล้างค่าไว้ เลือกรูปเดิมซ้ำ (เช่นหลังครอปใหม่) จะได้ยิง change อีกรอบ
+          e.target.value = ''
+          if (file) void readImage(file)
+        }}
+      />
 
-      <p className={`mt-1 text-sm ${scanned ? 'text-black' : 'text-gray-500'}`}>
-        {scanned
-          ? '✓ อ่าน QR ได้แล้ว — กดบันทึกเพื่อตรวจกับ SlipOK (ยอด / บัญชีร้าน / สลิปซ้ำ)'
-          : 'ระบบตรวจกับข้อมูลธนาคารผ่าน SlipOK — ดูแค่รูปสลิปไม่พอ สลิปปลอมทำได้ง่าย'}
-      </p>
+      {imageError ? (
+        <p role="alert" className="mt-1 text-sm font-semibold text-danger-ink">
+          {imageError}
+        </p>
+      ) : (
+        <p className={`mt-1 text-sm ${scanned ? 'text-black' : 'text-gray-500'}`}>{hint()}</p>
+      )}
 
       {canOverride && (
         <div className="mt-3 border-t border-gray-200 pt-3">
