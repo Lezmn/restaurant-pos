@@ -23,6 +23,7 @@ type PageKey =
   | 'editMenu'
   | 'orders'
   | 'tables'
+  | 'takeaway'
   | 'requests'
   | 'users'
   | 'openTable'
@@ -39,6 +40,8 @@ export const pageRoles: Record<PageKey, Role[]> = {
   editMenu: [Role.ADMIN],
   orders: [Role.ADMIN, Role.STAFF],
   tables: [Role.ADMIN, Role.STAFF],
+  /** หน้า POS สั่งกลับบ้าน — POST /orders/takeaway @Roles(ADMIN, STAFF) */
+  takeaway: [Role.ADMIN, Role.STAFF],
   requests: [Role.ADMIN, Role.STAFF],
   users: [Role.ADMIN],
   /** เปิดโต๊ะ/สร้าง QR — POST /table-sessions @Roles(ADMIN, STAFF) */

@@ -46,6 +46,15 @@ function IconTable() {
   )
 }
 
+function IconBag() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-7 w-7">
+      <path d="M5 8h14l-1.2 11.1a1 1 0 0 1-1 .9H7.2a1 1 0 0 1-1-.9z" strokeLinejoin="round" />
+      <path d="M9 10V7a3 3 0 0 1 6 0v3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 function IconLogout() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-7 w-7">
@@ -96,6 +105,7 @@ const tabs: Tab[] = [
   { to: '/employee/check', label: 'Check', icon: <IconReceipt />, roles: pageRoles.check },
   { to: '/employee/manage', label: 'Manage', icon: <IconFolder />, roles: pageRoles.manage },
   { to: '/employee/tables', label: 'Table', icon: <IconTable />, roles: pageRoles.tables },
+  { to: '/employee/takeaway', label: 'Takeaway', icon: <IconBag />, roles: pageRoles.takeaway },
 ]
 
 export function EmployeeLayout() {
@@ -170,7 +180,7 @@ export function EmployeeLayout() {
       {user && pageRoles.requests.includes(user.role) && <CallStaffAlert />}
       <Toaster />
 
-      {/* แถบล่าง 4 ปุ่มตามดีไซน์ (Order · Check · Manage · Table) — active เป็นบล็อกส้มเต็ม */}
+      {/* แถบล่างตามดีไซน์ (Order · Check · Manage · Table) + Takeaway — active เป็นบล็อกส้มเต็ม */}
       <nav className="fixed inset-x-0 bottom-0 z-20 flex bg-white shadow-[0_-4px_16px_rgba(0,0,0,0.08)] pb-[env(safe-area-inset-bottom)]">
         {tabs.map((tab) => {
           const iconClass =

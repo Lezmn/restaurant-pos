@@ -31,7 +31,8 @@ export class TablesService {
   findAll(status?: TableStatus, includeInactive = false) {
     return this.prisma.restaurantTable.findMany({
       // หน้าพนักงานเห็นเฉพาะโต๊ะที่ใช้งาน — หน้าจัดการโต๊ะของ ADMIN ขอรวมที่ปิดไว้ด้วย
-      where: { status, isActive: includeInactive ? undefined : true },
+      // โต๊ะเสมือนของกลับบ้านไม่ใช่โต๊ะที่ลูกค้านั่ง — ไม่โชว์ทั้งหน้าพนักงานและหน้าจัดการโต๊ะ
+      where: { status, isActive: includeInactive ? undefined : true, isTakeaway: false },
       orderBy: { number: 'asc' },
     });
   }

@@ -45,7 +45,7 @@ export function SlipIssues() {
           <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
             <div className="min-w-0">
               <p className="font-semibold text-black">
-                โต๊ะ {p.tableName} · {formatBaht(p.amount)}{' '}
+                {p.placeLabel} · {formatBaht(p.amount)}{' '}
                 <span className="text-sm font-normal text-gray-500">
                   {p.receipt?.number ?? ''} · {paidAt(p.paidAt)}
                 </span>
@@ -108,7 +108,7 @@ function ConfirmSlipDialog({
       >
         <div className="rounded-lg bg-brand-50 px-4 py-3 text-sm text-gray-700">
           <p className="font-bold text-black">
-            โต๊ะ {payment.tableName} · {formatBaht(payment.amount)}
+            {payment.placeLabel} · {formatBaht(payment.amount)}
           </p>
           <p className="mt-1 text-gray-600">{payment.slip?.message}</p>
         </div>

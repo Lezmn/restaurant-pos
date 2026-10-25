@@ -19,6 +19,8 @@ export async function createPayment(vars: {
   amount?: number
   /** POST /payments ไม่ได้ส่ง tableSession กลับมา จึงต้องส่งชื่อโต๊ะมาเติมในใบเสร็จเอง */
   tableName: string
+  /** บิลกลับบ้าน — ใบเสร็จโชว์ "คิว" แทน "โต๊ะ" */
+  isTakeaway?: boolean
   /** หมายเหตุตอนรับเงิน — backend เก็บลง payment + receipt */
   note?: string
   /** PromptPay: ข้อความใน QR ของสลิป — backend ส่งไปตรวจกับ SlipOK */
@@ -38,7 +40,7 @@ export async function createPayment(vars: {
       ...(vars.slipOverrideReason ? { slipOverrideReason: vars.slipOverrideReason } : {}),
     }),
   })
-  return mapPayment(data, vars.tableName)
+  return mapPayment(data, vars.tableName, vars.isTakeaway)
 }
 
 /** GET /payments @Roles(ADMIN, STAFF) — รายการบิลทั้งหมด ล่าสุดก่อน (ไม่มี items ของใบเสร็จ) */

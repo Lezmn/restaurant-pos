@@ -13,6 +13,7 @@ import { Role } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { CreateTakeawayOrderDto } from './dto/create-takeaway-order.dto';
 import { FindOrdersQueryDto } from './dto/find-orders-query.dto';
 import { OrderItemInputDto } from './dto/order-item-input.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
@@ -28,6 +29,13 @@ export class OrdersController {
   @ApiOperation({ summary: 'สร้างออเดอร์ใหม่ (ผูกกับโต๊ะ + รายการเมนู)' })
   create(@Body() dto: CreateOrderDto) {
     return this.ordersService.create(dto);
+  }
+
+  @Post('takeaway')
+  @Roles(Role.ADMIN, Role.STAFF)
+  @ApiOperation({ summary: 'สั่งกลับบ้าน (หน้า POS) — เปิดบิลกลับบ้านใบใหม่พร้อมออเดอร์แรก ได้เลขคิวของวัน' })
+  createTakeaway(@Body() dto: CreateTakeawayOrderDto) {
+    return this.ordersService.createTakeaway(dto);
   }
 
   @Get()

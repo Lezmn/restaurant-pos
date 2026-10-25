@@ -88,6 +88,11 @@ const TablesPage = lazy(() =>
     default: m.TablesPage,
   })),
 )
+const TakeawayPage = lazy(() =>
+  import('@/pages/employee/TakeawayPage').then((m) => ({
+    default: m.TakeawayPage,
+  })),
+)
 const RequestsPage = lazy(() =>
   import('@/pages/employee/RequestsPage').then((m) => ({
     default: m.RequestsPage,
@@ -170,6 +175,10 @@ export const router = createBrowserRouter([
           {
             element: <ProtectedRoute roles={pageRoles.tables} />,
             children: [{ path: 'tables', element: s(<TablesPage />) }],
+          },
+          {
+            element: <ProtectedRoute roles={pageRoles.takeaway} />,
+            children: [{ path: 'takeaway', element: s(<TakeawayPage />) }],
           },
 
           // หน้าที่ไม่มีในดีไซน์ แต่เขียนไว้แล้วและ backend รองรับ

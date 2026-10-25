@@ -23,7 +23,7 @@ export function OrdersPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-semibold text-gray-900">
-                  โต๊ะ {order.tableName} · #{order.orderRef}
+                  {order.placeLabel} · #{order.orderRef}
                 </p>
                 <p className="text-xs text-gray-500">
                   {formatTime(order.createdAt)}

@@ -46,6 +46,36 @@ export interface NewOrderLine {
   optionIds?: Id[]
 }
 
+const toItemsPayload = (lines: NewOrderLine[]) =>
+  lines.map((l) => ({
+    menuItemId: l.menuItemId,
+    quantity: l.quantity,
+    ...(l.note.trim() ? { note: l.note.trim() } : {}),
+    ...(l.optionIds?.length ? { optionIds: l.optionIds } : {}),
+  }))
+
+/**
+ * POST /orders/takeaway @Roles(ADMIN, STAFF) — หน้า POS สั่งกลับบ้าน
+ * backend เปิดบิลกลับบ้านใบใหม่ (ได้เลขคิวของวัน) + ส่งออเดอร์เข้าครัวในครั้งเดียว
+ */
+export async function createTakeawayOrder(vars: {
+  customerName?: string
+  lines: NewOrderLine[]
+}): Promise<Order> {
+  const lines = vars.lines.filter((l) => l.quantity > 0)
+  if (lines.length === 0) throw new Error('กรุณาเลือกอย่างน้อย 1 รายการ')
+
+  const name = vars.customerName?.trim()
+  const data = await apiClient<ApiOrder>('/orders/takeaway', {
+    method: 'POST',
+    body: JSON.stringify({
+      ...(name ? { customerName: name } : {}),
+      items: toItemsPayload(lines),
+    }),
+  })
+  return mapOrder(data)
+}
+
 /**
  * POST /orders @Roles(ADMIN, STAFF) — พนักงานรับออเดอร์แทนลูกค้า
  * หมายเหตุ: endpoint นี้รับ tableId เป็นหลัก ส่ง tableSessionId มาด้วยเพื่อให้ backend
@@ -64,12 +94,7 @@ export async function createOrder(vars: {
     body: JSON.stringify({
       tableId: vars.tableId,
       ...(vars.tableSessionId ? { tableSessionId: vars.tableSessionId } : {}),
-      items: lines.map((l) => ({
-        menuItemId: l.menuItemId,
-        quantity: l.quantity,
-        ...(l.note.trim() ? { note: l.note.trim() } : {}),
-        ...(l.optionIds?.length ? { optionIds: l.optionIds } : {}),
-      })),
+      items: toItemsPayload(lines),
     }),
   })
   return mapOrder(data)

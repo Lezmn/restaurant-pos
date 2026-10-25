@@ -31,7 +31,12 @@ const admin: AuthenticatedUser = { id: 'u-admin', email: 'a@x', name: 'Admin', r
 function order(
   id: string,
   items: { price: number; qty: number; options?: number[]; name?: string }[],
-  overrides: Partial<{ status: OrderStatus; tableSessionId: string | null; tableId: string }> = {},
+  overrides: Partial<{
+    status: OrderStatus;
+    tableSessionId: string | null;
+    tableId: string;
+    tableSession: { isTakeaway: boolean } | null;
+  }> = {},
 ) {
   return {
     id,
@@ -39,6 +44,7 @@ function order(
     tableSessionId: 'sess-1',
     tableId: 'table-1',
     paymentId: null,
+    tableSession: { isTakeaway: false },
     ...overrides,
     items: items.map((it, i) => ({
       id: `${id}-item-${i}`,
@@ -187,6 +193,36 @@ describe('PaymentsService', () => {
       await expect(
         service.create({ tableSessionId: 'sess-1', method: PaymentMethod.CASH }, staff),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('กลับบ้านจ่ายก่อนทำได้: ผูก payment ทุกใบ แต่เปลี่ยนเป็น PAID เฉพาะที่เสิร์ฟแล้ว', async () => {
+      const takeaway = { tableSession: { isTakeaway: true } };
+      prisma.tableSession.findUnique.mockResolvedValue({ id: 'sess-1', isTakeaway: true });
+      prisma.order.findMany.mockResolvedValue([
+        order('o1', [{ price: 50, qty: 1 }], { ...takeaway, status: OrderStatus.PENDING }),
+        order('o2', [{ price: 30, qty: 1 }], { ...takeaway, status: OrderStatus.SERVED }),
+      ]);
+      prisma.order.updateMany.mockResolvedValue({ count: 2 });
+      prisma.order.count.mockResolvedValue(0);
+
+      const result: any = await service.create(
+        { tableSessionId: 'sess-1', method: PaymentMethod.CASH },
+        staff,
+      );
+
+      expect(Number(result.amount)).toBe(80);
+      expect(prisma.order.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: { in: ['o1', 'o2'] },
+          status: { in: [OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.SERVED] },
+          paymentId: null,
+        },
+        data: { paymentId: 'pay-1' },
+      });
+      expect(prisma.order.updateMany).toHaveBeenCalledWith({
+        where: { paymentId: 'pay-1', status: OrderStatus.SERVED },
+        data: { status: OrderStatus.PAID },
+      });
     });
 
     it('session ไม่มีออเดอร์ค้างจ่าย → 400', async () => {
@@ -342,8 +378,12 @@ describe('PaymentsService', () => {
       const result = await service.voidPayment('p', { reason: 'จ่ายผิดโต๊ะ' });
       expect(result.reopenedSessionIds).toEqual(['sess-1']);
       expect(prisma.order.updateMany).toHaveBeenCalledWith({
+        where: { paymentId: 'p', status: OrderStatus.PAID },
+        data: { status: OrderStatus.SERVED },
+      });
+      expect(prisma.order.updateMany).toHaveBeenCalledWith({
         where: { paymentId: 'p' },
-        data: { status: OrderStatus.SERVED, paymentId: null },
+        data: { paymentId: null },
       });
       expect(prisma.tableSession.update).toHaveBeenCalledWith({
         where: { id: 'sess-1' },
