@@ -176,7 +176,8 @@ export function EmployeeLayout() {
           const iconClass =
             '[&>svg]:h-6 [&>svg]:w-6 sm:[&>svg]:h-8 sm:[&>svg]:w-8'
           const base =
-            'flex flex-1 items-center justify-center gap-2 py-4 text-lg font-bold transition sm:gap-3 sm:text-2xl'
+            // กว้าง 1/4 เสมอ (ช่องเดียวกับตอนมีครบ 4 ปุ่ม) ชิดซ้าย — role ที่มี 2 ปุ่มจะไม่ยืดเต็มแถบ ตามดีไซน์
+            'flex w-1/4 items-center justify-center gap-2 py-4 text-lg font-bold transition sm:gap-3 sm:text-2xl'
 
           // active เป็นบล็อก brand-400 (ตัว 24px หนา = ตัวใหญ่ ผ่าน 3:1) ไอคอนต้องเป็นขาวด้วย ไม่งั้นกลืนกับพื้น
           return (
