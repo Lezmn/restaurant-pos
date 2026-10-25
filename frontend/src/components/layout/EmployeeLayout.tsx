@@ -109,8 +109,8 @@ export function EmployeeLayout() {
   const available =
     tables?.filter((t) => t.status === TableStatus.AVAILABLE).length ?? 0
 
-  // ดีไซน์โชว์ปุ่มครบทุกอัน — ปุ่มที่ role นี้ไม่มีสิทธิ์จะแสดงแบบจาง ๆ และกดไม่ได้
-  const canOpen = (tab: Tab) => Boolean(user && tab.roles.includes(user.role))
+  // โชว์เฉพาะแท็บที่ role นี้เข้าได้ (เช่น STAFF เหลือ Check กับ Table) — ไม่โชว์ปุ่มที่กดไม่ได้
+  const visibleTabs = tabs.filter((tab) => user && tab.roles.includes(user.role))
 
   return (
     <div className="flex min-h-dvh flex-col bg-white">
@@ -170,30 +170,13 @@ export function EmployeeLayout() {
       {user && pageRoles.requests.includes(user.role) && <CallStaffAlert />}
       <Toaster />
 
-      {/* แถบล่าง 4 ปุ่มตามดีไซน์ (Order · Check · Manage · Table) — active เป็นบล็อกส้มเต็ม */}
+      {/* แถบล่างตามดีไซน์ (Order · Check · Manage · Table) เฉพาะที่ role เข้าได้ — active เป็นบล็อกส้มเต็ม */}
       <nav className="fixed inset-x-0 bottom-0 z-20 flex bg-white shadow-[0_-4px_16px_rgba(0,0,0,0.08)] pb-[env(safe-area-inset-bottom)]">
-        {tabs.map((tab) => {
+        {visibleTabs.map((tab) => {
           const iconClass =
             '[&>svg]:h-6 [&>svg]:w-6 sm:[&>svg]:h-8 sm:[&>svg]:w-8'
           const base =
             'flex flex-1 items-center justify-center gap-2 py-4 text-lg font-bold transition sm:gap-3 sm:text-2xl'
-
-          if (!canOpen(tab)) {
-            return (
-              <button
-                key={tab.to}
-                type="button"
-                disabled
-                aria-disabled="true"
-                aria-label={`${tab.label} (ไม่มีสิทธิ์)`}
-                title={`ต้องเป็น ${tab.roles.join(' หรือ ')} จึงจะเข้าหน้านี้ได้`}
-                className={`${base} cursor-not-allowed text-gray-400`}
-              >
-                <span className={`text-gray-400 ${iconClass}`}>{tab.icon}</span>
-                <span className="hidden sm:inline">{tab.label}</span>
-              </button>
-            )
-          }
 
           // active เป็นบล็อก brand-400 (ตัว 24px หนา = ตัวใหญ่ ผ่าน 3:1) ไอคอนต้องเป็นขาวด้วย ไม่งั้นกลืนกับพื้น
           return (
@@ -214,7 +197,6 @@ export function EmployeeLayout() {
             </NavLink>
           )
         })}
-
       </nav>
     </div>
   )
