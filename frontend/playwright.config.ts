@@ -7,7 +7,7 @@ const SLOW_MO = Number(process.env.E2E_SLOWMO ?? 1000)
 const chrome = { ...devices['Desktop Chrome'], channel: 'chrome' }
 
 export default defineConfig({
-  testDir: './test',
+  testDir: './test/e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

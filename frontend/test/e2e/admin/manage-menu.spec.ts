@@ -1,0 +1,53 @@
+import { test, expect } from '@playwright/test'
+import { loginAsAdmin } from '../helpers'
+
+// ⚠️ ต้องรัน backend จริง + seed data ที่ localhost:3000
+// เทสในไฟล์นี้เป็น read-only ทั้งหมด (ไม่กด "เพิ่มเมนู" / "เพิ่มวัตถุดิบ" จริง)
+// เพื่อไม่ให้สร้างข้อมูลขยะค้างในฐานข้อมูล dev ทุกครั้งที่รันเทส
+
+// ปุ่ม "+ เพิ่มหมวดหมู่" ถูกถอดออกแล้ว (เหลือแถบชิปกรองตามหมวด) — หมวดหมู่มาจาก seed
+// ทดสอบ: หน้าจัดการเมนูมีปุ่มเพิ่มเมนู ช่องค้นหา และแท็บเมนู/วัตถุดิบครบ
+// วิธี: login เป็น admin → เปิด /employee/manage → เช็กว่าเห็นทุกปุ่มและช่องค้นหา (ไม่กดสร้างอะไรจริง)
+test('หน้าจัดการเมนูมีเครื่องมือครบ: เพิ่มเมนู, ค้นหา, สลับแท็บ', async ({
+  page,
+  request,
+}) => {
+  await loginAsAdmin(page, request)
+  await page.goto('/employee/manage')
+
+  await expect(page.getByRole('button', { name: 'เพิ่มเมนู', exact: true })).toBeVisible()
+  await expect(page.getByPlaceholder('ค้นหาเมนู')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'เมนู', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'วัตถุดิบ', exact: true })).toBeVisible()
+})
+
+// ทดสอบ: หน้าจัดการเมนูแสดงชิปกรองหมวดหมู่จาก seed ครบ
+// วิธี: login เป็น admin → เปิด /employee/manage → เช็กชิป ทั้งหมด (n), อาหารจานเดียว, เมนูเส้น, เครื่องดื่ม
+test('เห็นหมวดหมู่จาก seed ครบ (อาหารจานเดียว, เมนูเส้น, เครื่องดื่ม)', async ({
+  page,
+  request,
+}) => {
+  await loginAsAdmin(page, request)
+  await page.goto('/employee/manage')
+
+  await expect(page.getByRole('button', { name: /^ทั้งหมด \(\d+\)$/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /อาหารจานเดียว/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /เมนูเส้น/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /เครื่องดื่ม/ })).toBeVisible()
+})
+
+// backend มี model วัตถุดิบแล้ว (23 ก.ย.) — แท็บนี้เป็นหน้าจัดการวัตถุดิบจริง
+// ทดสอบ: กดแท็บวัตถุดิบแล้วต้องเห็นหน้าจัดการวัตถุดิบพร้อมข้อมูลจาก seed
+// วิธี: login เป็น admin → เปิด /employee/manage → กดแท็บวัตถุดิบ → เช็กปุ่มเพิ่มวัตถุดิบ และเห็น "หมู"
+test('กดแท็บ "วัตถุดิบ" แสดงหน้าจัดการวัตถุดิบ พร้อมวัตถุดิบจาก seed', async ({
+  page,
+  request,
+}) => {
+  await loginAsAdmin(page, request)
+  await page.goto('/employee/manage')
+
+  await page.getByRole('button', { name: 'วัตถุดิบ', exact: true }).click()
+
+  await expect(page.getByRole('button', { name: 'เพิ่มวัตถุดิบ', exact: true })).toBeVisible()
+  await expect(page.getByText('หมู', { exact: true }).first()).toBeVisible()
+})
