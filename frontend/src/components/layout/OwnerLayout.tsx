@@ -64,6 +64,11 @@ const navItems = [
   { to: '/owner/users', label: 'บัญชีผู้ใช้', icon: <IconUsers /> },
 ]
 
+/** หน้าตาเดียวกันทุกปุ่มใน sidebar (เมนู / กลับหน้าพนักงาน / Logout) — ใส่ flex หรือ hidden เองตามจอ */
+const navItemBase = 'shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition'
+const navItemClass = `${navItemBase} text-brand-500/80 hover:bg-white/50`
+const navItemActiveClass = `${navItemBase} bg-white text-brand-500 shadow-sm`
+
 export function OwnerLayout() {
   const user = useAuth((s) => s.user)
   const signOut = useAuth((s) => s.signOut)
@@ -87,7 +92,7 @@ export function OwnerLayout() {
           {user && (
             <Link
               to={homeByRole[user.role]}
-              className="ml-auto flex items-center gap-1.5 rounded-lg border-2 border-brand-400/60 px-3 py-1.5 text-sm font-semibold text-brand-500 transition hover:bg-white/60 lg:hidden"
+              className={`ml-auto flex lg:hidden ${navItemClass}`}
             >
               <IconBack />
               <span>หน้าพนักงาน</span>
@@ -101,11 +106,7 @@ export function OwnerLayout() {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
-                  isActive
-                    ? 'bg-white text-brand-500 shadow-sm'
-                    : 'text-brand-500/80 hover:bg-white/50'
-                }`
+                `flex ${isActive ? navItemActiveClass : navItemClass}`
               }
             >
               {item.icon}
@@ -117,7 +118,7 @@ export function OwnerLayout() {
           {user && (
             <Link
               to={homeByRole[user.role]}
-              className="mt-3 hidden shrink-0 items-center gap-2 rounded-lg border-2 border-brand-400/60 px-3 py-2 text-sm font-semibold text-brand-500 transition hover:bg-white/60 lg:flex"
+              className={`hidden lg:flex ${navItemClass}`}
             >
               <IconBack />
               <span>กลับหน้าพนักงาน</span>
