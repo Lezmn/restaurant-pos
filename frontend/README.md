@@ -62,7 +62,7 @@ npm run dev
 
 ### 2. พนักงาน — `/employee/*` (ต้อง login)
 
-แถบล่าง 4 ปุ่มตามดีไซน์ **Order · Check · Manage · Logout**
+แถบล่าง 4 ปุ่มตามดีไซน์ **Order · Check · Manage · Table (Logout อยู่ที่ header)**
 
 | path | หน้า | role ที่เข้าได้ |
 |---|---|---|
