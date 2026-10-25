@@ -1,5 +1,6 @@
 import { homeByRole } from '@/features/auth/permissions'
 import { useAuth } from '@/features/auth/use-auth'
+import { RESTAURANT_NAME } from '@/lib/config'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 function IconDashboard() {
@@ -75,9 +76,10 @@ const navItems = [
 ]
 
 /** หน้าตาเดียวกันทุกปุ่มใน sidebar (เมนู / กลับหน้าพนักงาน / Logout) — ใส่ flex หรือ hidden เองตามจอ */
-const navItemBase = 'shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition'
-const navItemClass = `${navItemBase} text-brand-500/80 hover:bg-white/50`
-const navItemActiveClass = `${navItemBase} bg-white text-brand-500 shadow-sm`
+// พื้น brand-50 + ตัว brand-500 เต็ม (5.3:1) — เดิมพื้น brand-100/70 + ตัว /80 ได้แค่ 2.9:1 · สูง 44px ตามเป้ากดของระบบ
+const navItemBase = 'min-h-11 shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition'
+const navItemClass = `${navItemBase} text-brand-500 hover:bg-brand-75/60`
+const navItemActiveClass = `${navItemBase} bg-brand-500 text-white`
 
 export function OwnerLayout() {
   const user = useAuth((s) => s.user)
@@ -92,12 +94,9 @@ export function OwnerLayout() {
   return (
     <div className="flex min-h-dvh flex-col bg-white lg:flex-row">
       {/* จอใหญ่: sidebar ซ้ายตามดีไซน์ / จอเล็ก: แถบบนเลื่อนแนวนอน */}
-      <aside className="flex shrink-0 flex-col bg-brand-100/70 lg:min-h-dvh lg:w-56">
+      <aside className="flex shrink-0 flex-col border-b border-brand-75 bg-brand-50 lg:min-h-dvh lg:w-56 lg:border-r lg:border-b-0">
         <div className="flex items-center gap-2 px-4 py-4">
-          <span aria-hidden className="text-xl text-brand-400">
-            🍴
-          </span>
-          <p className="text-lg font-bold text-brand-400">ร้านอาหาร</p>
+          <p className="min-w-0 text-lg leading-tight font-bold text-balance text-brand-500">{RESTAURANT_NAME}</p>
           {/* จอเล็ก: แถบเมนูเลื่อนแนวนอน ปุ่มท้ายแถวจะหลุดจอ — วางปุ่มกลับไว้แถวชื่อร้านให้เห็นตลอด */}
           {user && (
             <Link
@@ -138,7 +137,7 @@ export function OwnerLayout() {
           <button
             type="button"
             onClick={handleSignOut}
-            className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-brand-500/80 transition hover:bg-white/50 lg:hidden"
+            className={`flex lg:hidden ${navItemClass}`}
           >
             <IconLogout />
             <span>Logout</span>
@@ -147,14 +146,14 @@ export function OwnerLayout() {
 
         <div className="hidden px-3 pb-4 lg:block">
           {user && (
-            <p className="px-3 pb-2 text-xs text-brand-500/70">
+            <p className="px-3 pb-2 text-xs text-brand-500">
               {user.name} · {user.role}
             </p>
           )}
           <button
             type="button"
             onClick={handleSignOut}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-brand-500/80 transition hover:bg-white/50"
+            className={`flex w-full ${navItemClass}`}
           >
             <IconLogout />
             <span>Logout</span>

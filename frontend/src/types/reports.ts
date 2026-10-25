@@ -74,3 +74,24 @@ export interface FinanceData {
   summary: FinanceSummary
   transactions: Transaction[]
 }
+
+/** ช่วงที่ดูบน Dashboard นอกจาก "วันนี้" */
+export type DashboardPeriodDays = 7 | 30
+
+/** สรุปหลายวันบน Dashboard (7 / 30 วันล่าสุด รวมวันนี้) */
+export interface PeriodData {
+  days: DashboardPeriodDays
+  /** วันแรก / วันสุดท้ายของช่วง (YYYY-MM-DD ตามเวลาเครื่อง) */
+  from: string
+  to: string
+  revenue: number
+  expenseTotal: number
+  netProfit: number
+  cashTotal: number
+  promptPayTotal: number
+  cashCount: number
+  promptPayCount: number
+  paymentCount: number
+  /** รายรับรายวัน ครบทุกวันในช่วง (วันที่ไม่มีบิล = 0) */
+  trend: RevenuePoint[]
+}

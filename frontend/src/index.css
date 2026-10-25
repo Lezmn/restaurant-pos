@@ -23,6 +23,12 @@
   --color-minus: #f44336;
   --color-plus: #4caf50;
 
+  /* ---- เส้นแบ่ง / กริดกราฟ (DESIGN.md › Hairline / Rule) ----
+     ค่าเดียวกับ gray-200 / gray-300 — เดิม DESIGN.md มี token นี้แต่ไม่ได้ประกาศ
+     กราฟที่อ้าง var(--color-line) เลยไม่มีเส้นกริด */
+  --color-line: oklch(92.8% 0.006 264.531);
+  --color-line-strong: oklch(87.2% 0.01 258.338);
+
   /* ---- ฟอร์ม ---- */
   --color-field: #fafafa;
   --color-field-text: #1c1b1f;
@@ -38,12 +44,21 @@
   /* ---- การ์ดสถิติ ฝั่งเจ้าของร้าน ---- */
   /* NOTE: olive ยังไม่ได้ยืนยันกับ Figma (โควตา MCP หมด) — คาดจากภาพหน้าจอ */
   --color-accent-olive: #b3b300;
+  /* olive ปกติได้แค่ 2.2:1 บนขาว ใช้เป็นขอบเท่านั้น ตัวเลขบนการ์ดใช้ ink (5.6:1) */
+  --color-accent-olive-ink: #6b6b00;
 
   /* ---- สีบอกสถานะ ---- */
   --color-status-queue: #e05c5c;
   --color-status-cooking: #b36419;
   --color-status-done: #8080e0;
+  /* สีสถานะเวอร์ชันเข้ม สำหรับพื้นปุ่มที่มีตัวขาว / ตัวหนังสือบนพื้นอ่อน
+     สีสถานะปกติได้แค่ 3.5–4.4:1 กับตัวขาว ไม่ผ่าน AA (ink ได้ 5.5–5.9:1) */
+  --color-status-queue-ink: #b23b3b;
+  --color-status-cooking-ink: #9c5715;
+  --color-status-done-ink: #5b5bc4;
   --color-success: #3aa76d;
+  /* เขียวเข้มสำหรับตัวหนังสือ — success ปกติได้แค่ 3:1 บนขาว (ink ได้ 5.4:1) */
+  --color-success-ink: #23794b;
   --color-danger: #d64545;
   /* แดงเข้มสำหรับตัวหนังสือ/พื้นปุ่มที่มีตัวขาว — danger ปกติได้แค่ 4.4:1 บนขาว ไม่ผ่าน AA */
   --color-danger-ink: #b42c2c;
