@@ -2,7 +2,7 @@ import chefImage from '@/assets/login-chef.webp'
 import { useLogin } from '@/features/auth/hooks'
 import { useAuth } from '@/features/auth/use-auth'
 import { RESTAURANT_NAME } from '@/lib/config'
-import type { Role } from '@/types/enums'
+import { Role } from '@/types/enums'
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 
@@ -47,8 +47,11 @@ export function LoginPage({
   const [password, setPassword] = useState('')
   const [denied, setDenied] = useState(false)
 
+  // เจ้าของร้าน (ADMIN) เข้า Dashboard ก่อน — หน้าพนักงานยังเข้าได้จากปุ่มในหน้า Dashboard
+  const homeFor = (role: Role) => (role === Role.ADMIN ? '/owner' : redirectTo)
+
   if (user && (!allowedRoles || allowedRoles.includes(user.role))) {
-    return <Navigate to={redirectTo} replace />
+    return <Navigate to={homeFor(user.role)} replace />
   }
 
   return (
@@ -68,7 +71,7 @@ export function LoginPage({
                     setDenied(true)
                     return
                   }
-                  navigate(redirectTo)
+                  navigate(homeFor(data.user.role))
                 },
               },
             )
