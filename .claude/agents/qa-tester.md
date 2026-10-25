@@ -17,7 +17,7 @@ maxTurns: 150
 
 - `backend/` — NestJS 10 + Prisma 5 + PostgreSQL + Socket.IO, module อยู่ใน `backend/src/<module>/` (auth, orders, payments, table-sessions, tables, menu, categories, ingredients, cash-closes, expenses, reports, service-requests, slipok, public, users, events)
 - `frontend/` — React 19 + Vite 8 + TanStack Query + zustand, หน้าอยู่ใน `frontend/src/pages/{customer,employee,owner}`, logic ใน `frontend/src/features/*` และ `frontend/src/lib/*`
-- E2E Playwright อยู่ที่ `frontend/test/` (admin, cashier, kitchen, login) helper ที่ `frontend/test/helpers.ts` — ยิง API `localhost:3000` และเว็บ `localhost:5173` ตรง ๆ และ**สร้างข้อมูลจริง**
+- E2E Playwright อยู่ที่ `frontend/test/e2e/` (admin, api, cashier, customer, kitchen, login, owner) helper ที่ `frontend/test/e2e/helpers.ts` — ยิง API `localhost:3000` และเว็บ `localhost:5173` ตรง ๆ และ**สร้างข้อมูลจริง**
 - Guard เป็น global: ทุก endpoint ต้องมี JWT ยกเว้นที่ติด `@Public()` (`auth/login` และ `public/*`), สิทธิ์ตาม `@Roles(...)`
 - บัญชี seed: `admin@` / `staff@` / `kitchen@restaurant.local` รหัสผ่านอยู่ใน `seedPassword` ของ `backend/prisma/seed.ts` (อย่าพิมพ์รหัสผ่านลงในรายงาน)
 - QR session demo จาก seed: `/t/demo-table-4-ready-session` (โต๊ะ 4 พร้อมจ่าย), `/t/demo-table-1-paid-session` (ปิดแล้ว) และ token โต๊ะ 2 ที่ seed พิมพ์ออกมา
@@ -54,7 +54,7 @@ DB dev ของผู้ใช้อยู่ใน docker volume `restaurant-a
 ### 2. Unit tests
 ตอนนี้ repo **ยังไม่มี unit test framework** ถ้ายังไม่มีให้ติดตั้งแบบมาตรฐานของแต่ละฝั่ง (เป็น devDependencies เท่านั้น) และเพิ่ม script `test`:
 - **backend**: Jest + ts-jest + `@nestjs/testing` (แบบที่ Nest CLI generate) ไฟล์ `*.spec.ts` ข้าง service — mock `PrismaService` อย่าต่อ DB จริงในชั้นนี้
-- **frontend**: Vitest + `@testing-library/react` + `@testing-library/user-event` + `jsdom` ตั้งค่าใน `vite.config.ts` หรือ `vitest.config.ts` ไฟล์ `*.test.ts(x)` ข้างโค้ด — ตั้ง `include` ให้ไม่ไปกิน `frontend/test/` ของ Playwright
+- **frontend**: Vitest + `@testing-library/react` + `@testing-library/user-event` + `jsdom` ตั้งค่าใน `vite.config.ts` หรือ `vitest.config.ts` ไฟล์ `*.test.ts(x)` อยู่ที่ `frontend/test/unit/` (lib, pages, components, features) import โค้ดผ่าน `@/...`
 
 ลำดับความสำคัญของสิ่งที่ควรมี unit test (เงิน/สถานะสำคัญสุด):
 1. การคำนวณเงิน: ยอดบิล, option ราคา, ส่วนลด/ปัดเศษ, เงินทอน, ปิดลิ้นชัก (`cash-closes`), รายงาน (`reports`), `common/date-range.util.ts` (ขอบวัน/เดือนเวลาไทย)
@@ -65,7 +65,7 @@ DB dev ของผู้ใช้อยู่ใน docker volume `restaurant-a
 เขียนเทสต์ตามพฤติกรรมที่ควรเป็น ไม่ใช่ลอกโค้ดปัจจุบัน — ถ้าเทสต์ตกเพราะโค้ดผิด ปล่อยให้ตกแล้วรายงานเป็นบั๊ก อย่าแก้ assertion ให้ตรงกับบั๊ก
 
 ### 3. API / integration (กับ `restaurant_test`)
-ยิง API จริงด้วย Playwright `request` (เพิ่มเป็น spec ใน `frontend/test/api/`) หรือ Jest e2e ฝั่ง backend ครอบคลุม:
+ยิง API จริงด้วย Playwright `request` (เพิ่มเป็น spec ใน `frontend/test/e2e/api/`) หรือ Jest e2e ฝั่ง backend ครอบคลุม:
 - ทุก endpoint ที่ต้อง login: ไม่มี token → 401, role ผิด → 403 (เช่น STAFF เรียก users/expenses/reports, KITCHEN เรียก payments)
 - validation: body ผิด type/ขาด field/ตัวเลขติดลบ → 400 ไม่ใช่ 500
 - `public/*` ด้วย QR token: token ผิด/ปิดแล้ว ต้องสั่งอาหารไม่ได้, token โต๊ะหนึ่งต้องเห็นข้อมูลโต๊ะอื่นไม่ได้
@@ -75,7 +75,7 @@ DB dev ของผู้ใช้อยู่ใน docker volume `restaurant-a
 - รันชุดที่มี: `cd frontend && npx playwright test --workers=1 --reporter=list` (แบบ background — config ตั้ง `slowMo: 1000` จึงช้า) ห้ามใช้ `--headed`
 - เทสต์ตก ให้ดู trace/screenshot ใน `frontend/test-results/` แยกให้ได้ว่า (ก) บั๊กจริง (ข) selector เก่าเพราะ UI เปลี่ยน (ค) ข้อมูล/สภาพแวดล้อม — แก้ได้เฉพาะ (ข) และ (ค) ในไฟล์เทสต์
 - เพิ่ม spec ที่ขาด อย่างน้อย flow เหล่านี้ถ้ายังไม่มี: ลูกค้าสแกน QR → ดูเมนู → เลือก option → ตะกร้า → สั่ง → ดูสถานะ / เรียกพนักงาน / ขอบิล, ครัวรับออเดอร์และปิดวัตถุดิบ (เมนูต้องหายฝั่งลูกค้า), STAFF รับเงินสด/PromptPay (mock slip) และพิมพ์ใบเสร็จ, ปิดลิ้นชัก, owner dashboard/finance ตัวเลขตรงกับออเดอร์ที่เพิ่งจ่าย
-- ใช้ helper ใน `frontend/test/helpers.ts` และ selector แบบ role/label ภาษาไทยตามสไตล์ไฟล์เดิม
+- ใช้ helper ใน `frontend/test/e2e/helpers.ts` และ selector แบบ role/label ภาษาไทยตามสไตล์ไฟล์เดิม
 
 ### 5. ทดสอบแบบผู้ใช้จริง (exploratory)
 ใช้ built-in browser (`mcp__Claude_Browser__*`) ถ้ามี — ถ้าไม่มีให้เขียน Playwright script ชั่วคราวใน scratchpad ที่เดินตาม flow และถ่าย screenshot แทน

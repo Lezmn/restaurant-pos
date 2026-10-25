@@ -1,0 +1,48 @@
+import { test, expect } from '@playwright/test'
+import { loginAsCashier, pickFreeTable, tablesPageCard } from '../helpers'
+
+// ⚠️ ยิง backend จริง — เปิดโต๊ะ 1 โต๊ะและสร้างออเดอร์ค้างไว้ 1 ใบ (DB ทดสอบเท่านั้น)
+
+// ทดสอบ: พนักงานรับออเดอร์แทนลูกค้าแล้วเผลอกดส่งสองครั้งติด ต้องได้ออเดอร์เดียว ไม่คิดเงินซ้ำ
+// วิธี: cashier เปิดโต๊ะว่าง → กดรับออเดอร์แทนลูกค้า เพิ่มน้ำเปล่า → ดักนับ response POST /orders ที่ได้ 201 → ดับเบิลคลิกปุ่มส่งเข้าครัว → รอ 1.5 วินาที แล้วเช็กว่านับได้ 1
+test('STAFF กด "ส่งเข้าครัว" สองครั้งติด (double-click) ต้องได้ออเดอร์เดียว ไม่คิดเงินซ้ำ', async ({
+  page,
+  request,
+}) => {
+  await loginAsCashier(page, request)
+  await page.goto('/employee/tables')
+
+  // สุ่มโต๊ะว่างแล้วอ้างด้วยชื่อ — .first() ประเมินใหม่ทุกครั้ง เทสอื่นเปิดโต๊ะนั้นไปก่อนจะกดผิดโต๊ะ
+  const tableCardText = await pickFreeTable(page)
+  const availableTable = tablesPageCard(page, tableCardText)
+
+  await availableTable.getByRole('button', { name: 'เปิดโต๊ะ/สร้าง QR' }).click()
+  const qrDialog = page.getByRole('dialog', { name: /^QR โต๊ะ/ })
+  await expect(qrDialog).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(qrDialog).toHaveCount(0)
+
+  await tablesPageCard(page, tableCardText)
+    .getByRole('button', { name: 'รับออเดอร์แทนลูกค้า' })
+    .click()
+  const orderDialog = page.getByRole('dialog')
+  await orderDialog
+    .getByRole('listitem')
+    .filter({ hasText: /น้ำเปล่า/ })
+    .first()
+    .getByRole('button', { name: '+ เพิ่ม' })
+    .click()
+
+  // นับ POST /orders ที่สำเร็จจริง แทนการไปนับในหน้า Check
+  let created = 0
+  page.on('response', (res) => {
+    if (res.url().endsWith('/orders') && res.request().method() === 'POST' && res.status() === 201) {
+      created++
+    }
+  })
+
+  await orderDialog.getByRole('button', { name: 'ส่งเข้าครัว' }).dblclick()
+  await expect(orderDialog).not.toBeVisible()
+  await page.waitForTimeout(1500)
+  expect(created).toBe(1)
+})
