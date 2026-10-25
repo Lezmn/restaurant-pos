@@ -136,8 +136,6 @@ export const router = createBrowserRouter([
     path: '/login',
     element: s(
       <LoginPage
-        title="เข้าสู่ระบบ"
-        subtitle="ร้านอาหาร"
         redirectTo="/employee"
         hint="admin (ADMIN) · staff (STAFF) · kitchen (KITCHEN)"
       />,

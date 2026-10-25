@@ -1,5 +1,7 @@
+import chefImage from '@/assets/login-chef.webp'
 import { useLogin } from '@/features/auth/hooks'
 import { useAuth } from '@/features/auth/use-auth'
+import { RESTAURANT_NAME } from '@/lib/config'
 import type { Role } from '@/types/enums'
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
@@ -8,20 +10,29 @@ import { Navigate, useNavigate } from 'react-router-dom'
 const SHOW_DEMO_LOGIN =
   import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_LOGIN === 'true'
 
+/** ช่องกรอกตามดีไซน์ Desktop-1 — ขอบเทาเข้ม มุมโค้งมาก */
+const inputClass =
+  'mt-2 w-full rounded-xl border border-gray-500 bg-white px-4 py-2.5 text-sm text-black outline-none transition placeholder:text-gray-400 focus:border-brand-400 focus:ring-2 focus:ring-brand-75'
+
+/** ส้อม-มีดสีน้ำตาลหน้าชื่อร้าน */
+function IconCutlery() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="h-6 w-6 shrink-0">
+      <path d="M6 2a.75.75 0 0 1 .75.75V7h.75V2.75a.75.75 0 0 1 1.5 0V7h.75V2.75a.75.75 0 0 1 1.5 0V8a3 3 0 0 1-2.25 2.9V21a1 1 0 1 1-2 0V10.9A3 3 0 0 1 5.25 8V2.75A.75.75 0 0 1 6 2z" />
+      <path d="M17 2c-2 1.2-3 3.6-3 7v4h2v8a1 1 0 1 0 2 0V2.8A.8.8 0 0 0 17 2z" />
+    </svg>
+  )
+}
+
 /**
- * ใช้ร่วมกันทั้งหน้า login ของพนักงานและของเจ้าของร้าน
- * ดีไซน์แยกไว้เป็น 2 หน้า (Desktop-9 กับ Desktop-16) แต่หน้าตาเหมือนกัน
- * ต่างแค่ข้อความ ปลายทางหลัง login และ role ที่อนุญาต
+ * หน้า login เดียวใช้ได้ทุก role ตามดีไซน์ Desktop-1:
+ * ฟอร์มชิดซ้าย ภาพเชฟเต็มความสูงทางขวา (ซ่อนบนจอเล็ก ให้ฟอร์มเต็มจอ)
  */
 export function LoginPage({
-  title,
-  subtitle,
   redirectTo,
   allowedRoles,
   hint,
 }: Readonly<{
-  title: string
-  subtitle: string
   redirectTo: string
   /** ถ้าระบุ แล้ว role ไม่ตรง จะไม่ให้เข้าและเด้งออกทันที */
   allowedRoles?: Role[]
@@ -41,92 +52,99 @@ export function LoginPage({
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-brand-50 p-4">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          setDenied(false)
-          login.mutate(
-            { username, password },
-            {
-              onSuccess: (data) => {
-                if (allowedRoles && !allowedRoles.includes(data.user.role)) {
-                  // login ถูกต้องแต่ไม่ใช่บัญชีของหน้านี้ — ออกให้เลย ไม่ค้าง session ไว้
-                  signOut()
-                  setDenied(true)
-                  return
-                }
-                navigate(redirectTo)
+    <div className="relative flex min-h-dvh overflow-hidden bg-white">
+      <div className="relative z-10 flex flex-1 items-center justify-center px-6 py-10 md:justify-start md:pl-[12%]">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            setDenied(false)
+            login.mutate(
+              { username, password },
+              {
+                onSuccess: (data) => {
+                  if (allowedRoles && !allowedRoles.includes(data.user.role)) {
+                    // login ถูกต้องแต่ไม่ใช่บัญชีของหน้านี้ — ออกให้เลย ไม่ค้าง session ไว้
+                    signOut()
+                    setDenied(true)
+                    return
+                  }
+                  navigate(redirectTo)
+                },
               },
-            },
-          )
-        }}
-        className="w-full max-w-sm rounded-xl border-2 border-brand-75 bg-white p-6 shadow-sm"
-      >
-        <div className="mb-6 flex items-center gap-2">
-          <span aria-hidden className="text-2xl text-brand-400">
-            🍴
-          </span>
-          <div>
-            <h1 className="text-xl font-bold text-brand-400">{title}</h1>
-            <p className="text-sm text-gray-500">{subtitle}</p>
-          </div>
-        </div>
-
-        <label className="block text-sm font-semibold text-gray-700">
-          <span>ผู้ใช้</span>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoComplete="username"
-            autoCapitalize="none"
-            spellCheck={false}
-            required
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-300"
-          />
-        </label>
-
-        <label className="mt-4 block text-sm font-semibold text-gray-700">
-          <span>รหัสผ่าน</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-300"
-          />
-        </label>
-
-        {login.isError && (
-          <p role="alert" className="mt-3 text-sm font-semibold text-danger">
-            {login.error.message}
-          </p>
-        )}
-
-        {denied && (
-          <p role="alert" className="mt-3 text-sm font-semibold text-danger">
-            บัญชีนี้ไม่มีสิทธิ์เข้าหน้านี้
-          </p>
-        )}
-
-        <button
-          type="submit"
-          disabled={login.isPending}
-          className="mt-6 w-full rounded-lg bg-brand-300 py-2.5 text-sm font-bold text-white transition hover:bg-brand-400 disabled:opacity-50"
+            )
+          }}
+          className="w-full max-w-xs"
         >
-          {login.isPending ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
-        </button>
+          <h1 className="mb-6 flex items-center gap-2 text-xl font-bold text-brand-400">
+            <IconCutlery />
+            {RESTAURANT_NAME}
+          </h1>
 
-        {/* รหัสผ่านตัวอย่างจาก seed — โชว์เฉพาะตอน dev (หรือเปิดเองตอนเดโม) ห้ามติดไปกับ build จริง */}
-        {SHOW_DEMO_LOGIN && (
-          <p className="mt-4 rounded-lg bg-brand-50 p-3 text-xs text-gray-600">
-            บัญชีตัวอย่างจาก seed — รหัสผ่าน <b>ChangeMe123!</b>
-            <br />
-            {hint}
-          </p>
-        )}
-      </form>
+          <label className="block text-base font-bold text-black">
+            <span>Username</span>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="username *"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              required
+              className={inputClass}
+            />
+          </label>
+
+          <label className="mt-5 block text-base font-bold text-black">
+            <span>Password</span>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="password *"
+              autoComplete="current-password"
+              className={inputClass}
+            />
+          </label>
+
+          {login.isError && (
+            <p role="alert" className="mt-3 text-sm font-semibold text-danger">
+              {login.error.message}
+            </p>
+          )}
+
+          {denied && (
+            <p role="alert" className="mt-3 text-sm font-semibold text-danger">
+              บัญชีนี้ไม่มีสิทธิ์เข้าหน้านี้
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={login.isPending}
+            className="mt-6 w-full rounded-lg border border-brand-400 bg-brand-100 py-2.5 text-sm font-bold text-black shadow-[0_3px_6px_rgba(0,0,0,0.2)] transition hover:bg-brand-200 disabled:opacity-50"
+          >
+            {login.isPending ? 'กำลังเข้าสู่ระบบ...' : 'Login'}
+          </button>
+
+          {/* รหัสผ่านตัวอย่างจาก seed — โชว์เฉพาะตอน dev (หรือเปิดเองตอนเดโม) ห้ามติดไปกับ build จริง */}
+          {SHOW_DEMO_LOGIN && (
+            <p className="mt-6 rounded-lg bg-brand-50 p-3 text-xs text-gray-600">
+              บัญชีตัวอย่างจาก seed — รหัสผ่าน <b>ChangeMe123!</b>
+              <br />
+              {hint}
+            </p>
+          )}
+        </form>
+      </div>
+
+      {/* ภาพประกอบเป็นของตกแต่ง — ชิดขวาล่าง สูงเต็มจอ */}
+      <img
+        src={chefImage}
+        alt=""
+        aria-hidden
+        className="pointer-events-none hidden h-dvh w-auto max-w-[55%] shrink-0 self-end object-contain object-right-bottom md:block"
+      />
     </div>
   )
 }
