@@ -11,6 +11,8 @@ import {
 import { ApiBearerAuth, ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Audit } from '../audit/audit.decorator';
+import { loadMenuItem } from '../audit/audit-loaders';
 import { MenuService } from './menu.service';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
@@ -69,6 +71,10 @@ export class MenuController {
 
   @Patch(':id')
   @Roles(Role.ADMIN)
+  @Audit('MENU_UPDATE', {
+    before: loadMenuItem,
+    details: ({ before, body }) => ({ before, changes: body }),
+  })
   @ApiOperation({ summary: 'แก้ไขเมนู' })
   update(@Param('id') id: string, @Body() dto: UpdateMenuItemDto) {
     return this.menuService.update(id, dto);
@@ -76,6 +82,7 @@ export class MenuController {
 
   @Delete(':id')
   @Roles(Role.ADMIN)
+  @Audit('MENU_DELETE', { before: loadMenuItem, details: ({ before }) => before as Record<string, unknown> })
   @ApiOperation({ summary: 'ลบเมนู' })
   remove(@Param('id') id: string) {
     return this.menuService.remove(id);

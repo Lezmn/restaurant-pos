@@ -3,6 +3,8 @@ import { LoadError } from '@/components/ui/LoadError'
 import { Modal } from '@/components/ui/Modal'
 import { Pagination } from '@/components/ui/Pagination'
 import { button, field, fieldLabel } from '@/components/ui/styles'
+import { useAuth } from '@/features/auth/use-auth'
+import { useCashClosePreview } from '@/features/cash-closes/hooks'
 import {
   usePayment,
   useTodayPayments,
@@ -10,11 +12,11 @@ import {
 } from '@/features/payments/hooks'
 import { formatBaht, formatTime } from '@/lib/format'
 import { usePagination } from '@/lib/use-pagination'
-import { PaymentMethod, PaymentStatus } from '@/types/enums'
+import { PaymentMethod, PaymentStatus, Role } from '@/types/enums'
 import type { Id, Payment } from '@/types/models'
 import { ReceiptDialog } from './ReceiptDialog'
 import { SlipBadge } from './SlipBadge'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 const methodLabel: Record<string, string> = {
   [PaymentMethod.CASH]: 'เงินสด',
@@ -27,6 +29,19 @@ const methodColor: Record<string, string> = {
   [PaymentMethod.PROMPTPAY]: 'text-black',
 }
 
+/** พนักงานยกเลิกบิลได้ภายใน 1 ชม. หลังรับเงิน — ค่าเดียวกับ backend (STAFF_VOID_WINDOW_MS) */
+const STAFF_VOID_WINDOW_MS = 60 * 60 * 1000
+
+/** เวลาปัจจุบันที่ขยับทุก 30 วิ — ปุ่มยกเลิกบิลจะปิดเองเมื่อเลย 1 ชม. โดยไม่ต้องรีเฟรช */
+function useNow(intervalMs = 30_000) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), intervalMs)
+    return () => clearInterval(id)
+  }, [intervalMs])
+  return now
+}
+
 const isToday = (iso: string) =>
   new Date(iso).toDateString() === new Date().toDateString()
 
@@ -37,6 +52,21 @@ const isToday = (iso: string) =>
 export function PaidBills() {
   const { data: payments, isPending, isError, error, refetch } = useTodayPayments()
   const voidPayment = useVoidPayment()
+  const isAdmin = useAuth((s) => s.user?.role === Role.ADMIN)
+  // ปิดยอดวันนี้แล้ว = ยกเลิกบิลไม่ได้ (ยอดลิ้นชักที่นับไว้จะเพี้ยน) — backend กันไว้อีกชั้น
+  const dayClosed = Boolean(useCashClosePreview().data?.alreadyClosed)
+  const now = useNow()
+
+  /** เหตุผลที่ยกเลิกบิลนี้ไม่ได้ — null = ยกเลิกได้ */
+  const voidBlockedReason = (p: Payment) => {
+    if (dayClosed) {
+      return isAdmin ? 'ปิดยอดวันนี้แล้ว ลบการปิดยอดก่อน' : 'ปิดยอดแล้ว ให้เจ้าของร้านยกเลิก'
+    }
+    if (!isAdmin && now - Date.parse(p.paidAt) > STAFF_VOID_WINDOW_MS) {
+      return 'เกิน 1 ชม. ให้เจ้าของร้านยกเลิก'
+    }
+    return null
+  }
 
   const [viewId, setViewId] = useState<Id | null>(null)
   const [voidTarget, setVoidTarget] = useState<Payment | null>(null)
@@ -100,6 +130,7 @@ export function PaidBills() {
 
             {paged.pageItems.map((p) => {
               const voided = p.status === PaymentStatus.VOIDED
+              const blocked = voided ? null : voidBlockedReason(p)
               return (
                 <tr
                   key={p.id}
@@ -115,6 +146,11 @@ export function PaidBills() {
                   </td>
                   <td className="px-4 py-3 tabular-nums">
                     {p.receipt?.number ?? '-'}
+                    {p.receipt?.splitParts && (
+                      <span className="block text-sm font-semibold text-brand-500">
+                        หาร {p.receipt.splitParts} คน · ส่วนที่ {p.receipt.splitPart}
+                      </span>
+                    )}
                     {/* หมายเหตุตอนรับเงิน เก็บใน DB แล้ว เปิดดูย้อนหลังได้ */}
                     {p.note && (
                       <span
@@ -171,11 +207,21 @@ export function PaidBills() {
                         <button
                           type="button"
                           onClick={() => setVoidTarget(p)}
+                          disabled={Boolean(blocked)}
+                          aria-describedby={blocked ? `void-blocked-${p.id}` : undefined}
                           className={button('danger-outline', 'sm')}
                         >
                           ยกเลิกบิล
                         </button>
                       </div>
+                    )}
+                    {blocked && (
+                      <span
+                        id={`void-blocked-${p.id}`}
+                        className="mt-1 block text-right text-sm text-gray-600"
+                      >
+                        {blocked}
+                      </span>
                     )}
                   </td>
                 </tr>

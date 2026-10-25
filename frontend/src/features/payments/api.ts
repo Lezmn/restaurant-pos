@@ -15,8 +15,12 @@ export async function createPayment(vars: {
   method: PaymentMethod
   /** ยอดบิลที่หน้าจอแสดงอยู่ (ก่อนส่วนลด) — backend ตอบ 409 ถ้ายอดจริงเปลี่ยนไประหว่างเปิดหน้ารับเงิน */
   expectedTotal: number
-  /** ยอดที่เก็บจริง — ไม่ส่ง = เต็มบิล ส่วนต่างบันทึกเป็นส่วนลดในใบเสร็จ */
-  amount?: number
+  /** ส่วนลดเป็น % (จำนวนเต็ม 1-100) — ไม่ส่ง = ไม่ลด backend คิดยอดส่วนลดเอง */
+  discountPercent?: number
+  /** แยกบิลตามรายการ: จ่ายเฉพาะรายการ/จำนวนที่เลือก */
+  items?: { orderItemId: Id; quantity: number }[]
+  /** หารเท่ากัน N คน — เรียกครั้งละคน backend คิดส่วนของคนถัดไปเอง */
+  splitParts?: number
   /** POST /payments ไม่ได้ส่ง tableSession กลับมา จึงต้องส่งชื่อโต๊ะมาเติมในใบเสร็จเอง */
   tableName: string
   /** หมายเหตุตอนรับเงิน — backend เก็บลง payment + receipt */
@@ -32,7 +36,9 @@ export async function createPayment(vars: {
       tableSessionId: vars.tableSessionId,
       method: vars.method,
       expectedTotal: vars.expectedTotal,
-      ...(vars.amount === undefined ? {} : { amount: vars.amount }),
+      ...(vars.discountPercent ? { discountPercent: vars.discountPercent } : {}),
+      ...(vars.items?.length ? { items: vars.items } : {}),
+      ...(vars.splitParts ? { splitParts: vars.splitParts } : {}),
       ...(vars.note ? { note: vars.note } : {}),
       ...(vars.slipPayload ? { slipPayload: vars.slipPayload } : {}),
       ...(vars.slipOverrideReason ? { slipOverrideReason: vars.slipOverrideReason } : {}),

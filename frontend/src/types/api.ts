@@ -137,6 +137,22 @@ export interface ApiTableSession {
   total?: number
   billingStatus?: string
   checkoutRequest?: ApiServiceRequest | null
+  /** หารเท่ากันที่ยังจ่ายไม่ครบ (null = ไม่ได้หาร) */
+  split?: ApiSessionSplit | null
+}
+
+export interface ApiSessionSplit {
+  id: string
+  parts: number
+  paidParts: number
+  /** ยอดก่อนส่วนลดของชุดออเดอร์ที่หาร — ส่งเป็น expectedTotal ตอนรับเงินคนถัดไป */
+  subtotal: number
+  discountPercent: number | null
+  discount: number
+  total: number
+  paidAmount: number
+  remaining: number
+  nextAmount: number
 }
 
 export interface ApiServiceRequest {
@@ -166,6 +182,11 @@ export interface ApiReceipt {
   number: string
   subtotal: number
   discount: number
+  /** % ที่ลด — null = ไม่ลด หรือบิลเก่าที่ลดเป็นบาท */
+  discountPercent?: number | null
+  /** หารเท่ากัน: ใบนี้คือส่วนที่เท่าไหร่จากกี่คน */
+  splitPart?: number | null
+  splitParts?: number | null
   total: number
   issuedAt: string
   tableId: string

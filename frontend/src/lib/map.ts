@@ -159,6 +159,7 @@ export const mapSession = (s: ApiTableSession): TableSession => ({
   openedAt: s.openedAt,
   closedAt: s.closedAt,
   total: s.total ?? 0,
+  split: s.split ?? null,
 })
 
 export const mapServiceRequest = (r: ApiServiceRequest): ServiceRequest => ({
@@ -181,6 +182,9 @@ export const mapReceipt = (
   number: r.number,
   subtotal: r.subtotal,
   discount: r.discount,
+  discountPercent: r.discountPercent ?? null,
+  splitPart: r.splitPart ?? null,
+  splitParts: r.splitParts ?? null,
   total: r.total,
   issuedAt: r.issuedAt,
   tableName: tableNameText,

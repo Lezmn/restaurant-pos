@@ -1,4 +1,5 @@
 import { authStorage } from './auth-storage'
+import { deviceHeaders } from './device'
 
 // fetch wrapper ตัวเดียวของทั้งแอป — features/*/api.ts ต้องเรียกผ่านตัวนี้เสมอ
 // ตั้ง URL ของ API ผ่าน VITE_API_URL ใน .env
@@ -38,7 +39,8 @@ export async function apiClient<T>(
     headers: {
       // อัปโหลดไฟล์ (FormData) ให้ browser ใส่ multipart + boundary เอง — ใส่ JSON ทับ backend จะอ่านไฟล์ไม่ได้
       ...(init.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      // พนักงานแนบชื่อเครื่องไปด้วย — ประวัติการทำรายการบอกได้ว่าทำจากเครื่องไหน (บัญชีใช้ร่วมกัน)
+      ...(token ? { Authorization: `Bearer ${token}`, ...deviceHeaders() } : {}),
       ...init.headers,
     },
   })

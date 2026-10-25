@@ -1,4 +1,5 @@
 import { CallStaffAlert } from '@/components/CallStaffAlert'
+import { DeviceNameButton } from '@/components/layout/DeviceNameButton'
 import { Toaster } from '@/components/ui/Toaster'
 import { pageRoles } from '@/features/auth/permissions'
 import { useAuth } from '@/features/auth/use-auth'
@@ -152,14 +153,15 @@ export function EmployeeLayout() {
           </div>
         </div>
 
-        <p className="mt-3 text-right text-base font-bold text-black sm:text-xl">
+        <div className="mt-3 text-right text-base font-bold text-black sm:text-xl">
           จำนวนโต๊ะที่ว่าง {tables ? available : '—'} โต๊ะ
           {user && (
             <span className="ml-3 text-sm font-normal text-gray-600">
               ({user.name} · {user.role})
             </span>
           )}
-        </p>
+          {user && <DeviceNameButton />}
+        </div>
       </header>
 
       <main className="flex-1 px-4 pt-4 pb-28 sm:px-8">

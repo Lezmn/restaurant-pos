@@ -107,6 +107,9 @@ const CashClosesPage = lazy(() =>
 const UsersPage = lazy(() =>
   import('@/pages/owner/UsersPage').then((m) => ({ default: m.UsersPage })),
 )
+const AuditLogPage = lazy(() =>
+  import('@/pages/owner/AuditLogPage').then((m) => ({ default: m.AuditLogPage })),
+)
 
 /** ครอบ Suspense ให้ทุก element ที่โหลดแบบ lazy กันจอว่างระหว่างดึงไฟล์ */
 const s = (node: ReactNode) => (
@@ -207,6 +210,7 @@ export const router = createBrowserRouter([
             element: <ProtectedRoute roles={pageRoles.users} fallbackPath="/owner" />,
             children: [{ path: 'users', element: s(<UsersPage />) }],
           },
+          { path: 'audit', element: s(<AuditLogPage />) },
         ],
       },
     ],

@@ -66,6 +66,16 @@ function makePrisma() {
     },
     restaurantTable: { update: jest.fn() },
     serviceRequest: { updateMany: jest.fn() },
+    dailyCashClose: { findUnique: jest.fn().mockResolvedValue(null) },
+    billSplit: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue(null),
+      findUnique: jest.fn().mockResolvedValue(null),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+    orderItem: { findMany: jest.fn(), updateMany: jest.fn(), create: jest.fn() },
     $executeRaw: jest.fn(),
   };
   prisma.$transaction = jest.fn((fn: (tx: unknown) => unknown) => fn(prisma));
@@ -146,26 +156,54 @@ describe('PaymentsService', () => {
       expect(result.amount.toString()).toBe('0.3');
     });
 
-    it('ส่วนลด: เก็บน้อยกว่ายอดบิล → ส่วนต่างเป็น discount ในใบเสร็จ', async () => {
+    it('ส่วนลด 10%: ลดจากยอดบิล ปัดเป็นสตางค์ และเก็บ % ไว้ในใบเสร็จ', async () => {
       prisma.order.findMany.mockResolvedValue(servedSessionOrders());
       prisma.order.updateMany.mockResolvedValue({ count: 2 });
       prisma.order.count.mockResolvedValue(0);
       const result: any = await service.create(
-        { tableSessionId: 'sess-1', method: PaymentMethod.CASH, amount: 200 },
+        { tableSessionId: 'sess-1', method: PaymentMethod.CASH, discountPercent: 10 },
         staff,
       );
       expect(Number(result.receipt.subtotal)).toBe(235.5);
-      expect(Number(result.receipt.discount)).toBe(35.5);
-      expect(Number(result.receipt.total)).toBe(200);
-      expect(Number(result.amount)).toBe(200);
+      expect(Number(result.receipt.discount)).toBe(23.55);
+      expect(result.receipt.discountPercent).toBe(10);
+      expect(Number(result.receipt.total)).toBe(211.95);
+      expect(Number(result.amount)).toBe(211.95);
     });
 
-    it('เก็บเกินยอดบิล → 400 (เงินทอนไม่ใช่รายได้)', async () => {
+    it('ส่วนลด %: เศษสตางค์ปัดครึ่งขึ้น (235.50 × 15% = 35.325 → 35.33)', async () => {
       prisma.order.findMany.mockResolvedValue(servedSessionOrders());
-      await expect(
-        service.create({ tableSessionId: 'sess-1', method: PaymentMethod.CASH, amount: 300 }, staff),
-      ).rejects.toBeInstanceOf(BadRequestException);
-      expect(prisma.payment.create).not.toHaveBeenCalled();
+      prisma.order.updateMany.mockResolvedValue({ count: 2 });
+      prisma.order.count.mockResolvedValue(0);
+      const result: any = await service.create(
+        { tableSessionId: 'sess-1', method: PaymentMethod.CASH, discountPercent: 15 },
+        staff,
+      );
+      expect(result.receipt.discount.toString()).toBe('35.33');
+      expect(result.amount.toString()).toBe('200.17');
+    });
+
+    it('ส่วนลด 100% = ฟรีทั้งบิล ยอดเก็บ 0', async () => {
+      prisma.order.findMany.mockResolvedValue(servedSessionOrders());
+      prisma.order.updateMany.mockResolvedValue({ count: 2 });
+      prisma.order.count.mockResolvedValue(0);
+      const result: any = await service.create(
+        { tableSessionId: 'sess-1', method: PaymentMethod.CASH, discountPercent: 100 },
+        staff,
+      );
+      expect(Number(result.amount)).toBe(0);
+      expect(Number(result.receipt.discount)).toBe(235.5);
+    });
+
+    it('ไม่ส่ง discountPercent = ไม่ลด และใบเสร็จไม่มี %', async () => {
+      prisma.order.findMany.mockResolvedValue(servedSessionOrders());
+      prisma.order.updateMany.mockResolvedValue({ count: 2 });
+      prisma.order.count.mockResolvedValue(0);
+      const result: any = await service.create(
+        { tableSessionId: 'sess-1', method: PaymentMethod.CASH },
+        staff,
+      );
+      expect(result.receipt.discountPercent).toBeNull();
     });
 
     it('ยอดบนจอ (expectedTotal) ไม่ตรงยอดจริง → 409 และไม่บันทึกอะไร', async () => {
@@ -301,25 +339,58 @@ describe('PaymentsService', () => {
   describe('voidPayment', () => {
     it('ยกเลิกบิลที่ยกเลิกไปแล้ว → 409', async () => {
       prisma.payment.findUnique.mockResolvedValue({ id: 'p', status: PaymentStatus.VOIDED, orders: [] });
-      await expect(service.voidPayment('p', { reason: 'x' })).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.voidPayment('p', { reason: 'x' }, staff)).rejects.toBeInstanceOf(ConflictException);
     });
 
     it('ไม่พบบิล → 404', async () => {
       prisma.payment.findUnique.mockResolvedValue(null);
-      await expect(service.voidPayment('p', { reason: 'x' })).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.voidPayment('p', { reason: 'x' }, staff)).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('โต๊ะเปิดรอบใหม่ไปแล้ว → 409 ไม่เปิด session เดิมซ้อน', async () => {
       prisma.payment.findUnique.mockResolvedValue({
         id: 'p',
         status: PaymentStatus.COMPLETED,
+        paidAt: new Date(),
         orders: [{ id: 'o1', tableSessionId: 'sess-1' }],
       });
       prisma.tableSession.findMany.mockResolvedValue([
         { id: 'sess-1', tableId: 'table-1', table: { number: 3 } },
       ]);
       prisma.tableSession.findFirst.mockResolvedValue({ id: 'sess-2' });
-      await expect(service.voidPayment('p', { reason: 'x' })).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.voidPayment('p', { reason: 'x' }, staff)).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.payment.update).not.toHaveBeenCalled();
+    });
+
+    const paidPayment = (paidAt: Date) => ({
+      id: 'p',
+      status: PaymentStatus.COMPLETED,
+      paidAt,
+      slipTransRef: null,
+      orders: [{ id: 'o1', tableSessionId: 'sess-1' }],
+    });
+    const hoursAgo = (h: number) => new Date(Date.now() - h * 60 * 60 * 1000);
+
+    it('STAFF ยกเลิกบิลที่รับเงินเกิน 1 ชม. → 403 และไม่แตะอะไร', async () => {
+      prisma.payment.findUnique.mockResolvedValue(paidPayment(hoursAgo(1.1)));
+      await expect(service.voidPayment('p', { reason: 'x' }, staff)).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.payment.update).not.toHaveBeenCalled();
+    });
+
+    it('ADMIN ยกเลิกบิลเกิน 1 ชม. ได้', async () => {
+      prisma.payment.findUnique.mockResolvedValue(paidPayment(hoursAgo(5)));
+      prisma.tableSession.findMany.mockResolvedValue([{ id: 'sess-1', tableId: 'table-1', table: { number: 3 } }]);
+      prisma.payment.update.mockResolvedValue({ id: 'p', status: PaymentStatus.VOIDED });
+      prisma.tableSession.findUnique.mockResolvedValue({ id: 'sess-1', status: TableSessionStatus.CLOSED, tableId: 'table-1' });
+      await expect(service.voidPayment('p', { reason: 'x' }, admin)).resolves.toBeDefined();
+    });
+
+    it('วันที่ปิดยอดแล้ว → 409 ทั้ง STAFF และ ADMIN (ต้องลบการปิดยอดก่อน)', async () => {
+      prisma.payment.findUnique.mockResolvedValue(paidPayment(hoursAgo(0.1)));
+      prisma.dailyCashClose.findUnique.mockResolvedValue({ id: 'close-1' });
+      for (const user of [staff, admin]) {
+        await expect(service.voidPayment('p', { reason: 'x' }, user)).rejects.toBeInstanceOf(ConflictException);
+      }
       expect(prisma.payment.update).not.toHaveBeenCalled();
     });
 
@@ -327,6 +398,7 @@ describe('PaymentsService', () => {
       prisma.payment.findUnique.mockResolvedValue({
         id: 'p',
         status: PaymentStatus.COMPLETED,
+        paidAt: new Date(),
         slipTransRef: null,
         orders: [{ id: 'o1', tableSessionId: 'sess-1' }],
       });
@@ -339,7 +411,7 @@ describe('PaymentsService', () => {
         status: TableSessionStatus.CLOSED,
         tableId: 'table-1',
       });
-      const result = await service.voidPayment('p', { reason: 'จ่ายผิดโต๊ะ' });
+      const result = await service.voidPayment('p', { reason: 'จ่ายผิดโต๊ะ' }, staff);
       expect(result.reopenedSessionIds).toEqual(['sess-1']);
       expect(prisma.order.updateMany).toHaveBeenCalledWith({
         where: { paymentId: 'p' },

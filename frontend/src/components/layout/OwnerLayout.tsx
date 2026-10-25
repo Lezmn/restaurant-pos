@@ -31,6 +31,15 @@ function IconDrawer() {
   )
 }
 
+function IconHistory() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+      <path d="M3.5 12a8.5 8.5 0 1 0 2.5-6" strokeLinecap="round" />
+      <path d="M3 3.5V8h4.5M12 7.5V12l3 2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 function IconUsers() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
@@ -61,6 +70,7 @@ const navItems = [
   { to: '/owner/dashboard', label: 'Dashboard', icon: <IconDashboard /> },
   { to: '/owner/finance', label: 'รายรับ-รายจ่าย', icon: <IconMoney /> },
   { to: '/owner/cash-closes', label: 'ปิดยอดเงินสด', icon: <IconDrawer /> },
+  { to: '/owner/audit', label: 'ประวัติการทำรายการ', icon: <IconHistory /> },
   { to: '/owner/users', label: 'บัญชีผู้ใช้', icon: <IconUsers /> },
 ]
 

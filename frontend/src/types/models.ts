@@ -114,7 +114,11 @@ export interface TableSession {
   closedAt: string | null
   /** ยอดที่ต้องจ่ายของโต๊ะนี้ — backend คำนวณมาให้ ไม่ได้บวกเองฝั่ง frontend */
   total: number
+  /** หารเท่ากันที่ยังจ่ายไม่ครบ */
+  split: SessionSplit | null
 }
+
+export type SessionSplit = import('./api').ApiSessionSplit
 
 export interface OrderItem {
   id: Id
@@ -157,6 +161,11 @@ export interface Receipt {
   number: string
   subtotal: number
   discount: number
+  /** % ที่ลด — null = ไม่ลด หรือบิลเก่าที่ลดเป็นบาท */
+  discountPercent: number | null
+  /** หารเท่ากัน: ส่วนที่ splitPart จาก splitParts คน — ยอดในใบเป็นของทั้งบิล ส่วนที่จ่ายคือ payment.amount */
+  splitPart: number | null
+  splitParts: number | null
   total: number
   issuedAt: string
   tableName: string

@@ -46,7 +46,8 @@ export class ReportsService {
           select: { amount: true, method: true },
         }),
         this.prisma.order.count({
-          where: { createdAt: { gte: todayStart, lt: tomorrowStart } },
+          // splitFromId = ออเดอร์ที่แตกออกมาตอนแยกบิลตามรายการ ไม่ใช่การสั่งใหม่
+          where: { createdAt: { gte: todayStart, lt: tomorrowStart }, splitFromId: null },
         }),
         this.prisma.expense.aggregate({
           _sum: { amount: true },

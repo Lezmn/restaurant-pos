@@ -5,7 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  BillSplitStatus,
   OrderStatus,
+  PaymentStatus,
   Prisma,
   ServiceRequestStatus,
   ServiceRequestType,
@@ -16,10 +18,41 @@ import { randomBytes } from 'node:crypto';
 import { EventsGateway } from '../events/events.gateway';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTableSessionDto } from './dto/create-table-session.dto';
+import { splitShare } from '../payments/bill-split';
 import { countUnpaidOrders, isUniqueViolation } from './session-settlement';
 
 const DEFAULT_SESSION_TTL_MS = 3 * 60 * 60 * 1000;
 
+
+/** หารเท่ากันที่ยังจ่ายไม่ครบของโต๊ะ (มีได้ทีละอัน) */
+const OPEN_SPLIT_INCLUDE = {
+  where: { status: BillSplitStatus.OPEN },
+  include: {
+    payments: { where: { status: PaymentStatus.COMPLETED }, select: { amount: true } },
+  },
+  take: 1,
+} as const;
+
+type OpenSplit = Prisma.BillSplitGetPayload<{ include: { payments: { select: { amount: true } } } }>;
+
+/** หน้าแคชเชียร์ใช้แสดง "หาร 3 คน · จ่ายแล้ว 1 · คนถัดไป ฿x" — ยอดคิดสูตรเดียวกับตอนรับเงิน */
+function summarizeSplit(split: OpenSplit | undefined) {
+  if (!split) return null;
+  const paidCount = split.payments.length;
+  const paidAmount = split.payments.reduce((sum, p) => sum.plus(p.amount), new Prisma.Decimal(0));
+  return {
+    id: split.id,
+    parts: split.parts,
+    paidParts: paidCount,
+    subtotal: split.subtotal,
+    discountPercent: split.discountPercent,
+    discount: split.discount,
+    total: split.total,
+    paidAmount,
+    remaining: split.total.minus(paidAmount),
+    nextAmount: splitShare(split.total, split.parts, paidCount, paidAmount),
+  };
+}
 @Injectable()
 export class TableSessionsService {
   constructor(
@@ -130,6 +163,7 @@ export class TableSessionsService {
           orderBy: { createdAt: 'desc' },
           take: 1,
         },
+        billSplits: OPEN_SPLIT_INCLUDE,
       },
       orderBy: { openedAt: 'desc' },
     });
@@ -154,6 +188,7 @@ export class TableSessionsService {
           orderBy: { createdAt: 'desc' },
           take: 1,
         },
+        billSplits: OPEN_SPLIT_INCLUDE,
       },
     });
     if (!session) {
@@ -280,10 +315,11 @@ export class TableSessionsService {
         table: true;
         orders: { include: { items: { include: { selectedOptions: true } } } };
         serviceRequests: true;
+        billSplits: typeof OPEN_SPLIT_INCLUDE;
       };
     }>,
   ) {
-    const { serviceRequests, ...rest } = session;
+    const { serviceRequests, billSplits, ...rest } = session;
     const checkoutRequest =
       serviceRequests
         .filter(
@@ -297,6 +333,7 @@ export class TableSessionsService {
     return {
       ...rest,
       total: this.calculateSessionTotal(session.orders),
+      split: summarizeSplit(billSplits?.[0]),
       billingStatus: checkoutRequest ? 'AWAITING_CHECKOUT' : 'IN_PROGRESS',
       checkoutRequest: checkoutRequest
         ? {

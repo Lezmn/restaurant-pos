@@ -5,6 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { createIdentityTracker, ipTracker } from './common/throttle-trackers';
 import { PrismaModule } from './prisma/prisma.module';
+import { AuditModule } from './audit/audit.module';
 import { MenuModule } from './menu/menu.module';
 import { OrdersModule } from './orders/orders.module';
 import { CategoriesModule } from './categories/categories.module';
@@ -52,6 +53,7 @@ import { UploadsModule } from './uploads/uploads.module';
       },
     }),
     PrismaModule,
+    AuditModule,
     EventsModule,
     CategoriesModule,
     MenuModule,
