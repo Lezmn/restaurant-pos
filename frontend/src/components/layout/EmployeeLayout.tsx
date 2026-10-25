@@ -1,5 +1,4 @@
 import { CallStaffAlert } from '@/components/CallStaffAlert'
-import { ChangePasswordDialog } from '@/components/layout/ChangePasswordDialog'
 import { Toaster } from '@/components/ui/Toaster'
 import { pageRoles } from '@/features/auth/permissions'
 import { useAuth } from '@/features/auth/use-auth'
@@ -104,7 +103,6 @@ export function EmployeeLayout() {
   const signOut = useAuth((s) => s.signOut)
   const navigate = useNavigate()
   const { data: tables } = useTables()
-  const [changingPassword, setChangingPassword] = useState(false)
   // ต่อ socket ที่ layout จึงได้ event ทุกหน้าของพนักงาน (ครัว / Check / โต๊ะ / คำขอ)
   useStaffLiveEvents()
 
@@ -159,21 +157,9 @@ export function EmployeeLayout() {
           {user && (
             <span className="ml-3 text-sm font-normal text-gray-600">
               ({user.name} · {user.role})
-              {/* บัญชีกลาง (ครัว/หน้าร้าน) ทั้งตำแหน่งรู้รหัสเดิม ให้เปลี่ยนเองได้ = คนเดียวล็อกทั้งตำแหน่ง
-                  จึงให้เฉพาะ ADMIN ส่วนบัญชีกลาง ADMIN ตั้งรหัสใหม่ให้ที่หน้าบัญชีผู้ใช้ */}
-              {user.role === Role.ADMIN && (
-                <button
-                  type="button"
-                  onClick={() => setChangingPassword(true)}
-                  className="ml-2 font-semibold text-brand-500 underline-offset-2 hover:underline"
-                >
-                  เปลี่ยนรหัสผ่าน
-                </button>
-              )}
             </span>
           )}
         </p>
-        {changingPassword && <ChangePasswordDialog onClose={() => setChangingPassword(false)} />}
       </header>
 
       <main className="flex-1 px-4 pt-4 pb-28 sm:px-8">
