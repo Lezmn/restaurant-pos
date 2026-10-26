@@ -547,3 +547,14 @@ model BillSplit {
   @@index([tableSessionId, status])
   @@map("bill_splits")
 }
+
+/// ค่าตั้งค่าของร้านที่เจ้าของแก้เองได้จากหน้าเว็บ (ไม่ต้องเข้าเซิร์ฟเวอร์แก้ .env) — key-value
+/// ค่าลับ (เช่น LINE token) เข้ารหัส AES-256-GCM ก่อนเก็บ ดู src/settings/secret-box.ts
+model AppSetting {
+  key           String   @id
+  value         String
+  updatedAt     DateTime @updatedAt
+  updatedByName String?
+
+  @@map("app_settings")
+}

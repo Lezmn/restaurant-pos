@@ -59,6 +59,15 @@ function IconUsers() {
   )
 }
 
+function IconChat() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+      <path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" strokeLinejoin="round" />
+      <path d="M8 10h8M8 13h5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 function IconBack() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
@@ -82,6 +91,7 @@ const navItems = [
   { to: '/owner/sales', label: 'เมนูขายดี', icon: <IconChart /> },
   { to: '/owner/cash-closes', label: 'ปิดยอดเงินสด', icon: <IconDrawer /> },
   { to: '/owner/audit', label: 'ประวัติการทำรายการ', icon: <IconHistory /> },
+  { to: '/owner/line', label: 'แจ้งเตือน LINE', icon: <IconChat /> },
   { to: '/owner/users', label: 'บัญชีผู้ใช้', icon: <IconUsers /> },
 ]
 
