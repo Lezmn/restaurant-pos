@@ -6,7 +6,7 @@ import {
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ErrorNote } from '@/components/ui/ErrorNote'
 import { LoadError } from '@/components/ui/LoadError'
-import { installAudioUnlock, playAlert, unlockAudio, useAlertSound } from '@/lib/alert-sound'
+import { installAudioUnlock, playAlert, useAlertSound } from '@/lib/alert-sound'
 import { isAllergyNote } from '@/lib/item-note'
 import { LIVE_POLL_MS } from '@/lib/live'
 import { useNewArrivals } from '@/lib/use-new-arrivals'
@@ -146,24 +146,16 @@ const columns: {
 
 /**
  * แถบบนจอครัว: เสียงแจ้งเตือนออเดอร์ใหม่ (เปิด/ปิดต่อเครื่อง) + สถานะกันจอดับ
- * แท็บเล็ตไม่ยอมเล่นเสียงจนกว่าจะแตะจอ 1 ครั้ง — ขึ้นปุ่มใหญ่ให้แตะตอนเปิดหน้ามา
+ * แท็บเล็ตไม่ยอมเล่นเสียงจนกว่าจะแตะจอ 1 ครั้ง — แตะตรงไหนก็ได้ installAudioUnlock เปิดให้เอง
+ * (เลิกมีปุ่ม "แตะเพื่อเปิดเสียง" — ครัวต้องแตะจอกดตั๋วอยู่แล้ว)
  */
 function KitchenAlertBar({ screenAwake }: Readonly<{ screenAwake: boolean }>) {
-  const { enabled, unlocked, setEnabled } = useAlertSound()
+  const { enabled, setEnabled } = useAlertSound()
 
   return (
     <div className="mb-4 flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
-      {enabled && !unlocked && (
-        <button
-          type="button"
-          onClick={unlockAudio}
-          className="mr-auto min-h-11 rounded-lg bg-status-queue-ink px-4 text-sm font-bold text-white"
-        >
-          แตะเพื่อเปิดเสียงแจ้งเตือนออเดอร์ใหม่
-        </button>
-      )}
       {/* ของหมดกดได้จากจอครัวเลย ไม่ต้องสลับไปหน้า Manage */}
-      <div className={enabled && !unlocked ? '' : 'mr-auto'}>
+      <div className="mr-auto">
         <KitchenSoldOutButton />
       </div>
       {screenAwake && <span className="text-sm text-gray-600">หน้าจอเปิดค้างไว้ระหว่างอยู่หน้านี้</span>}
