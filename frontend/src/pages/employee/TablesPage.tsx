@@ -148,7 +148,7 @@ export function TablesPage() {
                   }
                   className="mt-4 w-full rounded-lg bg-brand-300 py-2.5 text-sm font-bold text-white transition hover:bg-brand-400 disabled:cursor-not-allowed disabled:bg-gray-300"
                 >
-                  เปิดโต๊ะ + สร้าง QR
+                  เปิดโต๊ะ/สร้าง QR
                 </button>
               )}
             </article>
