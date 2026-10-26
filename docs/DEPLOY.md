@@ -79,6 +79,8 @@ Deploy เขียน `IMAGE_TAG=sha-xxxxxxx` ลง `~/app/.env` ทุกค�
 cd ~/app && docker compose run --rm migrate npm run prisma:seed:menu
 ```
 
+หรือไม่ต้องเข้า VPS: GitHub → Actions → **Seed menu** → Run workflow (ใช้ secrets ชุดเดียวกับ Deploy) — เมนูร้านอาหารตามสั่ง ~56 รายการ 7 หมวด เมนูใหม่ยังไม่มีรูป อัปโหลดได้ที่หน้า "จัดการเมนู"
+
 คำสั่งดูแลประจำ (`backup once`, `restore-drill.sh`, logs) ใช้ `docker compose` ใน `~/app` แทน `docker compose -f docker-compose.prod.yml` ได้ทุกคำสั่งในเอกสารนี้และ OPERATIONS.md
 
 ## B. Caddy ในเครื่องเดียว
