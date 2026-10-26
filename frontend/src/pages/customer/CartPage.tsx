@@ -76,7 +76,8 @@ export function CustomerCartPage() {
           <button
             type="button"
             onClick={clear}
-            className="shrink-0 text-sm md:text-base font-semibold text-accent-pink"
+            // ตัวหนังสือเล็กเท่าเดิม แต่พื้นที่กดสูง 44px เท่าปุ่มอื่น (-mr-2 ชดเชย padding ให้ขอบขวาตรงเดิม)
+            className="-mr-2 inline-flex min-h-11 shrink-0 items-center px-2 text-sm md:text-base font-semibold text-accent-pink"
           >
             ยกเลิกทั้งหมด
           </button>

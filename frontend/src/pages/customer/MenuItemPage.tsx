@@ -120,8 +120,8 @@ export function CustomerMenuItemPage() {
           />
         </label>
 
-        {/* แถบสั่ง — ติดล่างจอบนมือถือ, อยู่ในคอลัมน์บนจอใหญ่ */}
-        <div className="fixed inset-x-0 bottom-16 z-10 border-t border-brand-75 bg-brand-50 px-4 py-3 lg:static lg:mt-6 lg:rounded-2xl lg:border-2 lg:px-4">
+        {/* แถบสั่ง — มือถือ: ชิดบนเมนูล่าง / แท็บเล็ต (ไม่มีเมนูล่าง): ชิดขอบจอ / จอใหญ่: อยู่ในคอลัมน์ */}
+        <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-10 border-t border-brand-75 bg-brand-50 px-4 py-3 md:bottom-0 md:pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:static lg:mt-6 lg:rounded-2xl lg:border-2 lg:px-4 lg:pb-3">
           <div className="mx-auto flex max-w-md items-center gap-3 lg:max-w-none">
             <QuantityStepper value={quantity} onChange={setQuantity} />
             <button
