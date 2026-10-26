@@ -29,6 +29,8 @@ export interface MenuItemInput {
   imageUrl: string | null
   categoryId: Id
   isAvailable: boolean
+  /** มีตัวเลือกเนื้อสัตว์แล้วต้องเลือก 1 อย่างไหม */
+  proteinRequired: boolean
   /** วัตถุดิบหลักที่เมนูใช้เสมอ — ส่งมาแล้วแทนที่ของเดิมทั้งชุด */
   ingredientIds: Id[]
 }

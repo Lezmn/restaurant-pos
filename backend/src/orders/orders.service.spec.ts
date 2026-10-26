@@ -15,6 +15,7 @@ function menuItem(overrides: Partial<any> = {}) {
     name: 'กะเพรา',
     price: D(60),
     isAvailable: true,
+    proteinRequired: true,
     ingredients: [],
     options: [
       { id: 'opt-pork', name: 'หมู', price: D(0), isAvailable: true, ingredient: null },
@@ -233,8 +234,9 @@ describe('OrdersService', () => {
     });
 
     describe('กลุ่มเนื้อสัตว์ (PROTEIN)', () => {
-      const withProteins = (chickenAvailable = true, porkAvailable = true) =>
+      const withProteins = (chickenAvailable = true, porkAvailable = true, proteinRequired = true) =>
         menuItem({
+          proteinRequired,
           options: [
             { id: 'p-pork', name: 'หมู', price: D(0), group: 'PROTEIN', isAvailable: porkAvailable, ingredient: null },
             {
@@ -270,6 +272,17 @@ describe('OrdersService', () => {
         prisma.menuItem.findMany.mockResolvedValue([withProteins()]);
         await order(['p-pork', 'x-egg']);
         expect(prisma.order.create).toHaveBeenCalled();
+      });
+
+      it('เมนูที่ตั้งไม่บังคับเนื้อสัตว์ (ข้าวไข่เจียว) → สั่งเปล่า ๆ ได้', async () => {
+        prisma.menuItem.findMany.mockResolvedValue([withProteins(true, true, false)]);
+        await order(['x-egg']);
+        expect(prisma.order.create).toHaveBeenCalled();
+      });
+
+      it('ไม่บังคับก็ยังเลือกเนื้อสัตว์ได้แค่อย่างเดียว', async () => {
+        prisma.menuItem.findMany.mockResolvedValue([withProteins(true, true, false)]);
+        await expect(order(['p-pork', 'p-chicken'])).rejects.toBeInstanceOf(BadRequestException);
       });
 
       it('เนื้อสัตว์หมดทุกตัว (กลุ่มหายจากหน้าจอ) → สั่งโดยไม่เลือกได้', async () => {

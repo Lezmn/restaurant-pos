@@ -571,7 +571,8 @@ export class OrdersService {
         o.isAvailable &&
         (!o.ingredient || o.ingredient.isAvailable),
     );
-    if (proteinOrderable && proteins.length === 0) {
+    // เมนูที่ตั้ง "ไม่บังคับเลือกเนื้อสัตว์" (ข้าวไข่เจียว) สั่งเปล่า ๆ ได้ — ยังเลือกได้แค่อย่างเดียวเหมือนเดิม
+    if (menuItem.proteinRequired && proteinOrderable && proteins.length === 0) {
       throw new BadRequestException(`"${menuItem.name}" ต้องเลือกเนื้อสัตว์ 1 อย่าง`);
     }
 

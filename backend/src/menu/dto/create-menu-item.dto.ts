@@ -35,6 +35,15 @@ export class CreateMenuItemDto {
   @IsBoolean()
   isAvailable?: boolean;
 
+  @ApiPropertyOptional({
+    example: true,
+    default: true,
+    description: 'มีตัวเลือกเนื้อสัตว์แล้วต้องเลือก 1 อย่างไหม — false = สั่งเปล่า ๆ ได้ (เช่น ข้าวไข่เจียว)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  proteinRequired?: boolean;
+
   @ApiProperty({ example: 'category-uuid' })
   @IsUUID()
   categoryId: string;

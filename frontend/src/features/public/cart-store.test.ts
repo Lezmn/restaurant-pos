@@ -126,6 +126,7 @@ describe('cart-store', () => {
         price,
         imageUrl: null,
         isAvailable: true,
+        proteinRequired: true,
         optionGroups: [
           {
             id: 'g',

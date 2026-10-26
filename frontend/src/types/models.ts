@@ -89,6 +89,8 @@ export interface MenuItem {
   imageUrl: string | null
   /** สวิตช์เปิด/ปิดขายของเมนูเอง (ไม่รวมวัตถุดิบ) */
   isAvailable: boolean
+  /** false = เนื้อสัตว์เป็นของเพิ่ม สั่งเปล่า ๆ ได้ (ข้าวไข่เจียว) */
+  proteinRequired: boolean
   optionGroups: MenuOptionGroup[]
   /** วัตถุดิบหลักที่เมนูใช้เสมอ — ตัวไหนหมด ทั้งเมนูสั่งไม่ได้ */
   ingredients: IngredientRef[]

@@ -76,6 +76,7 @@ export function MenuFormDialog({
   const [imageUrl, setImageUrl] = useState(item?.imageUrl ?? '')
   const [categoryId, setCategoryId] = useState(item?.categoryId ?? defaultCategoryId ?? '')
   const [isAvailable, setIsAvailable] = useState(item?.isAvailable ?? true)
+  const [proteinRequired, setProteinRequired] = useState(item?.proteinRequired ?? true)
   const [ingredientIds, setIngredientIds] = useState<Id[]>(
     () => item?.ingredients.map((i) => i.id) ?? [],
   )
@@ -137,6 +138,7 @@ export function MenuFormDialog({
               imageUrl: imageUrl.trim() || null,
               categoryId,
               isAvailable,
+              proteinRequired,
               ingredientIds,
             },
             pendingOptions,
@@ -217,6 +219,22 @@ export function MenuFormDialog({
             className="h-5 w-5"
           />
           <span className={fieldLabel}>พร้อมจำหน่าย</span>
+        </label>
+
+        {/* มีผลเฉพาะเมนูที่มีตัวเลือกกลุ่มเนื้อสัตว์ — ไม่ติ๊ก = เนื้อเป็นของเพิ่ม สั่งเปล่า ๆ ได้ (ข้าวไข่เจียว) */}
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={proteinRequired}
+            onChange={(e) => setProteinRequired(e.target.checked)}
+            className="mt-0.5 h-5 w-5"
+          />
+          <span>
+            <span className={fieldLabel}>ลูกค้าต้องเลือกเนื้อสัตว์ก่อนสั่ง</span>
+            <span className="block text-gray-600">
+              ไม่ติ๊ก = เนื้อสัตว์เป็นของเพิ่ม สั่งเมนูเปล่า ๆ ได้ (เช่น ข้าวไข่เจียว)
+            </span>
+          </span>
         </label>
 
         <MainIngredientsPicker value={ingredientIds} onChange={setIngredientIds} />
