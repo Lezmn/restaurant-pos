@@ -2,12 +2,12 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
-  ArrayMinSize,
   IsArray,
   IsOptional,
   IsUUID,
   ValidateNested,
 } from 'class-validator';
+import { CustomItemInputDto } from './custom-item-input.dto';
 import { OrderItemInputDto } from './order-item-input.dto';
 
 export class CreateOrderDto {
@@ -24,10 +24,20 @@ export class CreateOrderDto {
 
   @ApiProperty({ type: [OrderItemInputDto] })
   @IsArray()
-  @ArrayMinSize(1)
   // ออเดอร์เดียวไม่ควรเกินนี้ (คนละเมนู/คนละตัวเลือก) — กัน payload ใหญ่ผิดปกติ
   @ArrayMaxSize(50)
   @ValidateNested({ each: true })
   @Type(() => OrderItemInputDto)
   items: OrderItemInputDto[];
+
+  @ApiPropertyOptional({
+    type: [CustomItemInputDto],
+    description: 'รายการราคาเปิด (พิมพ์ชื่อ/ราคาเอง) — ส่ง items ว่างได้ถ้ามีรายการนี้',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => CustomItemInputDto)
+  customItems?: CustomItemInputDto[];
 }

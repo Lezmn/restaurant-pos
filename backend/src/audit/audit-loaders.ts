@@ -44,6 +44,7 @@ export async function loadOrderItem(prisma: PrismaService, ctx: AuditContext) {
       quantity: true,
       unitPrice: true,
       note: true,
+      customName: true,
       menuItem: { select: { name: true } },
       selectedOptions: { select: { name: true } },
       order: { select: { status: true, table: { select: { number: true } } } },
@@ -58,7 +59,7 @@ export async function loadOrder(prisma: PrismaService, ctx: AuditContext) {
       status: true,
       table: { select: { number: true } },
       items: {
-        select: { quantity: true, unitPrice: true, menuItem: { select: { name: true } } },
+        select: { quantity: true, unitPrice: true, customName: true, menuItem: { select: { name: true } } },
       },
     },
   });

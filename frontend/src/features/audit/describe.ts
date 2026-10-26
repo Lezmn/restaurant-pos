@@ -8,6 +8,7 @@ export const auditActionMeta: Record<AuditAction, { label: string; tone: BadgeTo
   PAYMENT_VOID: { label: 'ยกเลิกบิล', tone: 'red' },
   ORDER_CANCEL: { label: 'ยกเลิกออเดอร์', tone: 'red' },
   ORDER_ITEM_REMOVE: { label: 'ลบรายการอาหาร', tone: 'red' },
+  ORDER_CUSTOM_ITEM: { label: 'รายการราคาเปิด', tone: 'amber' },
   EXPENSE_DRAWER: { label: 'เงินออกจากลิ้นชัก', tone: 'red' },
   CASH_CLOSE_DELETE: { label: 'ลบการปิดยอด', tone: 'red' },
   PAYMENT_SLIP_OVERRIDE: { label: 'รับ PromptPay ไม่มีสลิป', tone: 'amber' },
@@ -89,6 +90,12 @@ export function describeAudit(log: AuditLog): { summary: string; reason: string 
         summary: `ลบ ${String(d.name ?? 'รายการ')}${options} ×${String(d.quantity ?? '?')}${table(d)} · ${baht(num(d.unitPrice) * num(d.quantity))}`,
         reason: null,
       }
+    }
+    case 'ORDER_CUSTOM_ITEM': {
+      const items = Array.isArray(d.customItems) ? (d.customItems as Obj[]) : []
+      const names = items.map((i) => `${String(i.name)} ${baht(num(i.price))} ×${String(i.quantity)}`).join(', ')
+      const total = items.reduce((s, i) => s + num(i.price) * num(i.quantity), 0)
+      return { summary: `รายการราคาเปิด: ${names || '—'} (รวม ${baht(total)})`, reason: null }
     }
     case 'CASH_CLOSE_CREATE':
       return {

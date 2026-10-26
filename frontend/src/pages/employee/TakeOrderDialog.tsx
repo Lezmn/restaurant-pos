@@ -2,6 +2,7 @@ import { ErrorNote } from '@/components/ui/ErrorNote'
 import { Modal } from '@/components/ui/Modal'
 import { QuantityStepper } from '@/components/ui/QuantityStepper'
 import { useMenuItems } from '@/features/menu/hooks'
+import type { CustomOrderLine } from '@/features/orders/api'
 import { useCreateOrder } from '@/features/orders/hooks'
 import { formatBaht } from '@/lib/format'
 import type {
@@ -11,6 +12,7 @@ import type {
   TableSession,
 } from '@/types/models'
 import { useMemo, useRef, useState } from 'react'
+import { CustomItemDialog } from './CustomItemDialog'
 
 /** หนึ่งบรรทัดในรายการที่รับ — เมนูเดียวกันคนละตัวเลือก (หมู/ไก่) แยกบรรทัดกัน */
 interface DraftLine {
@@ -68,6 +70,9 @@ export function TakeOrderDialog({
   const sending = useRef(false)
 
   const [lines, setLines] = useState<DraftLine[]>([])
+  /** รายการราคาเปิด (พิมพ์ชื่อ/ราคาเอง) */
+  const [customLines, setCustomLines] = useState<(CustomOrderLine & { key: number })[]>([])
+  const [addingCustom, setAddingCustom] = useState(false)
   const [nextKey, setNextKey] = useState(1)
   const [search, setSearch] = useState('')
 
@@ -135,11 +140,11 @@ export function TakeOrderDialog({
     )
   }
 
-  const total = lines.reduce(
-    (sum, line) => sum + unitPriceOf(line) * line.quantity,
-    0,
-  )
-  const count = lines.reduce((n, l) => n + l.quantity, 0)
+  const total =
+    lines.reduce((sum, line) => sum + unitPriceOf(line) * line.quantity, 0) +
+    customLines.reduce((sum, line) => sum + line.price * line.quantity, 0)
+  const count =
+    lines.reduce((n, l) => n + l.quantity, 0) + customLines.reduce((n, l) => n + l.quantity, 0)
   const incomplete = lines.some((line) => missingRequired(line).length > 0)
 
   const submit = () => {
@@ -162,6 +167,7 @@ export function TakeOrderDialog({
             },
           ]
         }),
+        customLines,
       },
       {
         onSuccess: onClose,
@@ -310,6 +316,55 @@ export function TakeOrderDialog({
             )
           })}
         </ul>
+      )}
+
+      {customLines.length > 0 && (
+        <ul className="mt-2 space-y-2">
+          {customLines.map((line) => (
+            <li
+              key={line.key}
+              className="flex items-center justify-between gap-3 rounded-lg border border-brand-300 bg-brand-50/40 px-3 py-2"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-text">
+                  {line.name} ×{line.quantity}
+                  <span className="ml-1.5 rounded bg-brand-50 px-1.5 text-xs font-semibold text-brand-500">ราคาเปิด</span>
+                </p>
+                {line.note && <p className="text-xs text-gray-600">{line.note}</p>}
+              </div>
+              <div className="flex shrink-0 items-center gap-3">
+                <span className="text-sm text-amount">{formatBaht(line.price * line.quantity)}</span>
+                <button
+                  type="button"
+                  onClick={() => setCustomLines((prev) => prev.filter((l) => l.key !== line.key))}
+                  aria-label={`ลบ ${line.name}`}
+                  className="text-sm font-semibold text-danger"
+                >
+                  ลบ
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setAddingCustom(true)}
+        className="mt-3 min-h-11 w-full rounded-lg border-2 border-dashed border-gray-300 text-sm font-bold text-gray-700 transition hover:border-brand-400 hover:text-brand-500"
+      >
+        + รายการพิเศษ (ราคาเปิด)
+      </button>
+
+      {addingCustom && (
+        <CustomItemDialog
+          onClose={() => setAddingCustom(false)}
+          onAdd={(line) => {
+            setCustomLines((prev) => [...prev, { ...line, key: nextKey }])
+            setNextKey((k) => k + 1)
+            setAddingCustom(false)
+          }}
+        />
       )}
 
       <div className="mt-4 flex items-center justify-between rounded-lg bg-brand-50 px-4 py-3">

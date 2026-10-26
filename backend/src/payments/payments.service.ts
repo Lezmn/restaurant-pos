@@ -801,7 +801,7 @@ export class PaymentsService {
         const lineTotal = item.unitPrice.plus(optionTotal).mul(item.quantity);
 
         return {
-          name: item.menuItem.name,
+          name: item.customName ?? item.menuItem?.name ?? 'รายการพิเศษ',
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           optionTotal,

@@ -96,6 +96,8 @@ export interface ApiCategory {
  * - /public/... (ลูกค้า): name + options[] แบนมาแล้ว ไม่มี menuItemId/รูป
  */
 export interface ApiOrderItem {
+  /** รายการราคาเปิด (ไม่ผูกเมนู) — ชื่อที่พนักงานพิมพ์ */
+  customName?: string | null
   id: string
   quantity: number
   unitPrice: number

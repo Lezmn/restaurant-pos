@@ -28,6 +28,14 @@ export class OrdersController {
 
   @Post()
   @Roles(Role.ADMIN, Role.STAFF)
+  // รายการราคาเปิด = พนักงานตั้งราคาเอง — เก็บประวัติทุกครั้ง (ไม่มี = ไม่เก็บ)
+  @Audit(({ body }) => (Array.isArray(body.customItems) && body.customItems.length > 0 ? 'ORDER_CUSTOM_ITEM' : null), {
+    details: ({ body, result }) => ({
+      customItems: body.customItems,
+      tableSessionId: (result as { tableSessionId?: string } | undefined)?.tableSessionId ?? null,
+    }),
+    targetId: ({ result }) => (result as { id?: string } | undefined)?.id,
+  })
   @ApiOperation({ summary: 'สร้างออเดอร์ใหม่ (ผูกกับโต๊ะ + รายการเมนู)' })
   create(@Body() dto: CreateOrderDto) {
     return this.ordersService.create(dto);
@@ -35,6 +43,14 @@ export class OrdersController {
 
   @Post('takeaway')
   @Roles(Role.ADMIN, Role.STAFF)
+  // รายการราคาเปิด = พนักงานตั้งราคาเอง — เก็บประวัติทุกครั้ง (ไม่มี = ไม่เก็บ)
+  @Audit(({ body }) => (Array.isArray(body.customItems) && body.customItems.length > 0 ? 'ORDER_CUSTOM_ITEM' : null), {
+    details: ({ body, result }) => ({
+      customItems: body.customItems,
+      tableSessionId: (result as { tableSessionId?: string } | undefined)?.tableSessionId ?? null,
+    }),
+    targetId: ({ result }) => (result as { id?: string } | undefined)?.id,
+  })
   @ApiOperation({ summary: 'สั่งกลับบ้าน (หน้า POS) — เปิดบิลกลับบ้านใบใหม่พร้อมออเดอร์แรก ได้เลขคิวของวัน' })
   createTakeaway(@Body() dto: CreateTakeawayOrderDto) {
     return this.ordersService.createTakeaway(dto);
@@ -71,7 +87,7 @@ export class OrdersController {
       return {
         tableNumber: order?.table.number ?? null,
         previousStatus: order?.status ?? null,
-        items: order?.items.map((i) => ({ name: i.menuItem.name, quantity: i.quantity, unitPrice: i.unitPrice })) ?? [],
+        items: order?.items.map((i) => ({ name: i.customName ?? i.menuItem?.name ?? null, quantity: i.quantity, unitPrice: i.unitPrice })) ?? [],
       };
     },
   })
@@ -105,7 +121,7 @@ export class OrdersController {
       return {
         tableNumber: item?.order.table.number ?? null,
         orderStatus: item?.order.status ?? null,
-        name: item?.menuItem.name ?? null,
+        name: item?.customName ?? item?.menuItem?.name ?? null,
         options: item?.selectedOptions.map((o) => o.name) ?? [],
         quantity: item?.quantity ?? null,
         unitPrice: item?.unitPrice ?? null,

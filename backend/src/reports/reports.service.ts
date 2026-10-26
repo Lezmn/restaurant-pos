@@ -227,6 +227,10 @@ export class ReportsService {
           new Prisma.Decimal(item.unitPrice),
         );
         const lineTotal = each.times(item.quantity);
+        slot.quantity += item.quantity;
+        slot.revenue = slot.revenue.plus(lineTotal);
+        // รายการราคาเปิดไม่ใช่เมนู — นับในยอดรายชั่วโมง แต่ไม่ขึ้นอันดับเมนูขายดี
+        if (!item.menuItemId) continue;
         const menu = byMenu.get(item.menuItemId) ?? {
           quantity: 0,
           revenue: new Prisma.Decimal(0),
@@ -234,8 +238,6 @@ export class ReportsService {
         menu.quantity += item.quantity;
         menu.revenue = menu.revenue.plus(lineTotal);
         byMenu.set(item.menuItemId, menu);
-        slot.quantity += item.quantity;
-        slot.revenue = slot.revenue.plus(lineTotal);
       }
     }
 

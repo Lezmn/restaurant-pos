@@ -27,6 +27,7 @@ import { closeSessionIfSettled } from '../table-sessions/session-settlement';
 import { TableSessionsService } from '../table-sessions/table-sessions.service';
 import { randomBytes } from 'node:crypto';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { CustomItemInputDto } from './dto/custom-item-input.dto';
 import { CreateTakeawayOrderDto } from './dto/create-takeaway-order.dto';
 import { FindOrdersQueryDto } from './dto/find-orders-query.dto';
 import { OrderItemInputDto } from './dto/order-item-input.dto';
@@ -117,7 +118,9 @@ export class OrdersService {
       include: MENU_ITEM_WITH_OPTIONS,
     });
     this.assertAllMenuItemsExistAndAvailable(dto.items, menuItems);
-    const { items: itemsData, usage } = this.buildOrderItems(dto.items, menuItems);
+    const { items: menuItemsData, usage } = this.buildOrderItems(dto.items, menuItems);
+    const itemsData = [...menuItemsData, ...this.buildCustomItems(dto.customItems)];
+    this.assertHasItems(itemsData);
 
     // ใช้ transaction: สร้าง order + item ทั้งหมด ตัดสต็อก และอัปเดตสถานะโต๊ะ
     // ต้องสำเร็จพร้อมกันทั้งหมด ถ้าล้มเหลวจุดใดจุดหนึ่งให้ rollback ทั้งหมด
@@ -181,7 +184,9 @@ export class OrdersService {
       include: MENU_ITEM_WITH_OPTIONS,
     });
     this.assertAllMenuItemsExistAndAvailable(dto.items, menuItems);
-    const { items: itemsData, usage } = this.buildOrderItems(dto.items, menuItems);
+    const { items: menuItemsData, usage } = this.buildOrderItems(dto.items, menuItems);
+    const itemsData = [...menuItemsData, ...this.buildCustomItems(dto.customItems)];
+    this.assertHasItems(itemsData);
 
     let ingredientClosed = false;
     const order = await this.runOrderTransaction(async (tx) => {
@@ -570,6 +575,22 @@ export class OrdersService {
   }
 
   /** ข้อมูลสร้าง order item พร้อมยอดวัตถุดิบที่ต้องตัด (แยกต่อรายการ ไว้คืนทีละรายการได้) */
+  /** รายการราคาเปิด — ไม่ผูกเมนู ไม่ตัดสต็อก ราคาตามที่พนักงานพิมพ์ */
+  private buildCustomItems(custom: CustomItemInputDto[] = []) {
+    return custom.map((item) => ({
+      customName: item.name,
+      quantity: item.quantity,
+      unitPrice: new Prisma.Decimal(item.price),
+      note: item.note,
+    }));
+  }
+
+  private assertHasItems(items: unknown[]) {
+    if (items.length === 0) {
+      throw new BadRequestException('ต้องมีอย่างน้อย 1 รายการ');
+    }
+  }
+
   private buildOrderItems(
     items: OrderItemInputDto[],
     menuItems: Prisma.MenuItemGetPayload<{

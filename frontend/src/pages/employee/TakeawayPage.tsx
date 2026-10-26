@@ -12,12 +12,16 @@ import { OrderStatus } from '@/types/enums'
 import type { Id, MenuItem, MenuOptionGroup, Order } from '@/types/models'
 import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { CustomItemDialog } from './CustomItemDialog'
 import { isOrderable, orderableGroups } from './orderable'
 
 /** หนึ่งบรรทัดในตะกร้า — เมนูเดียวกันคนละตัวเลือก/หมายเหตุ แยกบรรทัดกัน */
 interface CartLine {
   key: number
+  /** รายการราคาเปิดเป็น '' — ดู customName */
   menuItemId: Id
+  /** รายการราคาเปิด (พิมพ์ชื่อ/ราคาเอง) — ไม่ผูกเมนู */
+  customName?: string
   quantity: number
   note: string
   optionIds: Id[]
@@ -48,6 +52,7 @@ export function TakeawayPage() {
   const [nextKey, setNextKey] = useState(1)
   const [customerName, setCustomerName] = useState('')
   const [picking, setPicking] = useState<MenuItem | null>(null)
+  const [addingCustom, setAddingCustom] = useState(false)
   /** บิลล่าสุดที่ส่งแบบจ่ายตอนรับของ — โชว์เลขคิวให้บอกลูกค้า */
   const [lastQueue, setLastQueue] = useState<string | null>(null)
 
@@ -71,6 +76,8 @@ export function TakeawayPage() {
     setLines((prev) => {
       // เมนูเดิม ตัวเลือกเดิม ไม่มีหมายเหตุ = เพิ่มจำนวนในบรรทัดเดิม ไม่ต้องแตกบรรทัดใหม่
       const sameKey = (l: CartLine) =>
+        !l.customName &&
+        !line.customName &&
         l.menuItemId === line.menuItemId &&
         !l.note &&
         !line.note &&
@@ -112,6 +119,7 @@ export function TakeawayPage() {
   const total = lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0)
   // ระหว่างจัดตะกร้า ของอาจหมด (menu.updated) — backend จะปฏิเสธทั้งบิล เตือนไว้ก่อนกดส่ง
   const unavailable = lines.filter((l) => {
+    if (l.customName) return false
     const item = itemById.get(l.menuItemId)
     if (!item || !isOrderable(item)) return true
     const ok = new Set(orderableGroups(item).flatMap((g) => g.options.map((o) => o.id)))
@@ -124,12 +132,22 @@ export function TakeawayPage() {
     createTakeaway.mutate(
       {
         customerName,
-        lines: lines.map((l) => ({
-          menuItemId: l.menuItemId,
-          quantity: l.quantity,
-          note: l.note,
-          optionIds: l.optionIds,
-        })),
+        lines: lines
+          .filter((l) => !l.customName)
+          .map((l) => ({
+            menuItemId: l.menuItemId,
+            quantity: l.quantity,
+            note: l.note,
+            optionIds: l.optionIds,
+          })),
+        customLines: lines
+          .filter((l) => l.customName)
+          .map((l) => ({
+            name: l.customName ?? '',
+            price: l.unitPrice,
+            quantity: l.quantity,
+            note: l.note,
+          })),
       },
       {
         onSuccess: (order) => {
@@ -299,6 +317,7 @@ export function TakeawayPage() {
               <ul className="mt-3 max-h-[45vh] space-y-2 overflow-y-auto pr-1">
                 {lines.map((line) => {
                   const item = itemById.get(line.menuItemId)
+                  const name = line.customName ?? item?.name ?? 'เมนูถูกลบ'
                   const bad = unavailable.includes(line)
                   return (
                     <li
@@ -309,7 +328,14 @@ export function TakeawayPage() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-text">{item?.name ?? 'เมนูถูกลบ'}</p>
+                          <p className="text-sm font-semibold text-text">
+                            {name}
+                            {line.customName && (
+                              <span className="ml-1.5 rounded bg-brand-50 px-1.5 text-xs font-semibold text-brand-500">
+                                ราคาเปิด
+                              </span>
+                            )}
+                          </p>
                           {line.optionNames.length > 0 && (
                             <p className="text-xs text-gray-600">{line.optionNames.join(', ')}</p>
                           )}
@@ -329,7 +355,7 @@ export function TakeawayPage() {
                         <button
                           type="button"
                           onClick={() => removeLine(line.key)}
-                          aria-label={`ลบ ${item?.name ?? ''}`}
+                          aria-label={`ลบ ${name}`}
                           className="min-h-10 px-2 text-sm font-semibold text-danger-ink"
                         >
                           ลบ
@@ -340,7 +366,7 @@ export function TakeawayPage() {
                         onChange={(e) => updateLine(line.key, { note: e.target.value })}
                         maxLength={200}
                         placeholder="หมายเหตุ เช่น ไม่เผ็ด แยกน้ำ"
-                        aria-label={`หมายเหตุของ ${item?.name ?? ''}`}
+                        aria-label={`หมายเหตุของ ${name}`}
                         className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-brand-300"
                       />
                     </li>
@@ -348,6 +374,14 @@ export function TakeawayPage() {
                 })}
               </ul>
             )}
+
+            <button
+              type="button"
+              onClick={() => setAddingCustom(true)}
+              className="mt-3 min-h-11 w-full rounded-lg border-2 border-dashed border-gray-300 text-sm font-bold text-gray-700 transition hover:border-brand-400 hover:text-brand-500"
+            >
+              + รายการพิเศษ (ราคาเปิด)
+            </button>
 
             <label className="mt-4 block">
               <span className="text-sm font-semibold text-gray-700">ชื่อ/เบอร์ลูกค้า (ไม่บังคับ)</span>
@@ -400,6 +434,24 @@ export function TakeawayPage() {
           <span>ตะกร้า {count} รายการ</span>
           <span className="tabular-nums">{formatBaht(total)}</span>
         </a>
+      )}
+
+      {addingCustom && (
+        <CustomItemDialog
+          onClose={() => setAddingCustom(false)}
+          onAdd={(custom) => {
+            addLine({
+              menuItemId: '',
+              customName: custom.name,
+              quantity: custom.quantity,
+              note: custom.note,
+              optionIds: [],
+              optionNames: [],
+              unitPrice: custom.price,
+            })
+            setAddingCustom(false)
+          }}
+        />
       )}
 
       {picking && (

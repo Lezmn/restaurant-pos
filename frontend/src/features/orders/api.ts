@@ -38,6 +38,24 @@ export async function clearOrder(id: Id): Promise<Order> {
   return mapOrder(data)
 }
 
+/** รายการราคาเปิด — พนักงานพิมพ์ชื่อ/ราคาเอง (backend เก็บประวัติทุกครั้ง) */
+export interface CustomOrderLine {
+  name: string
+  price: number
+  quantity: number
+  note: string
+}
+
+const toCustomPayload = (lines: CustomOrderLine[] = []) =>
+  lines
+    .filter((l) => l.quantity > 0 && l.name.trim())
+    .map((l) => ({
+      name: l.name.trim(),
+      price: l.price,
+      quantity: l.quantity,
+      ...(l.note.trim() ? { note: l.note.trim() } : {}),
+    }))
+
 export interface NewOrderLine {
   menuItemId: Id
   quantity: number
@@ -61,9 +79,11 @@ const toItemsPayload = (lines: NewOrderLine[]) =>
 export async function createTakeawayOrder(vars: {
   customerName?: string
   lines: NewOrderLine[]
+  customLines?: CustomOrderLine[]
 }): Promise<Order> {
   const lines = vars.lines.filter((l) => l.quantity > 0)
-  if (lines.length === 0) throw new Error('กรุณาเลือกอย่างน้อย 1 รายการ')
+  const customItems = toCustomPayload(vars.customLines)
+  if (lines.length + customItems.length === 0) throw new Error('กรุณาเลือกอย่างน้อย 1 รายการ')
 
   const name = vars.customerName?.trim()
   const data = await apiClient<ApiOrder>('/orders/takeaway', {
@@ -71,6 +91,7 @@ export async function createTakeawayOrder(vars: {
     body: JSON.stringify({
       ...(name ? { customerName: name } : {}),
       items: toItemsPayload(lines),
+      ...(customItems.length ? { customItems } : {}),
     }),
   })
   return mapOrder(data)
@@ -85,9 +106,11 @@ export async function createOrder(vars: {
   tableId: Id
   tableSessionId?: Id
   lines: NewOrderLine[]
+  customLines?: CustomOrderLine[]
 }): Promise<Order> {
   const lines = vars.lines.filter((l) => l.quantity > 0)
-  if (lines.length === 0) throw new Error('กรุณาเลือกอย่างน้อย 1 รายการ')
+  const customItems = toCustomPayload(vars.customLines)
+  if (lines.length + customItems.length === 0) throw new Error('กรุณาเลือกอย่างน้อย 1 รายการ')
 
   const data = await apiClient<ApiOrder>('/orders', {
     method: 'POST',
@@ -95,6 +118,7 @@ export async function createOrder(vars: {
       tableId: vars.tableId,
       ...(vars.tableSessionId ? { tableSessionId: vars.tableSessionId } : {}),
       items: toItemsPayload(lines),
+      ...(customItems.length ? { customItems } : {}),
     }),
   })
   return mapOrder(data)

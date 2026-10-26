@@ -13,6 +13,7 @@ import { useWakeLock } from '@/lib/use-wake-lock'
 import { OrderStatus } from '@/types/enums'
 import type { Order, OrderItem } from '@/types/models'
 import { useEffect, useRef, useState } from 'react'
+import { KitchenSoldOutButton } from './KitchenSoldOut'
 
 // socket สั่ง refetch ให้อยู่แล้ว — poll นี้เป็นตัวสำรองตอน socket หลุด
 const POLL_MS = LIVE_POLL_MS
@@ -148,6 +149,10 @@ function KitchenAlertBar({ screenAwake }: Readonly<{ screenAwake: boolean }>) {
           แตะเพื่อเปิดเสียงแจ้งเตือนออเดอร์ใหม่
         </button>
       )}
+      {/* ของหมดกดได้จากจอครัวเลย ไม่ต้องสลับไปหน้า Manage */}
+      <div className={enabled && !unlocked ? '' : 'mr-auto'}>
+        <KitchenSoldOutButton />
+      </div>
       {screenAwake && <span className="text-sm text-gray-600">หน้าจอเปิดค้างไว้ระหว่างอยู่หน้านี้</span>}
       <button
         type="button"

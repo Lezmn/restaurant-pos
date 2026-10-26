@@ -131,6 +131,7 @@ export async function carveOutItems(tx: Prisma.TransactionClient, selections: It
           data: {
             orderId: carved.id,
             menuItemId: item.menuItemId,
+            customName: item.customName,
             unitPrice: item.unitPrice,
             note: item.note,
             quantity: qty,

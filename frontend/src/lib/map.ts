@@ -160,7 +160,7 @@ export const mapOrder = (o: ApiOrder): Order => {
       id: item.id,
       menuItemId: item.menuItemId ?? '',
       // ทรง /public ส่ง name/options มาแบน ๆ ส่วนทรง /orders ซ้อนอยู่ใน menuItem/selectedOptions
-      menuItemName: item.menuItem?.name ?? item.name ?? 'ไม่ทราบชื่อเมนู',
+      menuItemName: item.customName ?? item.menuItem?.name ?? item.name ?? 'ไม่ทราบชื่อเมนู',
       imageUrl: item.menuItem?.imageUrl ?? null,
       quantity: item.quantity,
       unitPrice: item.unitPrice,

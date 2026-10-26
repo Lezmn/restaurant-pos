@@ -238,7 +238,7 @@ async function createReceiptForSession(tableSessionId: string) {
       const lineTotal = item.unitPrice.plus(optionTotal).mul(item.quantity);
 
       return {
-        name: item.menuItem.name,
+        name: item.menuItem?.name ?? item.customName ?? 'รายการพิเศษ',
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         optionTotal,

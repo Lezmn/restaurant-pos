@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import {
   OrderStatus,
@@ -16,10 +17,16 @@ import { addDays, monthToRange, startOfDay } from '../common/date-range.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCashCloseDto } from './dto/create-cash-close.dto';
 import { FindCashClosesQueryDto } from './dto/find-cash-closes-query.dto';
+import { formatCashCloseSummary } from '../line/cash-close-summary';
+import { LineMessagingService } from '../line/line-messaging.service';
 
 @Injectable()
 export class CashClosesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // ไม่บังคับ — เทสต์ที่ไม่สนเรื่อง LINE สร้าง service ด้วย prisma อย่างเดียวได้
+    @Optional() private readonly line?: LineMessagingService,
+  ) {}
 
   /**
    * ยอดของวันก่อนนับเงิน — หน้าปิดยอดใช้แสดงยอดเงินสด/PromptPay
@@ -70,7 +77,7 @@ export class CashClosesService {
       .minus(totals.drawerExpenses);
 
     try {
-      return await this.prisma.dailyCashClose.create({
+      const close = await this.prisma.dailyCashClose.create({
         data: {
           date: dateKey,
           openingFloat,
@@ -85,6 +92,15 @@ export class CashClosesService {
           closedByName: user.name,
         },
       });
+      // ส่งสรุปเข้า LINE เจ้าของ — ไม่รอผล: LINE ช้า/ล่มต้องไม่ทำให้ปิดยอดค้าง (push ไม่ throw อยู่แล้ว)
+      void this.line?.push(
+        formatCashCloseSummary({
+          ...close,
+          restaurantName: this.line.shopName,
+          paymentCount: totals.paymentCount,
+        }),
+      );
+      return close;
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&

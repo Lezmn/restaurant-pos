@@ -294,8 +294,11 @@ model OrderItem {
   order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
   orderId String
 
-  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
-  menuItemId String
+  /// null = รายการราคาเปิด (พนักงานพิมพ์ชื่อ/ราคาเอง เช่น "ข้าวเพิ่ม") — ชื่ออยู่ใน customName
+  menuItem   MenuItem? @relation(fields: [menuItemId], references: [id])
+  menuItemId String?
+  /// ชื่อรายการราคาเปิด (มีค่าเมื่อ menuItemId = null) — ราคาอยู่ใน unitPrice
+  customName String?
 
   selectedOptions OrderItemOption[]
 
