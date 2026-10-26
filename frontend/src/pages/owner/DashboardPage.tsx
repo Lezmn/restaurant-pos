@@ -141,62 +141,57 @@ export function DashboardPage() {
         <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
         {description && <p className="mt-1 text-sm text-gray-600">{description}</p>}
       </div>
-      <fieldset className="inline-flex flex-wrap rounded-lg bg-gray-100 p-1">
-        <legend className="sr-only">ช่วงเวลาที่ดู</legend>
-        {PRESETS.map((r) => (
-          <button
-            key={r.value}
-            type="button"
-            aria-pressed={preset === r.value}
-            onClick={() => selectPreset(r.value)}
-            className={`min-h-11 rounded-md px-4 text-sm font-bold transition sm:px-5 ${
-              preset === r.value ? 'bg-brand-500 text-white' : 'text-gray-700 hover:bg-white'
-            }`}
-          >
-            {r.label}
-          </button>
-        ))}
-      </fieldset>
-
-      {/* เลือกเอง: วันเดียว = ใส่วันเดียวกันทั้งสองช่อง (หรือเว้นช่อง "ถึง") */}
-      {preset === 'custom' && range && (
-        <div className="flex w-full flex-wrap items-end gap-3 rounded-lg border border-gray-200 p-3">
-          <label className="text-sm">
-            <span className="block font-semibold text-gray-700">ตั้งแต่</span>
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        {/* เลือกเอง: อยู่ข้างปุ่มช่วงเวลา · วันเดียว = ใส่วันเดียวกันทั้งสองช่อง */}
+        {preset === 'custom' && range && (
+          <div className="flex items-center gap-2 text-sm" title={`ย้อนหลังได้สูงสุด ${MAX_DAYS} วันต่อครั้ง`}>
+            <label className="sr-only" htmlFor="range-from">
+              ตั้งแต่
+            </label>
             <input
+              id="range-from"
               type="date"
               value={range.from}
               max={todayYmd()}
               onChange={(e) =>
                 e.target.value && setCustom({ from: e.target.value, to: range.to < e.target.value ? e.target.value : range.to })
               }
-              className="mt-1 min-h-11 rounded-lg border border-gray-300 px-3 text-sm font-semibold text-gray-800 outline-none focus:border-brand-300"
+              className="min-h-11 rounded-lg border border-gray-300 px-3 text-sm font-semibold text-gray-800 outline-none focus:border-brand-300"
             />
-          </label>
-          <label className="text-sm">
-            <span className="block font-semibold text-gray-700">ถึง</span>
+            <span aria-hidden className="font-semibold text-gray-500">
+              ถึง
+            </span>
+            <label className="sr-only" htmlFor="range-to">
+              ถึง
+            </label>
             <input
+              id="range-to"
               type="date"
               value={range.to}
               min={range.from}
               max={todayYmd()}
               onChange={(e) => e.target.value && setCustom({ from: range.from, to: e.target.value })}
-              className="mt-1 min-h-11 rounded-lg border border-gray-300 px-3 text-sm font-semibold text-gray-800 outline-none focus:border-brand-300"
+              className="min-h-11 rounded-lg border border-gray-300 px-3 text-sm font-semibold text-gray-800 outline-none focus:border-brand-300"
             />
-          </label>
-          <button
-            type="button"
-            onClick={() => setCustom({ from: range.to, to: range.to })}
-            disabled={days === 1}
-            className="min-h-11 rounded-lg border border-gray-300 px-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
-          >
-            ดูวันเดียว
-          </button>
-          <p className="w-full text-xs text-gray-600">
-            เลือกวันเดียว = ใส่วันเดียวกันทั้งสองช่อง · ย้อนหลังได้สูงสุด {MAX_DAYS} วันต่อครั้ง
-          </p>
-        </div>
-      )}
+          </div>
+        )}
+        <fieldset className="inline-flex flex-wrap rounded-lg bg-gray-100 p-1">
+          <legend className="sr-only">ช่วงเวลาที่ดู</legend>
+          {PRESETS.map((r) => (
+            <button
+              key={r.value}
+              type="button"
+              aria-pressed={preset === r.value}
+              onClick={() => selectPreset(r.value)}
+              className={`min-h-11 rounded-md px-4 text-sm font-bold transition sm:px-5 ${
+                preset === r.value ? 'bg-brand-500 text-white' : 'text-gray-700 hover:bg-white'
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </fieldset>
+      </div>
     </div>
   )
 
