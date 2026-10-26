@@ -62,8 +62,11 @@ function KitchenItemRow({
         <span className={`text-base leading-snug ${checked ? 'text-gray-500 line-through' : ''}`}>
           <span className="mr-1 text-lg font-bold tabular-nums">{item.quantity}×</span>
           <span className="font-semibold">{item.menuItemName}</span>
+          {/* ตัวเลือก (หมู/ไข่ดาว) ทำผิดแล้วต้องทำใหม่ — ตัวเท่าชื่อเมนู สีเข้ม ไม่ใช่ตัวเล็กสีเทา */}
           {item.optionNames.length > 0 && (
-            <span className="block text-sm text-gray-600">{item.optionNames.join(', ')}</span>
+            <span className={`block text-base font-semibold ${checked ? '' : 'text-brand-500'}`}>
+              {item.optionNames.join(' · ')}
+            </span>
           )}
         </span>
 
@@ -79,7 +82,7 @@ function KitchenItemRow({
       </label>
 
       {/* แพ้อาหาร = พื้นแดงตัวขาว + ไอคอน (ไม่ได้บอกด้วยสีอย่างเดียว) — ทำพลาดแล้วลูกค้าอันตราย
-          โน้ตทั่วไป (ไม่เผ็ด ฯลฯ) คงแบบเดิม */}
+          โน้ตทั่วไป (ไม่เผ็ด ฯลฯ) = กล่องเหลือง */}
       {item.note &&
         columnKey !== 'done' &&
         (isAllergyNote(item.note) ? (
@@ -91,8 +94,9 @@ function KitchenItemRow({
             </span>
           </p>
         ) : (
-          <p className="mt-1 flex items-center gap-1.5 text-base font-bold text-status-queue-ink">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-status-queue" />
+          // โน้ตทั่วไป (ไม่เผ็ด / ไม่ใส่ผัก) = กล่องเหลืองมีป้าย "หมายเหตุ" — เด่นกว่าตัวเลือก แต่ไม่แรงเท่าแพ้อาหาร
+          <p className="mt-1.5 rounded-md border-l-4 border-amber-500 bg-amber-100 px-2 py-1 text-base font-bold text-amber-900">
+            <span className="mr-1.5 rounded bg-amber-700 px-1.5 py-0.5 text-xs font-bold text-white">หมายเหตุ</span>
             {item.note}
           </p>
         ))}
