@@ -75,6 +75,8 @@ export interface ApiMenuItem {
   price: number
   imageUrl: string | null
   isAvailable: boolean
+  /** มีตัวเลือกเนื้อสัตว์แล้วต้องเลือกไหม (ไม่ส่ง = ต้องเลือก) */
+  proteinRequired?: boolean
   categoryId: string
   category?: { id: string; name: string }
   options?: ApiMenuOption[]

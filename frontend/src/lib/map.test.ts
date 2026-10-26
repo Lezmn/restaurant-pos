@@ -92,3 +92,30 @@ describe('mapPayment', () => {
     expect(p.tableName).toBe('-')
   })
 })
+
+describe('mapMenuItem: บังคับเลือกเนื้อสัตว์ต่อเมนู', () => {
+  const api = (proteinRequired?: boolean) => ({
+    id: 'm1',
+    name: 'ข้าวไข่เจียว',
+    price: 40,
+    imageUrl: null,
+    isAvailable: true,
+    categoryId: 'c1',
+    ...(proteinRequired === undefined ? {} : { proteinRequired }),
+    options: [
+      { id: 'o1', name: 'หมูกรอบ', price: 10, group: 'PROTEIN' as const, isAvailable: true },
+      { id: 'o2', name: 'ไข่ 2 ฟอง', price: 10, group: 'EXTRA' as const, isAvailable: true },
+    ],
+  })
+  const proteinGroup = (m: ReturnType<typeof mapMenuItem>) => m.optionGroups.find((g) => g.name === 'เนื้อสัตว์')
+
+  it('ไม่ส่งมา (API เก่า) = บังคับเหมือนเดิม', () => {
+    expect(proteinGroup(mapMenuItem(api()))?.required).toBe(true)
+  })
+
+  it('ตั้งไม่บังคับ = กลุ่มเนื้อสัตว์ไม่บังคับ แต่ยังเลือกได้อย่างเดียว', () => {
+    const group = proteinGroup(mapMenuItem(api(false)))
+    expect(group?.required).toBe(false)
+    expect(group?.selectType).toBe('single')
+  })
+})

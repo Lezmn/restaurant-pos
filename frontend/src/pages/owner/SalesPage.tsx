@@ -153,7 +153,7 @@ function TopItems({ items }: Readonly<{ items: SalesItem[] }>) {
         <div role="group" aria-label="เรียงตาม" className="flex rounded-lg border-2 border-gray-300 p-0.5">
           {(
             [
-              ['quantity', 'จำนวนจาน'],
+              ['quantity', 'จำนวนออเดอร์'],
               ['revenue', 'ยอดเงิน'],
             ] as const
           ).map(([key, label]) => (
@@ -197,13 +197,13 @@ function TopItems({ items }: Readonly<{ items: SalesItem[] }>) {
             <div className="w-20 shrink-0 text-right tabular-nums">
               <p className="text-sm font-bold text-black">
                 {sortBy === 'quantity'
-                  ? `${item.quantity.toLocaleString('th-TH')} จาน`
+                  ? `${item.quantity.toLocaleString('th-TH')} ออเดอร์`
                   : formatBaht(item.revenue)}
               </p>
               <p className="text-xs text-gray-600">
                 {sortBy === 'quantity'
                   ? formatBaht(item.revenue)
-                  : `${item.quantity.toLocaleString('th-TH')} จาน`}
+                  : `${item.quantity.toLocaleString('th-TH')} ออเดอร์`}
               </p>
             </div>
           </li>

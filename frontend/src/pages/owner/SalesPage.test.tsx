@@ -52,7 +52,7 @@ function renderPage() {
 beforeEach(() => vi.mocked(getSales).mockReset())
 
 describe('SalesPage (เมนูขายดี)', () => {
-  it('เรียงตามจำนวนจานก่อน สลับเป็นยอดเงินแล้วอันดับเปลี่ยน', async () => {
+  it('เรียงตามจำนวนออเดอร์ก่อน สลับเป็นยอดเงินแล้วอันดับเปลี่ยน', async () => {
     vi.mocked(getSales).mockResolvedValue(data)
     renderPage()
 

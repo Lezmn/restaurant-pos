@@ -364,7 +364,8 @@ async function main() {
     // ตัวเมนูตัดไข่ 1 ฟองแล้ว — "ไข่ 1 ฟอง" ไม่ตัดเพิ่ม, "ไข่ 2 ฟอง" ตัดอีก 1
     upsertMenuOption(omeletRice.id, 'ไข่ 1 ฟอง', 0, EXTRA, 'ไข่', 0),
     upsertMenuOption(omeletRice.id, 'ไข่ 2 ฟอง', 10, EXTRA, 'ไข่'),
-    upsertMenuOption(omeletRice.id, 'หมูสับ', 10, PROTEIN),
+    // ท็อปปิ้ง ไม่บังคับ — ข้าวไข่เจียวเปล่า ๆ สั่งได้ (กลุ่มเนื้อสัตว์ = ต้องเลือก 1 อย่าง)
+    upsertMenuOption(omeletRice.id, 'หมูสับ', 10, EXTRA),
     upsertMenuOption(friedRice.id, 'หมู', 0, PROTEIN),
     upsertMenuOption(friedRice.id, 'ไก่', 0, PROTEIN),
     upsertMenuOption(friedRice.id, 'กุ้ง', 20, PROTEIN),

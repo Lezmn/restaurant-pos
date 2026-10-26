@@ -54,6 +54,8 @@ type MenuSeed = {
   imageUrl?: string;
   /** วัตถุดิบหลักที่เมนูใช้เสมอ */
   ingredients?: string[];
+  /** false = เนื้อเป็นของเพิ่ม ไม่ต้องเลือก (ค่าเริ่มต้น true) */
+  proteinRequired?: boolean;
   options: OptionSeed[];
 };
 
@@ -78,13 +80,15 @@ const MENU: MenuSeed[] = [
     category: 'อาหารจานเดียว',
     name: 'ข้าวไข่เจียว',
     price: 40,
+    proteinRequired: false,
     imageUrl: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38',
     ingredients: ['ไข่'],
     options: [
       // ตัวเมนูตัดไข่ 1 ฟองแล้ว — "ไข่ 1 ฟอง" ไม่ตัดเพิ่ม, "ไข่ 2 ฟอง" ตัดอีก 1
       { name: 'ไข่ 1 ฟอง', price: 0, group: EXTRA, ingredient: 'ไข่', usageQty: 0 },
       { name: 'ไข่ 2 ฟอง', price: 10, group: EXTRA, ingredient: 'ไข่' },
-      { name: 'หมูสับ', price: 10, group: PROTEIN },
+      // ท็อปปิ้ง ไม่บังคับ — ข้าวไข่เจียวเปล่า ๆ สั่งได้ (กลุ่มเนื้อสัตว์ = ต้องเลือก 1 อย่าง)
+      { name: 'หมูสับ', price: 10, group: EXTRA },
     ],
   },
   {
@@ -275,6 +279,7 @@ async function main() {
         price: item.price,
         imageUrl: item.imageUrl ?? null,
         isAvailable: true,
+        proteinRequired: item.proteinRequired ?? true,
         ingredients: {
           create: (item.ingredients ?? []).map((n) => ({ ingredientId: ingredientId.get(n)! })),
         },

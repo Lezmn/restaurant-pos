@@ -117,6 +117,8 @@ model MenuItem {
   price       Decimal  @db.Decimal(10, 2)
   imageUrl    String?
   isAvailable Boolean  @default(true)
+  /// มีตัวเลือกกลุ่มเนื้อสัตว์แล้ว ลูกค้าต้องเลือก 1 อย่างไหม — false = เนื้อเป็นของเพิ่ม สั่งเปล่า ๆ ได้ (ข้าวไข่เจียว)
+  proteinRequired Boolean @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

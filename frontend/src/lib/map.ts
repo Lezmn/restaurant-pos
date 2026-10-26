@@ -118,7 +118,9 @@ const optionGroupsOf = (m: ApiMenuItem): MenuOptionGroup[] =>
         id: `${m.id}-${group.kind.toLowerCase()}`,
         name: group.name,
         selectType: group.selectType,
-        required: group.required,
+        // เนื้อสัตว์บังคับเลือกตามที่ตั้งไว้ต่อเมนู — ข้าวไข่เจียวตั้งไม่บังคับ สั่งเปล่า ๆ ได้
+        required:
+          group.kind === MenuOptionGroupKind.PROTEIN ? (m.proteinRequired ?? true) : group.required,
         options: options.map(mapMenuOption),
       },
     ]
@@ -137,6 +139,7 @@ export const mapMenuItem = (m: ApiMenuItem): MenuItem => {
     price: m.price,
     imageUrl: m.imageUrl,
     isAvailable: m.isAvailable,
+    proteinRequired: m.proteinRequired ?? true,
     optionGroups: optionGroupsOf(m),
     ingredients,
     ingredientsOutOfStock: ingredients.filter((i) => !i.isAvailable).map((i) => i.name),
