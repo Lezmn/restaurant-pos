@@ -46,6 +46,12 @@ const openSession = (
   openedAt: '2026-10-22T10:00:00.000Z',
   closedAt: null,
   total: 0,
+  // ฟิลด์ที่เพิ่มมากับงานกลับบ้าน/แยกบิล — โต๊ะปกติ ไม่ได้หาร
+  placeLabel: 'โต๊ะ 1',
+  isTakeaway: false,
+  takeawayNo: null,
+  customerName: null,
+  split: null,
 })
 
 function renderAt(token: string) {
