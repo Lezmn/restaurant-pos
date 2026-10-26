@@ -39,7 +39,8 @@ async function servedTable(request: APIRequestContext) {
 
 const money = (text: string | null) => Number((text ?? '').replace(/[^\d.-]/g, ''))
 
-test('รับเงินสดพร้อมส่วนลด: ต้องใส่เหตุผล, ใบเสร็จโชว์ส่วนลด, ลิ้นชักเพิ่มเท่ายอดเก็บจริง', async ({ page, request }) => {
+// @totals-dashboard: เทียบเงินสดในลิ้นชักทั้งวันก่อน/หลัง — รันช่วงท้ายแบบไม่ขนาน ไม่ให้บิลเงินสดของเทสอื่นปน
+test('รับเงินสดพร้อมส่วนลด: ต้องใส่เหตุผล, ใบเสร็จโชว์ส่วนลด, ลิ้นชักเพิ่มเท่ายอดเก็บจริง', { tag: '@totals-dashboard' }, async ({ page, request }) => {
   const { tableName } = await servedTable(request)
   await loginAsCashier(page, request)
   await page.goto('/employee/check')
@@ -56,7 +57,9 @@ test('รับเงินสดพร้อมส่วนลด: ต้อง
 
   // เงินทอน: รับมา 500 → ทอน 420 (หลังลดเหลือ 80)
   await dialog.getByRole('button', { name: 'ให้ส่วนลด' }).click()
-  await dialog.getByLabel(/ราคาที่เก็บจริง/).fill('80')
+  // ส่วนลดเป็น % — ลด 20% จาก 100 = เก็บจริง 80
+  await dialog.getByLabel(/ลดกี่ %/).fill('20')
+  await expect(dialog.getByText('เก็บจริง ฿80')).toBeVisible()
   const submit = dialog.getByRole('button', { name: 'รับเงิน ฿80' })
   await expect(submit).toBeDisabled() // ยังไม่ใส่เหตุผล
   await dialog.getByLabel(/เหตุผลที่ลด/).fill('ลูกค้าประจำ')
@@ -67,7 +70,7 @@ test('รับเงินสดพร้อมส่วนลด: ต้อง
 
   const receipt = page.getByRole('dialog', { name: 'ใบเสร็จรับเงิน' })
   await expect(receipt).toBeVisible()
-  await expect(receipt.getByText('ส่วนลด').first()).toBeVisible()
+  await expect(receipt.getByText('ส่วนลด 20%', { exact: true })).toBeVisible()
   await expect(receipt.getByText('฿20').first()).toBeVisible()
   await expect(receipt.getByText('฿80').first()).toBeVisible()
   await expect(receipt.getByText(/ลูกค้าประจำ/)).toBeVisible()
@@ -77,7 +80,8 @@ test('รับเงินสดพร้อมส่วนลด: ต้อง
   await expect.poll(async () => money(await cashRow.textContent())).toBeCloseTo(cashBefore + 80, 2)
 })
 
-test('ปิดยอดวันนี้: ตัวเลข "ควรมีในลิ้นชัก" = เงินทอน + ขายสด − หยิบออก และ owner เห็นในประวัติ', async ({ page, request }) => {
+// @totals-cashclose: รันท้ายสุด (playwright.config.ts) — ระหว่างปิดยอด เทสอื่นยกเลิกบิลของวันนี้ไม่ได้
+test('ปิดยอดวันนี้: ตัวเลข "ควรมีในลิ้นชัก" = เงินทอน + ขายสด − หยิบออก และ owner เห็นในประวัติ', { tag: '@totals-cashclose' }, async ({ page, request }) => {
   // รันซ้ำวันเดียวกัน → ลบการปิดยอดเดิมก่อน (ADMIN เท่านั้น)
   const admin = await api(request, 'admin')
   const preview = await (await request.get(`${API_URL}/cash-closes/preview`, { headers: admin })).json()
@@ -111,6 +115,17 @@ test('ปิดยอดวันนี้: ตัวเลข "ควรมี�
   await loginAsAdmin(page, request)
   await page.goto('/owner/cash-closes')
   await expect(page.getByText(/-?฿10|ขาด/).first()).toBeVisible()
+
+  // ปิดยอดแล้วยกเลิกบิลของวันนั้นไม่ได้ — ADMIN ต้องลบการปิดยอดก่อน
+  const closed = await (await request.get(`${API_URL}/cash-closes/preview`, { headers: admin })).json()
+  const payments = await (await request.get(`${API_URL}/payments`, { headers: admin })).json()
+  const todayPaid = payments.find((p: { status: string }) => p.status === 'COMPLETED')
+  if (todayPaid) {
+    const blocked = await request.patch(`${API_URL}/payments/${todayPaid.id}/void`, { headers: admin, data: { reason: 'ทดสอบหลังปิดยอด' } })
+    expect(blocked.status()).toBe(409)
+  }
+  // เก็บกวาด: ลบการปิดยอด ให้รันซ้ำวันเดียวกันได้
+  await request.delete(`${API_URL}/cash-closes/${closed.alreadyClosed.id}`, { headers: admin })
 })
 
 // @totals-dashboard: เทียบยอดขายทั้งวัน — รันแยกหลังเทสอื่นจบ (playwright.config.ts)

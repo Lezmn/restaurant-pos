@@ -6,7 +6,8 @@ import { submitLogin } from '../helpers'
 // ที่โชว์ "({name} · {role})" — ดู src/components/layout/EmployeeLayout.tsx บรรทัด 141-145
 
 const accounts = [
-  { username: 'admin', name: 'Admin', role: 'ADMIN', landingUrl: /\/employee\/order$/ },
+  // ADMIN ไปหน้า Dashboard ก่อน — แถบข้างของหน้าเจ้าของร้านโชว์ "Admin · ADMIN" แบบเดียวกัน
+  { username: 'admin', name: 'Admin', role: 'ADMIN', landingUrl: /\/owner\/dashboard$/ },
   // 23 ก.ย. รวม CASHIER + WAITER เป็น STAFF — seed เหลือบัญชี staff (ชื่อ "Staff")
   { username: 'staff', name: 'Staff', role: 'STAFF', landingUrl: /\/employee\/check$/ },
   { username: 'kitchen', name: 'Kitchen Staff', role: 'KITCHEN', landingUrl: /\/employee\/order$/ },

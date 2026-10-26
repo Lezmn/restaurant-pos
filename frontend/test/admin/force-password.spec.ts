@@ -66,7 +66,8 @@ test('หน้าเว็บ: login ด้วยรหัสชั่วคร
 
     // bcrypt (cost 12) ช้าตั้งใจ — ตอนรันขนานหลาย worker บันทึกเกิน 5 วินาทีได้
     await expect(page.getByRole('heading', { name: 'ตั้งรหัสผ่านใหม่ก่อนใช้งาน' })).toHaveCount(0, { timeout: 15_000 })
-    await expect(page).toHaveURL(/\/employee\//)
+    // ADMIN ไปหน้า Dashboard ของเจ้าของร้าน (บัญชีอื่นไปหน้าพนักงาน)
+    await expect(page).toHaveURL(/\/(employee|owner)\//)
 
     const oldLogin = await call(request, 'POST', '/auth/login', {
       data: { email: `${username}@restaurant.local`, password: TEMP_PASSWORD },

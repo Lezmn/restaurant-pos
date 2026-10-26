@@ -60,20 +60,21 @@ test('ยอดบิล ส่วนลด ใบเสร็จ และย�
     await call(request, 'POST', '/payments', { token: t.STAFF, data: { tableSessionId: session.id, method: 'CASH', expectedTotal: 180 } }),
     409,
   )
-  // เก็บเกินยอด → 400
+  // ส่วนลดเกิน 100% → 400
   expectStatus(
-    await call(request, 'POST', '/payments', { token: t.STAFF, data: { tableSessionId: session.id, method: 'CASH', amount: 200 } }),
+    await call(request, 'POST', '/payments', { token: t.STAFF, data: { tableSessionId: session.id, method: 'CASH', discountPercent: 101 } }),
     400,
   )
 
   const payment = await ok(
     await call(request, 'POST', '/payments', {
       token: t.STAFF,
-      data: { tableSessionId: session.id, method: 'CASH', expectedTotal: 190, amount: 180.5, note: 'ลูกค้าประจำ' },
+      // ลด 5%: 190 × 5% = 9.50 → เก็บ 180.50
+      data: { tableSessionId: session.id, method: 'CASH', expectedTotal: 190, discountPercent: 5, note: 'ลูกค้าประจำ' },
     }),
   )
   expect(payment.amount).toBe(180.5)
-  expect(payment.receipt).toMatchObject({ subtotal: 190, discount: 9.5, total: 180.5, note: 'ลูกค้าประจำ' })
+  expect(payment.receipt).toMatchObject({ subtotal: 190, discount: 9.5, discountPercent: 5, total: 180.5, note: 'ลูกค้าประจำ' })
   expect(payment.receipt.number).toMatch(/^RCPT-\d{8}-\d{4}$/)
   const lineTotals = payment.receipt.items.map((i: { lineTotal: number }) => i.lineTotal).sort((a: number, b: number) => a - b)
   expect(lineTotals).toEqual([30, 160])

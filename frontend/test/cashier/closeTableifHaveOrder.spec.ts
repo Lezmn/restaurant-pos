@@ -18,7 +18,7 @@ test('ปิดโต๊ะที่มีลูกค้าสั่งอา�
   const tableCardText = await pickFreeTable(page)
   const availableTable = tablesPageCard(page, tableCardText)
 
-  await availableTable.getByRole('button', { name: 'เปิดโต๊ะ + สร้าง QR' }).click()
+  await availableTable.getByRole('button', { name: 'เปิดโต๊ะ/สร้าง QR' }).click()
 
   // ดึงลิงก์ลูกค้าจากช่อง input readonly ใน QR dialog โดยตรง แทนการอ่าน clipboard
   // (คลิก "คัดลอกลิงก์" ใช้ navigator.clipboard ซึ่งต้องขอ permission พิเศษใน Playwright)
@@ -47,7 +47,7 @@ test('ปิดโต๊ะที่มีลูกค้าสั่งอา�
 
   await expect(confirmClose.getByRole('alert')).toHaveText('ยังมีออเดอร์ที่ไม่ปิดใน session นี้')
   await confirmClose.getByRole('button', { name: 'ย้อนกลับ' }).click()
-  // โต๊ะต้องยังอยู่ในสถานะเปิด (มีปุ่ม "ปิดโต๊ะ") ไม่ใช่กลับไปเป็น "เปิดโต๊ะ + สร้าง QR"
+  // โต๊ะต้องยังอยู่ในสถานะเปิด (มีปุ่ม "ปิดโต๊ะ") ไม่ใช่กลับไปเป็น "เปิดโต๊ะ/สร้าง QR"
   await expect(openedTable.getByRole('button', { name: 'ปิดโต๊ะ' })).toBeVisible()
 })
 
@@ -70,7 +70,7 @@ test('ยกเลิกออเดอร์แล้วปิดโต๊ะ�
   await confirmCancel.getByRole('button', { name: 'ยกเลิกออเดอร์' }).click()
   await expect(confirmCancel).not.toBeVisible()
 
-  await page.getByRole('link', { name: 'โต๊ะ / QR' }).click()
+  await page.getByRole('link', { name: 'Table' }).click()
   await tablesPageCard(page, tableCardText)
     .getByRole('button', { name: 'ปิดโต๊ะ' })
     .click()
@@ -79,6 +79,6 @@ test('ยกเลิกออเดอร์แล้วปิดโต๊ะ�
   // ไม่มีออเดอร์ค้างแล้ว (CANCELLED ไม่นับ) ปิดโต๊ะสำเร็จ โต๊ะกลับมาโชว์ปุ่มเปิดโต๊ะใหม่
   await expect(
     tablesPageCard(page, tableCardText)
-      .getByRole('button', { name: 'เปิดโต๊ะ + สร้าง QR' }),
+      .getByRole('button', { name: 'เปิดโต๊ะ/สร้าง QR' }),
   ).toBeVisible()
 })

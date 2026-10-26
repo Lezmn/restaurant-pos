@@ -7,9 +7,9 @@ const LOGIN_EMAIL_DOMAIN = 'restaurant.local'
 
 /** กรอกฟอร์ม login แล้วกดส่ง — ใช้ร่วมกันทุกเคสที่ต้อง submit จริง */
 export async function submitLogin(page: Page, username: string, password: string) {
-  await page.getByLabel('ผู้ใช้').fill(username)
-  await page.getByLabel('รหัสผ่าน').fill(password)
-  await page.getByRole('button', { name: 'เข้าสู่ระบบ' }).click()
+  await page.getByLabel('Username').fill(username)
+  await page.getByLabel('Password').fill(password)
+  await page.getByRole('button', { name: 'Login' }).click()
 }
 
 /**
@@ -92,10 +92,18 @@ export async function openTableAndPlaceOrder(
 ): Promise<{ tableCardText: string; orderRef: string }> {
   await page.goto('/employee/tables')
 
-  const tableCardText = await pickFreeTable(page)
-  await tablesPageCard(page, tableCardText).getByRole('button', { name: 'เปิดโต๊ะ + สร้าง QR' }).click()
-  // ปิด QR dialog ที่เด้งขึ้นมาเองหลังเปิดโต๊ะสำเร็จ — รอให้ขึ้นก่อน ไม่งั้น Escape ไปก่อน dialog (ตอนไม่มี slowMo)
+  // หลาย worker สุ่มโต๊ะว่างพร้อมกันอาจได้ตัวเดียวกัน ("มี QR session ที่เปิดอยู่แล้ว") — สุ่มใหม่ได้ 3 รอบ
   const qrDialog = page.getByRole('dialog', { name: /^QR โต๊ะ/ })
+  const taken = page.getByRole('alert').filter({ hasText: 'มี QR session ที่เปิดอยู่แล้ว' })
+  let tableCardText = ''
+  for (let attempt = 0; attempt < 3; attempt++) {
+    tableCardText = await pickFreeTable(page)
+    await tablesPageCard(page, tableCardText).getByRole('button', { name: 'เปิดโต๊ะ/สร้าง QR' }).click()
+    await expect(qrDialog.or(taken)).toBeVisible()
+    if (await qrDialog.isVisible()) break
+    await page.reload()
+  }
+  // ปิด QR dialog ที่เด้งขึ้นมาเองหลังเปิดโต๊ะสำเร็จ — รอให้ขึ้นก่อน ไม่งั้น Escape ไปก่อน dialog (ตอนไม่มี slowMo)
   await expect(qrDialog).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(qrDialog).toHaveCount(0)
@@ -154,8 +162,9 @@ export async function advanceOrderToServed(page: Page, orderRef: string) {
   await page.goto('/employee/order')
 
   const cardText = `#${orderRef}`
-  const queueColumn = page.locator('section', { hasText: 'รอคิว' })
-  const cookingColumn = page.locator('section', { hasText: 'กำลังปรุง' })
+  const column = (name: string) => page.getByRole('region', { name, exact: true })
+  const queueColumn = column('รอคิว')
+  const cookingColumn = column('กำลังปรุง')
 
   await queueColumn
     .locator('article', { hasText: cardText })
@@ -165,6 +174,10 @@ export async function advanceOrderToServed(page: Page, orderRef: string) {
   const inCooking = cookingColumn.locator('article', { hasText: cardText })
   await expect(inCooking).toBeVisible()
   await inCooking.getByRole('button', { name: 'ทำเสร็จแล้ว' }).click()
+  // "ทำเสร็จแล้ว" รอ 5 วิให้กดยกเลิกได้ก่อนส่ง SERVED จริง — ปุ่ม "เสิร์ฟแล้ว · เอาออก" ขึ้นเมื่อบันทึกแล้ว
+  await expect(
+    column('เสร็จแล้ว').locator('article', { hasText: cardText }).getByRole('button', { name: 'เสิร์ฟแล้ว · เอาออก' }),
+  ).toBeVisible({ timeout: 15_000 })
 }
 
 /**

@@ -3,7 +3,7 @@ import { loginAsAdmin } from '../helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data ที่ localhost:3000
 
-test('เมนูล่างของ admin เปิดได้ครบทั้ง 3 ปุ่ม (Order, Check, Manage) ไม่มีปุ่มไหนถูก disable', async ({
+test('เมนูล่างของ admin เปิดได้ครบทั้ง 5 ปุ่ม (Order, Check, Manage, Table, Takeaway) ไม่มีปุ่มไหนถูก disable', async ({
   page,
   request,
 }) => {
@@ -15,14 +15,17 @@ test('เมนูล่างของ admin เปิดได้ครบท�
   await expect(page.getByRole('link', { name: 'Order' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Check' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Manage' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Table' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Takeaway' })).toBeVisible()
 })
 
-test('admin เห็นลิงก์ "โต๊ะ / QR" และ "Dashboard" ที่ header', async ({ page, request }) => {
+test('admin เห็นลิงก์ "Dashboard" และปุ่ม "ออกจากระบบ" ที่ header (โต๊ะ/QR ย้ายไปแถบล่าง "Table")', async ({ page, request }) => {
   await loginAsAdmin(page, request)
   await page.goto('/employee/order')
 
-  await expect(page.getByRole('link', { name: 'โต๊ะ / QR' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'ออกจากระบบ' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'โต๊ะ / QR' })).toHaveCount(0)
 })
 
 test('header แสดงชื่อและ role ของ admin ที่ login อยู่', async ({ page, request }) => {

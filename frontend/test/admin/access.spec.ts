@@ -11,7 +11,7 @@ const everyEmployeePage = [
   '/employee/tables',
   '/employee/orders',
   '/employee/requests',
-  '/employee/users',
+  '/employee/takeaway',
 ]
 
 for (const path of everyEmployeePage) {
@@ -34,6 +34,17 @@ test('admin เข้าหน้า owner dashboard และ finance ได้
 
   await page.goto('/owner/finance')
   await expect(page).toHaveURL(/\/owner\/finance$/)
+  // หน้าเจ้าของร้านที่เพิ่มมาทีหลัง — บัญชีผู้ใช้ย้ายมาจาก /employee/users
+  for (const path of ['/owner/users', '/owner/audit', '/owner/sales', '/owner/cash-closes', '/owner/line']) {
+    await page.goto(path)
+    await expect(page).toHaveURL(new RegExp(`${path}$`))
+  }
+})
+
+test('ลิงก์เก่า /employee/users พาไปหน้าบัญชีผู้ใช้ฝั่งเจ้าของร้าน', async ({ page, request }) => {
+  await loginAsAdmin(page, request)
+  await page.goto('/employee/users')
+  await expect(page).toHaveURL(/\/owner\/users$/)
 })
 
 // เทียบกับ role อื่น เพื่อพิสูจน์ว่าหน้าที่ ADMIN เท่านั้นเข้าได้ กัน role อื่นออกจริง ไม่ใช่แค่ ADMIN เข้าได้เฉย ๆ
