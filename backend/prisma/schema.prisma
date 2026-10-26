@@ -255,6 +255,11 @@ model Order {
   // เก็บใน DB ไม่ใช่ state ในจอ ไม่งั้นรีเฟรชแล้วกลับมาใหม่ และจอครัวหลายเครื่องไม่ตรงกัน
   clearedAt DateTime?
 
+  /// ครัวกด "เริ่มปรุง" / "ทำเสร็จแล้ว" ตอนไหน — ใช้ทำสถิติความเร็วครัว (รอคิวนานเท่าไร ปรุงนานเท่าไร)
+  /// null = ยังไม่ถึงขั้นนั้น หรือเป็นออเดอร์เก่าก่อนมีคอลัมน์นี้
+  startedAt DateTime?
+  servedAt  DateTime?
+
   table   RestaurantTable @relation(fields: [tableId], references: [id])
   tableId String
 

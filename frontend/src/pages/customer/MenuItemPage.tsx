@@ -1,4 +1,5 @@
 import { FoodImage } from '@/components/ui/FoodImage'
+import { NoteChips } from '@/components/ui/NoteChips'
 import { QuantityStepper } from '@/components/ui/QuantityStepper'
 import { usePublicMenuItem } from '@/features/public/hooks'
 import { useCart, type CartOption } from '@/features/public/cart-store'
@@ -108,14 +109,20 @@ export function CustomerMenuItemPage() {
           />
         ))}
 
-        <label className="mt-5 block">
+        <div className="mt-5">
           <span className="text-sm md:text-base font-semibold text-gray-700">หมายเหตุ</span>
+          <div className="mt-2">
+            <NoteChips value={note} onChange={setNote} />
+          </div>
+        </div>
+        <label className="block">
+          <span className="sr-only">หมายเหตุเพิ่มเติม</span>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={3}
             maxLength={200}
-            placeholder="เช่น ไม่เผ็ด ไม่ใส่ผัก"
+            placeholder="พิมพ์เพิ่มเองได้ เช่น ข้าวน้อย"
             className="mt-2 w-full resize-none rounded-xl border-2 border-brand-75 p-3 text-sm md:text-base outline-none focus:border-brand-300"
           />
         </label>

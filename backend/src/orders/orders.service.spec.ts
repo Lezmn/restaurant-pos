@@ -103,6 +103,19 @@ describe('OrdersService', () => {
       await expect(service.updateStatus('o1', to)).resolves.toMatchObject({ status: to });
     });
 
+    it.each([
+      [OrderStatus.PENDING, OrderStatus.PREPARING, 'startedAt'],
+      [OrderStatus.PREPARING, OrderStatus.SERVED, 'servedAt'],
+    ] as const)('%s → %s บันทึกเวลา %s ไว้ทำสถิติครัว', async (from, to, field) => {
+      prisma.order.findUnique.mockResolvedValue(storedOrder(from));
+      prisma.order.updateMany.mockResolvedValue({ count: 1 });
+      prisma.order.findUniqueOrThrow.mockResolvedValue(storedOrder(to));
+      await service.updateStatus('o1', to);
+      const data = prisma.order.updateMany.mock.calls[0][0].data;
+      expect(data[field]).toBeInstanceOf(Date);
+      expect(data).not.toHaveProperty(field === 'startedAt' ? 'servedAt' : 'startedAt');
+    });
+
     it.each(rejected)('%s → %s ถูกปฏิเสธ (400)', async (from, to) => {
       prisma.order.findUnique.mockResolvedValue(storedOrder(from));
       await expect(service.updateStatus('o1', to)).rejects.toBeInstanceOf(BadRequestException);

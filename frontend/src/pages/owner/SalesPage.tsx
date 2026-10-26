@@ -3,7 +3,7 @@ import { StatCard } from '@/components/ui/StatCard'
 import { currentMonth } from '@/features/reports/api'
 import { useSales } from '@/features/reports/hooks'
 import { formatBaht } from '@/lib/format'
-import type { SalesHour, SalesItem } from '@/types/reports'
+import type { KitchenStats, SalesHour, SalesItem } from '@/types/reports'
 import { useState } from 'react'
 
 /** แสดงอันดับแรก ๆ ก่อน ที่เหลือกดดูเพิ่ม — เมนูทั้งร้านมีหลายสิบรายการ */
@@ -89,6 +89,9 @@ export function SalesPage() {
             <TopItems items={data.topItems} />
             <HourChart hours={data.byHour} peakHour={peak?.hour ?? null} />
           </div>
+
+          <WeekHeatmap grid={data.byWeekdayHour} />
+          <KitchenSpeed stats={data.kitchen} />
 
           {data.unsoldItems.length > 0 && (
             <section className="rounded-xl border-2 border-gray-200 p-4">
@@ -334,6 +337,150 @@ function HourChart({
           </ul>
         </figcaption>
       </figure>
+    </section>
+  )
+}
+
+/** จันทร์ขึ้นก่อน (ร้านคิดเป็นสัปดาห์ทำงาน) — index ตาม getDay(): 0 = อาทิตย์ */
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]
+const DAY_SHORT = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
+const DAY_FULL = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
+
+/** ความเข้ม 5 ระดับ — ช่องว่างเป็นเทาอ่อน ไม่ใช่ขาว จะได้เห็นว่าเป็นช่องที่ไม่มีออเดอร์ ไม่ใช่ข้อมูลหาย */
+const HEAT_STEPS = ['bg-gray-100', 'bg-brand-50', 'bg-brand-75', 'bg-brand-300', 'bg-brand-500']
+const heatClass = (value: number, max: number) =>
+  value === 0 ? HEAT_STEPS[0] : HEAT_STEPS[Math.min(4, 1 + Math.floor((value / max) * 3.999))]
+
+/**
+ * heatmap วัน × ชั่วโมง — ใช้วางกะพนักงาน/เตรียมของ ว่าวันไหนชั่วโมงไหนยุ่ง
+ * ตัดชั่วโมงหัว/ท้ายที่ไม่มีออเดอร์ทั้งสัปดาห์ออก (ร้านไม่เปิดตีสาม)
+ */
+function WeekHeatmap({ grid }: Readonly<{ grid: number[][] }>) {
+  const hourTotals = Array.from({ length: 24 }, (_, h) => grid.reduce((n, day) => n + (day[h] ?? 0), 0))
+  const firstActive = hourTotals.findIndex((n) => n > 0)
+  if (firstActive === -1) return null
+  const lastActive = 23 - [...hourTotals].reverse().findIndex((n) => n > 0)
+  const hours = Array.from({ length: lastActive - firstActive + 1 }, (_, i) => firstActive + i)
+  const max = Math.max(...grid.flat(), 1)
+
+  let busiest = { day: 0, hour: 0, count: 0 }
+  for (const day of WEEK_ORDER) {
+    for (const hour of hours) {
+      const count = grid[day]?.[hour] ?? 0
+      if (count > busiest.count) busiest = { day, hour, count }
+    }
+  }
+
+  return (
+    <section className="rounded-xl border-2 border-gray-200 p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-base font-bold text-black">วันไหน ชั่วโมงไหนยุ่ง</h2>
+        <p className="text-sm text-gray-600">
+          ยุ่งสุด:{' '}
+          <span className="font-semibold text-black">
+            {DAY_FULL[busiest.day]} {hourRange(busiest.hour)}
+          </span>{' '}
+          ({busiest.count.toLocaleString('th-TH')} ออเดอร์ทั้งเดือน)
+        </p>
+      </div>
+
+      {/* ตารางกว้างเกินจอมือถือได้ — เลื่อนเฉพาะในกรอบ หน้าไม่เลื่อนข้าง */}
+      <div className="mt-4 overflow-x-auto">
+        <table className="border-separate border-spacing-0.5 text-xs">
+          <caption className="sr-only">จำนวนออเดอร์แยกตามวันและชั่วโมง</caption>
+          <thead>
+            <tr>
+              <th scope="col" className="w-9">
+                <span className="sr-only">วัน</span>
+              </th>
+              {hours.map((hour) => (
+                <th key={hour} scope="col" className="min-w-7 font-normal text-gray-500 tabular-nums">
+                  {hour}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {WEEK_ORDER.map((day) => (
+              <tr key={day}>
+                <th scope="row" className="pr-1 text-left font-semibold text-gray-700">
+                  <abbr title={DAY_FULL[day]} className="no-underline">
+                    {DAY_SHORT[day]}
+                  </abbr>
+                </th>
+                {hours.map((hour) => {
+                  const count = grid[day]?.[hour] ?? 0
+                  return (
+                    <td
+                      key={hour}
+                      title={`${DAY_FULL[day]} ${hourRange(hour)} · ${count} ออเดอร์`}
+                      className={`h-7 min-w-7 rounded text-center tabular-nums ${heatClass(count, max)} ${
+                        count / max > 0.5 ? 'font-semibold text-white' : 'text-gray-700'
+                      }`}
+                    >
+                      {count > 0 ? count : <span className="sr-only">0</span>}
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
+const minutesLabel = (value: number | null) =>
+  value === null ? '-' : `${value.toLocaleString('th-TH', { maximumFractionDigits: 1 })} นาที`
+
+/** ความเร็วครัว: รอคิวนานไหม / ปรุงนานไหม / ช้าเกินกี่ออเดอร์ / เมนูไหนทำนาน */
+function KitchenSpeed({ stats }: Readonly<{ stats: KitchenStats }>) {
+  const latePercent =
+    stats.timedOrderCount > 0 ? Math.round((stats.lateOrderCount / stats.timedOrderCount) * 100) : 0
+
+  return (
+    <section className="rounded-xl border-2 border-gray-200 p-4">
+      <h2 className="text-base font-bold text-black">ความเร็วครัว</h2>
+      {stats.timedOrderCount === 0 ? (
+        <p className="mt-1 text-sm text-gray-600">
+          ยังไม่มีข้อมูล — ระบบเริ่มจับเวลาตอนครัวกด &quot;เริ่มปรุง&quot; และ &quot;ทำเสร็จแล้ว&quot; บนจอครัว
+        </p>
+      ) : (
+        <>
+          <p className="text-sm text-gray-600">
+            จาก {stats.timedOrderCount.toLocaleString('th-TH')} ออเดอร์ที่จับเวลาได้ · เวลาปรุงนับทั้งออเดอร์
+          </p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard label="รอคิวเฉลี่ย" value={minutesLabel(stats.avgWaitMinutes)} hint="สั่ง → เริ่มปรุง" tone="olive" />
+            <StatCard label="ปรุงเฉลี่ย" value={minutesLabel(stats.avgCookMinutes)} hint="เริ่มปรุง → เสร็จ" tone="orange" />
+            <StatCard label="รวมเฉลี่ย" value={minutesLabel(stats.avgTotalMinutes)} hint="สั่ง → เสร็จ" />
+            <StatCard
+              label={`เกิน ${stats.lateMinutes} นาที`}
+              value={`${stats.lateOrderCount.toLocaleString('th-TH')} ออเดอร์`}
+              hint={`${latePercent}% ของออเดอร์`}
+              tone={latePercent >= 20 ? 'red' : 'green'}
+            />
+          </div>
+
+          {stats.slowestMenus.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-sm font-bold text-black">เมนูที่ออเดอร์ใช้เวลาปรุงนานสุด</h3>
+              <ol className="mt-2 divide-y divide-gray-100">
+                {stats.slowestMenus.map((menu) => (
+                  <li key={menu.menuItemId} className="flex items-center justify-between gap-3 py-2 text-sm">
+                    <span className="min-w-0 truncate font-semibold text-black">{menu.name}</span>
+                    <span className="shrink-0 tabular-nums text-gray-700">
+                      <span className="font-bold text-black">{minutesLabel(menu.avgCookMinutes)}</span>
+                      <span className="text-gray-500"> · {menu.orderCount} ออเดอร์</span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+        </>
+      )}
     </section>
   )
 }

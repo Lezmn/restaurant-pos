@@ -394,7 +394,12 @@ export class OrdersService {
           // ยกเลิกต้องยังไม่จ่าย · ทำ/เสิร์ฟต้องตรงกับตอนอ่าน (จ่ายก่อนได้เฉพาะกลับบ้าน — ดู PaymentsService)
           paymentId: status === OrderStatus.CANCELLED ? null : order.paymentId,
         },
-        data: { status },
+        data: {
+          status,
+          // เวลาเข้าแต่ละขั้น — ไว้คิดว่าครัวช้าตรงไหน (รอคิว vs ปรุง)
+          ...(status === OrderStatus.PREPARING && { startedAt: new Date() }),
+          ...(status === OrderStatus.SERVED && { servedAt: new Date() }),
+        },
       });
       if (changed.count === 0) {
         throw new ConflictException(

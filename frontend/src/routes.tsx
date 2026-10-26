@@ -112,6 +112,9 @@ const SalesPage = lazy(() =>
 const CashClosesPage = lazy(() =>
   import('@/pages/owner/CashClosesPage').then((m) => ({ default: m.CashClosesPage })),
 )
+const SystemStatusPage = lazy(() =>
+  import('@/pages/owner/SystemStatusPage').then((m) => ({ default: m.SystemStatusPage })),
+)
 const AuditLogPage = lazy(() =>
   import('@/pages/owner/AuditLogPage').then((m) => ({ default: m.AuditLogPage })),
 )
@@ -223,6 +226,7 @@ export const router = createBrowserRouter([
           { path: 'sales', element: s(<SalesPage />) },
           { path: 'cash-closes', element: s(<CashClosesPage />) },
           { path: 'audit', element: s(<AuditLogPage />) },
+          { path: 'system', element: s(<SystemStatusPage />) },
           { path: 'line', element: s(<LineSettingsPage />) },
           {
             element: <ProtectedRoute roles={pageRoles.users} fallbackPath="/owner" />,

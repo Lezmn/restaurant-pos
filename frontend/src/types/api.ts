@@ -358,4 +358,18 @@ export interface ApiSalesReport {
   unsoldItems: { menuItemId: string; name: string; categoryName: string }[]
   /** ครบ 24 ช่อง (0–23) ตามเวลาที่ลูกค้าสั่ง */
   byHour: { hour: number; orderCount: number; quantity: number; revenue: number }[]
+  /** [วัน 0=อาทิตย์..6][ชั่วโมง 0..23] = จำนวนออเดอร์ */
+  byWeekdayHour: number[][]
+  kitchen: ApiKitchenStats
+}
+
+export interface ApiKitchenStats {
+  /** ออเดอร์ที่มีเวลาเริ่มปรุง/เสร็จครบ (ออเดอร์เก่าก่อนเก็บเวลาไม่นับ) */
+  timedOrderCount: number
+  avgWaitMinutes: number | null
+  avgCookMinutes: number | null
+  avgTotalMinutes: number | null
+  lateMinutes: number
+  lateOrderCount: number
+  slowestMenus: { menuItemId: string; name: string; orderCount: number; avgCookMinutes: number }[]
 }

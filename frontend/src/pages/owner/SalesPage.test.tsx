@@ -26,6 +26,18 @@ const data: SalesData = {
   ],
   unsoldItems: [{ menuItemId: 'm3', name: 'ยำวุ้นเส้น', categoryName: 'กับข้าว' }],
   byHour: hours,
+  byWeekdayHour: Array.from({ length: 7 }, (_, day) =>
+    Array.from({ length: 24 }, (_, hour) => (day === 5 && hour === 12 ? 6 : 0)),
+  ),
+  kitchen: {
+    timedOrderCount: 10,
+    avgWaitMinutes: 2.5,
+    avgCookMinutes: 7.2,
+    avgTotalMinutes: 9.7,
+    lateMinutes: 15,
+    lateOrderCount: 1,
+    slowestMenus: [{ menuItemId: 'm2', name: 'ต้มยำกุ้ง', orderCount: 4, avgCookMinutes: 11 }],
+  },
 }
 
 function renderPage() {
@@ -59,6 +71,17 @@ describe('SalesPage (เมนูขายดี)', () => {
     expect(card).toHaveTextContent('12:00–13:00')
     expect(card).toHaveTextContent('9 ออเดอร์ทั้งเดือน')
     expect(screen.getByText(/ยำวุ้นเส้น/)).toBeInTheDocument()
+  })
+
+  it('แสดง heatmap วันที่ยุ่งสุด และความเร็วครัว', async () => {
+    vi.mocked(getSales).mockResolvedValue(data)
+    renderPage()
+
+    expect(await screen.findByText('ศุกร์ 12:00–13:00')).toBeInTheDocument()
+    const kitchen = screen.getByRole('heading', { name: 'ความเร็วครัว' }).closest('section')!
+    expect(kitchen).toHaveTextContent('7.2 นาที')
+    expect(kitchen).toHaveTextContent('10% ของออเดอร์')
+    expect(kitchen).toHaveTextContent('ต้มยำกุ้ง')
   })
 
   it('เดือนที่ยังไม่มีบิล → บอกตรง ๆ ไม่โชว์กราฟเปล่า', async () => {

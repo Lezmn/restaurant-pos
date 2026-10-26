@@ -127,7 +127,7 @@ jobs:
       # ไม่แตะ .env (ค่าจริงของร้าน) และ nginx.conf (certbot แก้ไฟล์ที่ติดตั้งแล้ว ต้องแก้บนเครื่องเอง)
       - name: คัดลอก compose + สคริปต์ขึ้น VPS
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new "$TARGET" "mkdir -p ~/app/uploads ~/app/backups"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new "$TARGET" "mkdir -p ~/app/uploads ~/app/backups ~/app/backup-status"
           files="deploy/docker-compose.yml deploy/make-env.sh deploy/backup.sh deploy/offsite.sh deploy/restore.sh deploy/restore-drill.sh"
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new $files "$TARGET:app/"
 

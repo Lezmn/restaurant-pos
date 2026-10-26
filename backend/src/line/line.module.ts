@@ -6,6 +6,6 @@ import { LineSettingsService } from './line-settings.service';
 @Module({
   controllers: [LineSettingsController],
   providers: [LineMessagingService, LineSettingsService],
-  exports: [LineMessagingService],
+  exports: [LineMessagingService, LineSettingsService],
 })
 export class LineModule {}

@@ -1,3 +1,4 @@
+import type { ApiKitchenStats } from './api'
 import type { ExpenseCategory, PaymentMethod } from './enums'
 import type { Id } from './models'
 
@@ -98,7 +99,12 @@ export interface SalesData {
   topItems: SalesItem[]
   unsoldItems: Pick<SalesItem, 'menuItemId' | 'name' | 'categoryName'>[]
   byHour: SalesHour[]
+  /** [วัน 0=อาทิตย์..6][ชั่วโมง 0..23] = จำนวนออเดอร์ */
+  byWeekdayHour: number[][]
+  kitchen: KitchenStats
 }
+
+export type KitchenStats = ApiKitchenStats
 
 /** ช่วงที่ดูบน Dashboard นอกจาก "วันนี้" */
 export type DashboardPeriodDays = 7 | 30
