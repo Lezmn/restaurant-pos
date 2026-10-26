@@ -1,5 +1,6 @@
 import type { CheckState, SystemStatus } from '@/features/system/api'
 import { useSystemStatus } from '@/features/system/hooks'
+import { describeServerProblem } from '@/features/system/server-problem'
 import { printSettings } from '@/lib/print-settings'
 import { ago } from '@/lib/time-ago'
 import { useEffect, useState, type ReactNode } from 'react'
@@ -100,16 +101,18 @@ const worst = (states: CheckState[]): CheckState =>
  * ส่วนที่เป็นของเครื่องนี้ (เน็ต / เครื่องพิมพ์) ดูจากเบราว์เซอร์เอง
  */
 export function SystemStatusPage() {
-  const { data, isPending, isError, refetch, isFetching, dataUpdatedAt } = useSystemStatus()
+  const { data, isPending, error, refetch, isFetching, dataUpdatedAt } = useSystemStatus()
   const online = useOnline()
   const autoPrint = printSettings.getAutoPrintReceipt()
 
-  const serverDown = isError
+  // ดึงสถานะไม่ได้ ≠ เซิร์ฟเวอร์ล่มเสมอไป — 404 คือเซิร์ฟเวอร์ตอบแต่เป็นเวอร์ชันเก่า (ขายของได้ปกติ)
+  const problem = data ? null : describeServerProblem(error)
+  const serverDown = problem?.state === 'error'
   const overall: CheckState = !online || serverDown
     ? 'error'
     : data
       ? worst([data.database.state, data.backup.state, data.offsite.state, data.slipOk.state])
-      : 'ok'
+      : problem?.state ?? 'ok'
 
   return (
     <div className="space-y-5">
@@ -157,10 +160,10 @@ export function SystemStatusPage() {
 
         <StatusRow
           title="เซิร์ฟเวอร์และฐานข้อมูล"
-          state={serverDown ? 'error' : (data?.database.state ?? 'ok')}
+          state={problem?.state ?? data?.database.state ?? 'ok'}
         >
           {isPending && 'กำลังตรวจ...'}
-          {serverDown && 'ติดต่อเซิร์ฟเวอร์ไม่ได้ — ถ้าเน็ตเครื่องนี้ปกติ ให้แจ้งผู้ดูแลระบบ'}
+          {problem?.message}
           {data &&
             (data.database.state === 'error'
               ? 'เซิร์ฟเวอร์ทำงาน แต่ต่อฐานข้อมูลไม่ได้ — สั่งอาหาร/รับเงินไม่ได้ แจ้งผู้ดูแลระบบด่วน'
