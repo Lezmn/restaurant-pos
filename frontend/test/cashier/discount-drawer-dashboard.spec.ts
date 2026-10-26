@@ -81,7 +81,7 @@ test('รับเงินสดพร้อมส่วนลด: ต้อง
 })
 
 // @totals-cashclose: รันท้ายสุด (playwright.config.ts) — ระหว่างปิดยอด เทสอื่นยกเลิกบิลของวันนี้ไม่ได้
-test('ปิดยอดวันนี้: ตัวเลข "ควรมีในลิ้นชัก" = เงินทอน + ขายสด − หยิบออก และ owner เห็นในประวัติ', { tag: '@totals-cashclose' }, async ({ page, request }) => {
+test('ปิดยอดวันนี้ (หน้าเจ้าของร้าน): ตัวเลข "ควรมีในลิ้นชัก" = เงินทอน + ขายสด − หยิบออก และเห็นในประวัติ', { tag: '@totals-cashclose' }, async ({ page, request }) => {
   // รันซ้ำวันเดียวกัน → ลบการปิดยอดเดิมก่อน (ADMIN เท่านั้น)
   const admin = await api(request, 'admin')
   const preview = await (await request.get(`${API_URL}/cash-closes/preview`, { headers: admin })).json()
@@ -101,7 +101,11 @@ test('ปิดยอดวันนี้: ตัวเลข "ควรมี�
   await take.getByRole('button', { name: /บันทึก|ยืนยัน/ }).click()
   await expect(take).toHaveCount(0)
 
-  await drawer.getByRole('button', { name: 'ปิดยอดวันนี้' }).click()
+  // ปุ่มปิดยอดย้ายไปหน้า "ปิดยอดเงินสด" ของเจ้าของร้าน — หน้า Check ไม่มีแล้ว
+  await expect(drawer.getByRole('button', { name: 'ปิดยอดวันนี้' })).toHaveCount(0)
+  await loginAsAdmin(page, request)
+  await page.goto('/owner/cash-closes')
+  await page.getByRole('button', { name: 'ปิดยอดวันนี้' }).click()
   const close = page.getByRole('dialog', { name: 'ปิดยอดวันนี้' })
   await close.getByLabel(/เงินทอนตั้งต้น/).fill('1000')
   const fresh = await (await request.get(`${API_URL}/cash-closes/preview`, { headers: admin })).json()
@@ -112,8 +116,7 @@ test('ปิดยอดวันนี้: ตัวเลข "ควรมี�
   await close.getByRole('button', { name: 'ยืนยันปิดยอด' }).click()
   await expect(close).toHaveCount(0)
 
-  await loginAsAdmin(page, request)
-  await page.goto('/owner/cash-closes')
+  await expect(page.getByText(/ปิดยอดวันนี้แล้ว/)).toBeVisible()
   await expect(page.getByText(/-?฿10|ขาด/).first()).toBeVisible()
 
   // ปิดยอดแล้วยกเลิกบิลของวันนั้นไม่ได้ — ADMIN ต้องลบการปิดยอดก่อน

@@ -2,7 +2,7 @@ import { test, expect, type APIRequestContext } from '@playwright/test'
 import { API_URL, checkTableTile, loginAsAdmin, loginAsCashier, loginViaApi, paidBillsTable } from '../helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data (DB ทดสอบเท่านั้น — เก็บเงินและยกเลิกบิลจริง)
-// ประวัติการทำรายการ: ลดราคา → ยกเลิกบิล → เจ้าของเห็นทั้งสองรายการ พร้อมบัญชีและเครื่องที่ทำ
+// ประวัติการทำรายการ: ลดราคา → ยกเลิกบิล → เจ้าของเห็นทั้งสองรายการ พร้อมชื่อบัญชี
 test.use({ viewport: { width: 1280, height: 900 } })
 
 const SEED_PASSWORD = 'ChangeMe123!'
@@ -35,7 +35,7 @@ async function servedTable(request: APIRequestContext) {
   return { tableName: String(table.number) }
 }
 
-test('ลด 10% → ยกเลิกบิล → หน้าประวัติแสดงทั้งสองรายการพร้อมบัญชีและเครื่อง', async ({ page, request }) => {
+test('ลด 10% → ยกเลิกบิล → หน้าประวัติแสดงทั้งสองรายการพร้อมชื่อบัญชี', async ({ page, request }) => {
   const { tableName } = await servedTable(request)
   await loginAsCashier(page, request)
   await page.goto('/employee/check')
@@ -53,11 +53,6 @@ test('ลด 10% → ยกเลิกบิล → หน้าประวั
   await expect(receipt.getByText('ส่วนลด 10%', { exact: true })).toBeVisible()
   await receipt.getByRole('button', { name: 'ปิด', exact: true }).click()
 
-  // id สุ่มประจำเครื่องนี้ — หน้าประวัติโชว์ "เครื่องไม่มีชื่อ (4 ตัวท้าย)"
-  const deviceId = await page.evaluate(() => localStorage.getItem('pos.deviceId'))
-  expect(deviceId).toBeTruthy()
-  const deviceLabel = `เครื่องไม่มีชื่อ (${deviceId!.slice(-4)})`
-
   // ยกเลิกบิลนี้ (เพิ่งจ่าย ยังอยู่ใน 1 ชม.)
   const row = paidBillsTable(page).locator('tr', { hasText: tableName }).first()
   await row.getByRole('button', { name: 'ยกเลิกบิล' }).click()
@@ -66,14 +61,15 @@ test('ลด 10% → ยกเลิกบิล → หน้าประวั
   await voidDialog.getByRole('button', { name: 'ยืนยันยกเลิกบิล' }).click()
   await expect(row.getByText('ยกเลิกแล้ว')).toBeVisible()
 
-  // เจ้าของเปิดดูประวัติ กรองตามเครื่อง (เครื่องเดียวกับที่แคชเชียร์ใช้)
+  // เจ้าของเปิดดูประวัติ
   await loginAsAdmin(page, request)
   await page.goto('/owner/audit')
-  await page.getByRole('combobox').nth(1).selectOption({ label: deviceLabel })
   const list = page.getByRole('listitem')
   await expect(list.filter({ hasText: 'ลดราคา' }).filter({ hasText: 'ลด 10%' })).toBeVisible()
   await expect(list.filter({ hasText: 'ยกเลิกบิล' }).filter({ hasText: 'ทดสอบยกเลิก' })).toBeVisible()
-  await expect(list.filter({ hasText: `Staff · ${deviceLabel}` })).toHaveCount(2)
+  // โชว์แค่ชื่อบัญชี ไม่มีชื่อเครื่อง
+  await expect(list.filter({ hasText: 'ทดสอบยกเลิก' })).toContainText('Staff')
+  await expect(page.getByText(/เครื่องไม่มีชื่อ/)).toHaveCount(0)
 })
 
 test('STAFF อ่านประวัติการทำรายการไม่ได้ (403)', async ({ request }) => {

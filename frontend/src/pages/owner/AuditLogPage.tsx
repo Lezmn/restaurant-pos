@@ -1,8 +1,8 @@
 import { Badge } from '@/components/ui/Badge'
 import { button } from '@/components/ui/styles'
 import type { AuditAction } from '@/features/audit/api'
-import { auditActionMeta, auditActionOrder, describeAudit, deviceLabel } from '@/features/audit/describe'
-import { useAuditDevices, useAuditLogs } from '@/features/audit/hooks'
+import { auditActionMeta, auditActionOrder, describeAudit } from '@/features/audit/describe'
+import { useAuditLogs } from '@/features/audit/hooks'
 import { useMemo, useState } from 'react'
 
 const todayYmd = () => {
@@ -27,19 +27,17 @@ const selectClass =
 
 /**
  * ประวัติการทำรายการสำคัญ — ลดราคา ยกเลิกบิล ลบรายการ เงินออกจากลิ้นชัก ฯลฯ
- * ร้านใช้บัญชีกลาง จึงบอกได้ว่า "บัญชีไหน + เครื่องไหน + เวลาไหน" ไว้เทียบกับตารางกะ/กล้อง
+ * บอกว่าทำจากบัญชีไหน เวลาไหน (ร้านไม่ต้องการแยกตามเครื่อง — โชว์แค่ชื่อบัญชี)
  */
 export function AuditLogPage() {
   const [date, setDate] = useState(todayYmd)
   const [action, setAction] = useState<AuditAction | ''>('')
-  const [deviceId, setDeviceId] = useState('')
 
   const filter = useMemo(
-    () => ({ ...dayRange(date), action: action || undefined, deviceId: deviceId || undefined }),
-    [date, action, deviceId],
+    () => ({ ...dayRange(date), action: action || undefined }),
+    [date, action],
   )
   const logs = useAuditLogs(filter)
-  const devices = useAuditDevices()
   const rows = logs.data?.pages.flatMap((p) => p.items) ?? []
 
   return (
@@ -47,7 +45,7 @@ export function AuditLogPage() {
       <div>
         <h1 className="text-xl font-bold text-black">ประวัติการทำรายการ</h1>
         <p className="mt-1 text-sm text-gray-600">
-          ลดราคา ยกเลิกบิล ลบรายการ และเงินออกจากลิ้นชัก บอกว่าทำจากบัญชีไหน เครื่องไหน เวลาไหน
+          ลดราคา ยกเลิกบิล ลบรายการ และเงินออกจากลิ้นชัก บอกว่าทำจากบัญชีไหน เวลาไหน
         </p>
       </div>
 
@@ -77,17 +75,6 @@ export function AuditLogPage() {
             ))}
           </select>
         </label>
-        <label>
-          <span className="sr-only">เครื่อง</span>
-          <select value={deviceId} onChange={(e) => setDeviceId(e.target.value)} className={selectClass}>
-            <option value="">ทุกเครื่อง</option>
-            {devices.data?.map((d) => (
-              <option key={d.deviceId} value={d.deviceId}>
-                {deviceLabel(d.deviceName, d.deviceId)}
-              </option>
-            ))}
-          </select>
-        </label>
       </div>
 
       {logs.isError && (
@@ -101,7 +88,7 @@ export function AuditLogPage() {
           <p className="p-6 text-center text-sm text-gray-600">กำลังโหลด...</p>
         ) : rows.length === 0 ? (
           <p className="p-6 text-center text-sm text-gray-600">
-            ไม่มีรายการในวันนี้{action || deviceId ? ' ตามตัวกรองที่เลือก' : ''}
+            ไม่มีรายการในวันนี้{action ? ' ตามตัวกรองที่เลือก' : ''}
           </p>
         ) : (
           <ul className="divide-y divide-gray-200">
@@ -123,8 +110,7 @@ export function AuditLogPage() {
                     </div>
                     {reason && <p className="mt-1 text-sm text-gray-700">เหตุผล: {reason}</p>}
                     <p className="mt-1 text-xs text-gray-600">
-                      {log.userName} · {deviceLabel(log.deviceName, log.deviceId)}
-                      {log.ip ? ` · IP ${log.ip}` : ''}
+                      {log.userName}
                     </p>
                   </div>
                 </li>

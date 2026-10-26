@@ -1,5 +1,5 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { getAuditDevices, getAuditLogs, type AuditLogFilter } from './api'
+import { useInfiniteQuery } from '@tanstack/react-query'
+import { getAuditLogs, type AuditLogFilter } from './api'
 
 export const auditKeys = {
   all: ['audit-logs'] as const,
@@ -10,9 +10,7 @@ export const auditKeys = {
       filter.from.toISOString(),
       filter.to.toISOString(),
       filter.action ?? '',
-      filter.deviceId ?? '',
     ] as const,
-  devices: ['audit-logs', 'devices'] as const,
 }
 
 export const useAuditLogs = (filter: AuditLogFilter) =>
@@ -23,6 +21,3 @@ export const useAuditLogs = (filter: AuditLogFilter) =>
     getNextPageParam: (last) =>
       last.hasMore ? last.items[last.items.length - 1]?.createdAt : undefined,
   })
-
-export const useAuditDevices = () =>
-  useQuery({ queryKey: auditKeys.devices, queryFn: getAuditDevices })

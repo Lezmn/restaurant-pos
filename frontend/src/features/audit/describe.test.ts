@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AuditLog } from './api'
-import { describeAudit, deviceLabel } from './describe'
+import { describeAudit } from './describe'
 
 const log = (action: AuditLog['action'], details: Record<string, unknown> | null): AuditLog => ({
   id: '1',
@@ -51,13 +51,5 @@ describe('describeAudit', () => {
     for (const action of ['PAYMENT_VOID', 'ORDER_ITEM_REMOVE', 'USER_UPDATE', 'CASH_CLOSE_CREATE'] as const) {
       expect(() => describeAudit(log(action, null))).not.toThrow()
     }
-  })
-})
-
-describe('deviceLabel', () => {
-  it('มีชื่อ = ชื่อ / ไม่มีชื่อ = 4 ตัวท้ายของ id', () => {
-    expect(deviceLabel('แคชเชียร์', 'abc-1234')).toBe('แคชเชียร์')
-    expect(deviceLabel(null, 'abc-1234')).toBe('เครื่องไม่มีชื่อ (1234)')
-    expect(deviceLabel(null, null)).toBe('ไม่ทราบเครื่อง')
   })
 })
