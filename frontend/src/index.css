@@ -129,6 +129,25 @@ body {
   }
 }
 
+/* แถบเวลาเลิกทำบนตั๋วครัว — หดจากเต็มเหลือศูนย์ (ระยะเวลากำหนดจาก style ของตัวแถบ) */
+@keyframes undo-drain {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.undo-drain {
+  animation-name: undo-drain;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .undo-drain {
+    animation-name: none;
+  }
+}
+
 /* ---- โหมดพิมพ์ ----
    ใช้กับป้าย QR ตั้งโต๊ะ: ซ่อนทุกอย่างในหน้า เหลือเฉพาะกล่องที่ติด .print-area
    (ใช้ visibility แทน display เพราะ display:none กับ parent จะทำให้ลูกหายไปด้วย) */
