@@ -79,23 +79,23 @@ enum ExpenseCategory {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      Role     @default(STAFF)
+  id                 String   @id @default(uuid())
+  name               String
+  email              String   @unique
+  password           String
+  role               Role     @default(STAFF)
   /// false = ปิดใช้งาน (พนักงานลาออก) — login ไม่ได้ และ token ที่ถืออยู่ใช้ต่อไม่ได้ทันที
   /// ใช้แทนการลบ เพราะคนที่เคยปิดยอด/เบิกเงินมีประวัติผูกอยู่ ลบแล้วประวัติจะไม่รู้ว่าใครทำ
-  isActive  Boolean  @default(true)
+  isActive           Boolean  @default(true)
   /// เพิ่มทีละ 1 = "ออกจากระบบทุกเครื่อง" — token ที่ออกก่อนหน้า (tv เก่า) ใช้ไม่ได้ทันที
   /// ร้านใช้บัญชีกลางตามตำแหน่ง (ครัว/หน้าร้าน) พนักงานลาออก = ตั้งรหัสใหม่ + เตะทุกเครื่องที่ login ค้าง
-  tokenVersion Int    @default(0)
+  tokenVersion       Int      @default(0)
   /// true = ต้องตั้งรหัสใหม่ก่อนใช้งาน (backend ปฏิเสธทุก request ยกเว้น /auth/me, /auth/password)
   /// ใช้กับบัญชี ADMIN เท่านั้น — รหัสชั่วคราวตอนส่งมอบระบบ / ADMIN ตั้งรหัสให้ ADMIN อีกคน
   /// บัญชีกลางของครัว/หน้าร้านไม่บังคับ (คนแรกที่ login จะตั้งรหัสที่คนอื่นในตำแหน่งไม่รู้)
-  mustChangePassword Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  mustChangePassword Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   cashCloses DailyCashClose[]
   expenses   Expense[]
@@ -137,6 +137,8 @@ model Ingredient {
   id          String   @id @default(uuid())
   name        String   @unique
   isAvailable Boolean  @default(true)
+  /// รูปวัตถุดิบ (อัปโหลดผ่าน /uploads/menu-image เหมือนรูปเมนู) — ช่วยครัวหาของถูกตัวเร็วขึ้น
+  imageUrl    String?
   /// จำนวนคงเหลือ (หน่วยตามที่ร้านนับ เช่น ฟอง/ที่) — null = ไม่นับสต็อก เปิด/ปิดด้วยมือแบบเดิม
   /// นับอยู่: ออเดอร์ใหม่ตัดยอด เหลือ 0 ปิด isAvailable ให้เอง เติมของแล้วเปิดคืนเอง
   stockQty    Int?
@@ -199,6 +201,9 @@ model RestaurantTable {
   status          TableStatus      @default(AVAILABLE)
   /// false = ปิดใช้งาน (ยกโต๊ะออก) — ไม่โผล่ในหน้าพนักงาน เปิด QR ไม่ได้ ใช้แทนการลบเมื่อมีประวัติการขาย
   isActive        Boolean          @default(true)
+  /// โต๊ะเสมือนของออเดอร์กลับบ้าน (มีแถวเดียว ระบบสร้างให้เอง) — ไม่โผล่ในหน้าโต๊ะ/จัดการโต๊ะ
+  /// ออเดอร์/บิล/ใบเสร็จของกลับบ้านผูกกับโต๊ะนี้ ทำให้ใช้ระบบเก็บเงินชุดเดียวกับโต๊ะจริงได้
+  isTakeaway      Boolean          @default(false)
   orders          Order[]
   sessions        TableSession[]
   serviceRequests ServiceRequest[]
@@ -208,14 +213,20 @@ model RestaurantTable {
 }
 
 model TableSession {
-  id        String             @id @default(uuid())
-  token     String             @unique
-  status    TableSessionStatus @default(OPEN)
-  openedAt  DateTime           @default(now())
-  closedAt  DateTime?
-  expiresAt DateTime?
+  id         String             @id @default(uuid())
+  token      String             @unique
+  status     TableSessionStatus @default(OPEN)
+  openedAt   DateTime           @default(now())
+  closedAt   DateTime?
+  expiresAt  DateTime?
   /// จำนวนลูกค้าโต๊ะนี้ (พนักงานกดเลือกตอนเปิดโต๊ะ) — null = ไม่ได้ระบุ, Dashboard รวมเป็น "ลูกค้าเข้าใช้บริการ"
   guestCount Int?
+  /// บิลกลับบ้าน (สั่งจากหน้า POS) — เปิดพร้อมกันได้หลายใบบนโต๊ะเสมือน ไม่มี QR ให้ลูกค้า
+  isTakeaway   Boolean @default(false)
+  /// เลขคิวกลับบ้านของวันนั้น (เริ่ม 1 ทุกวัน) — เรียกลูกค้ามารับของ / พิมพ์บนใบเสร็จ
+  takeawayNo   Int?
+  /// ชื่อ/เบอร์ลูกค้าที่พนักงานจดไว้ (ไม่บังคับ)
+  customerName String?
 
   table   RestaurantTable @relation(fields: [tableId], references: [id])
   tableId String
@@ -223,11 +234,14 @@ model TableSession {
   orders          Order[]
   serviceRequests ServiceRequest[]
   payments        Payment[]
+  billSplits      BillSplit[]
   receipts        Receipt[]
 
   // โต๊ะหนึ่งเปิด session ได้ทีละใบ: partial unique index "table_sessions_one_open_per_table"
-  // (WHERE status = 'OPEN') อยู่ใน migration 20261021130000 — Prisma schema เขียน partial index ไม่ได้
+  // (WHERE status = 'OPEN' AND NOT isTakeaway) อยู่ใน migration 20261026150000 — Prisma schema เขียน partial index ไม่ได้
+  // บิลกลับบ้านได้รับยกเว้น เพราะทุกใบอยู่บนโต๊ะเสมือนตัวเดียวกัน
   @@index([tableId, status])
+  @@index([isTakeaway, openedAt])
   @@map("table_sessions")
 }
 
@@ -253,9 +267,18 @@ model Order {
 
   items OrderItem[]
 
+  /// แยกบิลตามรายการ: ออเดอร์นี้แตกออกมาจากออเดอร์ไหน (รายการที่ลูกค้าคนหนึ่งจ่ายถูกย้ายมาไว้ที่นี่)
+  /// รายงานที่นับ "จำนวนออเดอร์" ต้องตัดตัวนี้ออก ไม่งั้นนับซ้ำ
+  splitFromId String?
+
+  /// หารเท่ากัน: ออเดอร์ชุดนี้กำลังถูกหารจ่ายอยู่ (ยึดชุดไว้ ออเดอร์ที่สั่งเพิ่มทีหลังไม่ถูกรวม)
+  billSplit   BillSplit? @relation(fields: [billSplitId], references: [id], onDelete: SetNull)
+  billSplitId String?
+
   @@index([tableId, status])
   @@index([tableSessionId])
   @@index([paymentId])
+  @@index([billSplitId])
   @@index([status])
   @@index([createdAt])
   @@map("orders")
@@ -273,8 +296,11 @@ model OrderItem {
   order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
   orderId String
 
-  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
-  menuItemId String
+  /// null = รายการราคาเปิด (พนักงานพิมพ์ชื่อ/ราคาเอง เช่น "ข้าวเพิ่ม") — ชื่ออยู่ใน customName
+  menuItem   MenuItem? @relation(fields: [menuItemId], references: [id])
+  menuItemId String?
+  /// ชื่อรายการราคาเปิด (มีค่าเมื่อ menuItemId = null) — ราคาอยู่ใน unitPrice
+  customName String?
 
   selectedOptions OrderItemOption[]
 
@@ -336,9 +362,15 @@ model Payment {
   orders  Order[]
   receipt Receipt?
 
+  /// หารเท่ากัน: การจ่ายนี้เป็นส่วนที่เท่าไหร่ของบิลที่หาร — ส่วนสุดท้ายเท่านั้นที่ผูกกับออเดอร์ (orders)
+  billSplit   BillSplit? @relation(fields: [billSplitId], references: [id], onDelete: SetNull)
+  billSplitId String?
+  splitPart   Int?
+
   @@index([tableSessionId, status])
   @@index([slipStatus])
   @@index([paidAt])
+  @@index([billSplitId])
   @@map("payments")
 }
 
@@ -364,14 +396,19 @@ model ServiceRequest {
 }
 
 model Receipt {
-  id       String   @id @default(uuid())
-  number   String   @unique
-  subtotal Decimal  @db.Decimal(10, 2)
-  discount Decimal  @default(0) @db.Decimal(10, 2)
-  total    Decimal  @db.Decimal(10, 2)
-  issuedAt DateTime @default(now())
+  id              String   @id @default(uuid())
+  number          String   @unique
+  subtotal        Decimal  @db.Decimal(10, 2)
+  discount        Decimal  @default(0) @db.Decimal(10, 2)
+  /// ส่วนลดเป็น % ที่แคชเชียร์เลือก (1-100) — null = ไม่ลด หรือบิลเก่าก่อนเปลี่ยนเป็นลดตาม %
+  discountPercent Int?
+  /// หารเท่ากัน: ใบนี้คือส่วนที่ splitPart จาก splitParts คน — subtotal/discount/total เป็นยอดทั้งบิล ส่วนที่จ่ายอยู่ที่ payment.amount
+  splitPart       Int?
+  splitParts      Int?
+  total           Decimal  @db.Decimal(10, 2)
+  issuedAt        DateTime @default(now())
   // หมายเหตุพิมพ์ท้ายใบเสร็จ — คัดลอกจาก Payment.note ตอนออกใบเสร็จ
-  note     String?
+  note            String?
 
   payment   Payment @relation(fields: [paymentId], references: [id])
   paymentId String  @unique
@@ -458,4 +495,68 @@ model DailyCashClose {
   closedByName String
 
   @@map("daily_cash_closes")
+}
+
+/// ประวัติการทำรายการสำคัญ (ลดราคา, ยกเลิกบิล, ลบรายการ, เงินออกจากลิ้นชัก ฯลฯ)
+/// ร้านใช้บัญชีกลางตามตำแหน่ง จึงเก็บ "บัญชีไหน + เครื่องไหน + เวลาไหน" ไว้เทียบกับตารางกะ/กล้อง
+/// เก็บชื่อบัญชีซ้ำไว้ (userName) เพราะบัญชีอาจถูกลบภายหลัง แต่ประวัติต้องอ่านออก
+model AuditLog {
+  id         String   @id @default(uuid())
+  action     String
+  /// id ของสิ่งที่ถูกกระทำ เช่น payment id / order id
+  targetId   String?
+  /// รายละเอียดอ่านง่าย เช่น { percent: 10, discount: 23.55, reason: "ลูกค้าประจำ" }
+  details    Json?
+  userId     String?
+  userName   String
+  userRole   String
+  /// ชื่อเครื่องที่ตั้งไว้ในแท็บเล็ต/คอม (เก็บใน browser) — ไม่ได้ตั้ง = null
+  deviceName String?
+  /// id สุ่มประจำ browser — แยกเครื่องที่ยังไม่ได้ตั้งชื่อออกจากกันได้
+  deviceId   String?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+
+enum BillSplitStatus {
+  OPEN
+  DONE
+}
+
+/// หารบิลเท่ากัน N คน — รับเงินทีละคน (Payment ละใบ) คนสุดท้ายจ่ายเศษที่เหลือแล้วออเดอร์ถึงเป็น PAID
+/// ยอดล็อกไว้ตอนเริ่มหาร: ถ้าออเดอร์ในชุดเปลี่ยนหลังมีคนจ่ายไปแล้ว ต้องยกเลิกส่วนที่จ่ายก่อน
+model BillSplit {
+  id              String          @id @default(uuid())
+  parts           Int
+  subtotal        Decimal         @db.Decimal(10, 2)
+  discountPercent Int?
+  discount        Decimal         @default(0) @db.Decimal(10, 2)
+  total           Decimal         @db.Decimal(10, 2)
+  status          BillSplitStatus @default(OPEN)
+  createdAt       DateTime        @default(now())
+
+  tableSession   TableSession @relation(fields: [tableSessionId], references: [id])
+  tableSessionId String
+
+  orders   Order[]
+  payments Payment[]
+
+  @@index([tableSessionId, status])
+  @@map("bill_splits")
+}
+
+/// ค่าตั้งค่าของร้านที่เจ้าของแก้เองได้จากหน้าเว็บ (ไม่ต้องเข้าเซิร์ฟเวอร์แก้ .env) — key-value
+/// ค่าลับ (เช่น LINE token) เข้ารหัส AES-256-GCM ก่อนเก็บ ดู src/settings/secret-box.ts
+model AppSetting {
+  key           String   @id
+  value         String
+  updatedAt     DateTime @updatedAt
+  updatedByName String?
+
+  @@map("app_settings")
 }

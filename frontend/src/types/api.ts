@@ -64,6 +64,8 @@ export interface ApiIngredient {
   /** null = ไม่นับสต็อก */
   stockQty?: number | null
   lowStockAt?: number | null
+  /** รูปวัตถุดิบ (ไม่บังคับ) */
+  imageUrl?: string | null
   _count?: { menuOptions: number; menuItems?: number }
 }
 
@@ -96,6 +98,8 @@ export interface ApiCategory {
  * - /public/... (ลูกค้า): name + options[] แบนมาแล้ว ไม่มี menuItemId/รูป
  */
 export interface ApiOrderItem {
+  /** รายการราคาเปิด (ไม่ผูกเมนู) — ชื่อที่พนักงานพิมพ์ */
+  customName?: string | null
   id: string
   quantity: number
   unitPrice: number
@@ -115,13 +119,25 @@ export interface ApiOrder {
   clearedAt?: string | null
   tableId?: string
   tableSessionId?: string | null
+  /** จ่ายด้วยบิลไหน (null = ยังไม่จ่าย) — กลับบ้านจ่ายก่อนทำได้ สถานะยังไม่เป็น PAID */
+  paymentId?: string | null
   table?: ApiTable
+  /** ทรง /orders ส่งข้อมูลบิลมาด้วย — ใช้แยกออเดอร์กลับบ้านออกจากโต๊ะจริง */
+  tableSession?: ApiTakeawayFields | null
   items: ApiOrderItem[]
   /** เฉพาะทรง /public — backend รวมยอดของออเดอร์มาให้แล้ว */
   total?: number
 }
 
-export interface ApiTableSession {
+/** ฟิลด์บิลกลับบ้านของ table session (บิลโต๊ะจริง isTakeaway = false) */
+export interface ApiTakeawayFields {
+  isTakeaway?: boolean
+  /** เลขคิวของวัน */
+  takeawayNo?: number | null
+  customerName?: string | null
+}
+
+export interface ApiTableSession extends ApiTakeawayFields {
   id: string
   token: string
   status: TableSessionStatus
@@ -137,6 +153,22 @@ export interface ApiTableSession {
   total?: number
   billingStatus?: string
   checkoutRequest?: ApiServiceRequest | null
+  /** หารเท่ากันที่ยังจ่ายไม่ครบ (null = ไม่ได้หาร) */
+  split?: ApiSessionSplit | null
+}
+
+export interface ApiSessionSplit {
+  id: string
+  parts: number
+  paidParts: number
+  /** ยอดก่อนส่วนลดของชุดออเดอร์ที่หาร — ส่งเป็น expectedTotal ตอนรับเงินคนถัดไป */
+  subtotal: number
+  discountPercent: number | null
+  discount: number
+  total: number
+  paidAmount: number
+  remaining: number
+  nextAmount: number
 }
 
 export interface ApiServiceRequest {
@@ -166,6 +198,11 @@ export interface ApiReceipt {
   number: string
   subtotal: number
   discount: number
+  /** % ที่ลด — null = ไม่ลด หรือบิลเก่าที่ลดเป็นบาท */
+  discountPercent?: number | null
+  /** หารเท่ากัน: ใบนี้คือส่วนที่เท่าไหร่จากกี่คน */
+  splitPart?: number | null
+  splitParts?: number | null
   total: number
   issuedAt: string
   tableId: string
@@ -302,4 +339,23 @@ export interface ApiCashClosePreview {
   /** เงินทอนตั้งต้นของการปิดยอดครั้งก่อน ไว้เติมให้ */
   suggestedOpeningFloat: number | null
   alreadyClosed: ApiCashClose | null
+}
+
+/** GET /reports/sales — นับเฉพาะออเดอร์ที่จ่ายแล้ว ยอดเป็นราคาเมนู + ตัวเลือก ก่อนส่วนลดท้ายบิล */
+export interface ApiSalesReport {
+  range: { from: string | null; to: string | null }
+  orderCount: number
+  totalQuantity: number
+  totalRevenue: number
+  topItems: {
+    menuItemId: string
+    name: string
+    categoryName: string
+    isAvailable: boolean
+    quantity: number
+    revenue: number
+  }[]
+  unsoldItems: { menuItemId: string; name: string; categoryName: string }[]
+  /** ครบ 24 ช่อง (0–23) ตามเวลาที่ลูกค้าสั่ง */
+  byHour: { hour: number; orderCount: number; quantity: number; revenue: number }[]
 }

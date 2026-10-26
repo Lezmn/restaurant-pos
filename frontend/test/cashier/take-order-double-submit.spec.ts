@@ -14,7 +14,7 @@ test('STAFF กด "ส่งเข้าครัว" สองครั้ง�
   const tableCardText = await pickFreeTable(page)
   const availableTable = tablesPageCard(page, tableCardText)
 
-  await availableTable.getByRole('button', { name: 'เปิดโต๊ะ + สร้าง QR' }).click()
+  await availableTable.getByRole('button', { name: 'เปิดโต๊ะ/สร้าง QR' }).click()
   const qrDialog = page.getByRole('dialog', { name: /^QR โต๊ะ/ })
   await expect(qrDialog).toBeVisible()
   await page.keyboard.press('Escape')

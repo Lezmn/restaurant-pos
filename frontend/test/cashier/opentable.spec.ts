@@ -20,11 +20,11 @@ test('cashier เปิดโต๊ะที่ 1 แล้วจำนวนโ
   await expect(availableText).toBeVisible()
   const before = Number((await availableText.innerText()).match(/\d+/)![0])
 
-  // 3. กดปุ่ม โต๊ะ / QR
-  await page.getByRole('link', { name: 'โต๊ะ / QR' }).click()
+  // 3. กดแท็บ Table ที่แถบล่าง
+  await page.getByRole('link', { name: 'Table' }).click()
   await expect(page).toHaveURL(/\/employee\/tables$/)
 
-  // 4. กดปุ่ม เปิดโต๊ะ + สร้าง QR ของโต๊ะว่างตัวแรก (เปิดสำเร็จจะเด้ง QR modal ขึ้นมาเอง)
+  // 4. กดปุ่ม เปิดโต๊ะ/สร้าง QR ของโต๊ะว่างตัวแรก (เปิดสำเร็จจะเด้ง QR modal ขึ้นมาเอง)
   // สุ่มโต๊ะว่าง (หลาย worker เปิดโต๊ะพร้อมกัน ตัวแรกจะชนกัน)
   const tableCardText = await pickFreeTable(page)
   const tableName = tableCardText.replace(/^โต๊ะ\s*/, '')
@@ -35,7 +35,7 @@ test('cashier เปิดโต๊ะที่ 1 แล้วจำนวนโ
   // ก่อนเปิดโต๊ะ badge สถานะต้องขึ้นว่า "ว่าง"
   await expect(table1Card.getByText('ว่าง', { exact: true })).toBeVisible()
 
-  await table1Card.getByRole('button', { name: 'เปิดโต๊ะ + สร้าง QR' }).click()
+  await table1Card.getByRole('button', { name: 'เปิดโต๊ะ/สร้าง QR' }).click()
   await expect(page.getByRole('dialog', { name: `QR โต๊ะ ${tableName}` })).toBeVisible()
 
   // เปิดโต๊ะสำเร็จแล้ว badge สถานะต้องเปลี่ยนเป็น "มีลูกค้า"
@@ -59,7 +59,7 @@ test('cashier เปิดโต๊ะที่ 1 แล้วจำนวนโ
   await table1Card.getByRole('button', { name: 'ปิดโต๊ะ' }).click()
   await page.getByRole('dialog', { name: 'ปิดโต๊ะ' }).getByRole('button', { name: 'ปิดโต๊ะ' }).click()
   await expect(
-    table1Card.getByRole('button', { name: 'เปิดโต๊ะ + สร้าง QR' }),
+    table1Card.getByRole('button', { name: 'เปิดโต๊ะ/สร้าง QR' }),
   ).toBeVisible()
 
   // ปิดโต๊ะแล้ว badge สถานะต้องกลับไปเป็น "ว่าง" เหมือนเดิม

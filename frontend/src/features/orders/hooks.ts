@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { LIVE_STALE_TIME, useLivePollInterval } from '@/lib/live'
-import { clearOrder, createOrder, getOrders, updateOrderStatus } from './api'
+import { clearOrder, createOrder, getOrders, updateOrderStatus,
+  createTakeawayOrder,
+} from './api'
 
 export const orderKeys = {
   all: ['orders'] as const,
@@ -33,6 +35,18 @@ export function useClearOrder() {
   return useMutation({
     mutationFn: clearOrder,
     onSuccess: () => qc.invalidateQueries({ queryKey: orderKeys.all }),
+  })
+}
+
+/** สั่งกลับบ้าน = เปิดบิลใหม่ด้วย — หน้า Check ต้องเห็นบิลนี้ทันที */
+export function useCreateTakeawayOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createTakeawayOrder,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: orderKeys.all })
+      qc.invalidateQueries({ queryKey: ['table-sessions'] })
+    },
   })
 }
 

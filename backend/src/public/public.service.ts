@@ -163,7 +163,7 @@ export class PublicService {
       },
       items: order.items.map((item) => ({
         id: item.id,
-        name: item.menuItem.name,
+        name: item.customName ?? item.menuItem?.name ?? 'รายการพิเศษ',
         quantity: item.quantity,
         unitPrice: Number(item.unitPrice),
         note: item.note,

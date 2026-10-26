@@ -101,7 +101,7 @@ export function ReceiptDialog({
             <dd className="font-semibold text-black">{receipt.number}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-gray-600">โต๊ะ</dt>
+            <dt className="text-gray-600">{receipt.isTakeaway ? 'คิว' : 'โต๊ะ'}</dt>
             <dd className="font-semibold text-black">{receipt.tableName}</dd>
           </div>
           <div className="flex justify-between">
@@ -143,7 +143,9 @@ export function ReceiptDialog({
           </div>
           {receipt.discount > 0 && (
             <div className="flex justify-between">
-              <dt className="text-gray-600">ส่วนลด</dt>
+              <dt className="text-gray-600">
+                ส่วนลด{receipt.discountPercent ? ` ${receipt.discountPercent}%` : ''}
+              </dt>
               <dd className="tabular-nums text-danger-ink">
                 -{formatBaht(receipt.discount)}
               </dd>
@@ -155,6 +157,15 @@ export function ReceiptDialog({
               {formatBaht(receipt.total)}
             </dd>
           </div>
+          {/* หารเท่ากัน: ยอดด้านบนเป็นของทั้งบิล — ใบนี้จ่ายเฉพาะส่วนของคนนี้ */}
+          {receipt.splitParts && (
+            <div className="flex justify-between border-t border-dashed border-gray-300 pt-2 text-base font-bold">
+              <dt className="text-black">
+                หาร {receipt.splitParts} คน · ส่วนที่ {receipt.splitPart}
+              </dt>
+              <dd className="tabular-nums text-black">{formatBaht(payment.amount)}</dd>
+            </div>
+          )}
         </dl>
 
         {note && (

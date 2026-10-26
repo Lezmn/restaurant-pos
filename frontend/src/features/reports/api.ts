@@ -1,13 +1,16 @@
 import { getPayments } from '@/features/payments/api'
 import { apiClient } from '@/lib/api-client'
-import type { ApiDashboardReport, ApiIncomeExpenseReport } from '@/types/api'
+import type { ApiDashboardReport, ApiIncomeExpenseReport, ApiSalesReport } from '@/types/api'
 import { PaymentMethod, PaymentStatus, TableStatus } from '@/types/enums'
 import type { Payment } from '@/types/models'
 import type {
   DashboardData,
+  DashboardPeriodDays,
   FinanceData,
   Notification,
+  PeriodData,
   RevenuePoint,
+  SalesData,
 } from '@/types/reports'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -117,5 +120,81 @@ export async function getFinance(month: string): Promise<FinanceData> {
       paidFromDrawer: t.paidFromDrawer,
       createdByName: t.createdByName,
     })),
+  }
+}
+
+/** GET /reports/sales?month=YYYY-MM @Roles(ADMIN) — เมนูขายดี + ช่วงเวลาขายดี */
+export async function getSales(month: string): Promise<SalesData> {
+  const report = await apiClient<ApiSalesReport>(
+    `/reports/sales?month=${encodeURIComponent(month)}`,
+  )
+  return {
+    month,
+    orderCount: report.orderCount,
+    totalQuantity: report.totalQuantity,
+    totalRevenue: report.totalRevenue,
+    topItems: report.topItems.map(({ menuItemId, name, categoryName, quantity, revenue }) => ({
+      menuItemId,
+      name,
+      categoryName,
+      quantity,
+      revenue,
+    })),
+    unsoldItems: report.unsoldItems,
+    byHour: report.byHour,
+  }
+}
+
+const pad2 = (n: number) => String(n).padStart(2, '0')
+/** Date → "YYYY-MM-DD" ตามเวลาเครื่อง (backend อ่านวันล้วนเป็นวันตามเวลาร้าน และ to = ถึงสิ้นวัน) */
+const toYmd = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+/** "2026-10-26" → "26/10" สำหรับแกนกราฟ 30 วัน */
+const dayMonthLabel = (ymd: string) => `${Number(ymd.slice(8, 10))}/${Number(ymd.slice(5, 7))}`
+
+/**
+ * สรุป N วันล่าสุด (รวมวันนี้) จาก /reports/income-expense?from&to
+ * endpoint นี้ส่งรายการรายรับแต่ละบิลมาด้วย จึงรวมเป็นรายวัน/แยกวิธีจ่ายฝั่งนี้ได้ ไม่ต้องเพิ่ม API
+ */
+export async function getDashboardPeriod(days: DashboardPeriodDays): Promise<PeriodData> {
+  const today = new Date()
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (days - 1))
+  const from = toYmd(start)
+  const to = toYmd(today)
+  const report = await apiClient<ApiIncomeExpenseReport>(
+    `/reports/income-expense?from=${from}&to=${to}`,
+  )
+
+  const incomes = report.transactions.filter((t) => t.type === 'INCOME')
+  const byDay = new Map<string, number>()
+  for (const t of incomes) {
+    const key = toYmd(new Date(t.date))
+    byDay.set(key, (byDay.get(key) ?? 0) + t.amount)
+  }
+
+  const trend: RevenuePoint[] = Array.from({ length: days }, (_, i) => {
+    const date = toYmd(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i))
+    return {
+      date,
+      label: days === 7 ? weekdayLabel(date) : dayMonthLabel(date),
+      revenue: byDay.get(date) ?? 0,
+    }
+  })
+
+  const countByMethod = (method: PaymentMethod) =>
+    incomes.filter((t) => t.category === method).length
+
+  return {
+    days,
+    from,
+    to,
+    revenue: report.totalIncome,
+    expenseTotal: report.totalExpense,
+    netProfit: report.netProfit,
+    cashTotal: report.incomeByMethod.CASH,
+    promptPayTotal: report.incomeByMethod.PROMPTPAY,
+    cashCount: countByMethod(PaymentMethod.CASH),
+    promptPayCount: countByMethod(PaymentMethod.PROMPTPAY),
+    paymentCount: incomes.length,
+    trend,
   }
 }

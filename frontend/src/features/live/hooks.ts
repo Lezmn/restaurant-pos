@@ -22,6 +22,7 @@ type ServerEvent =
   | 'payment.slip-updated'
   | 'table-session.created'
   | 'table-session.closed'
+  | 'table-session.updated'
   | 'menu.updated'
 
 /** event ไหนกระทบ query key ไหนบ้าง (ฝั่งพนักงาน) */
@@ -40,6 +41,8 @@ const STAFF_INVALIDATIONS: Record<ServerEvent, readonly string[][]> = {
   'payment.slip-updated': [['payments'], ['reports']],
   'table-session.created': [['table-sessions'], ['tables']],
   'table-session.closed': [['table-sessions'], ['tables'], ['service-requests']],
+  // ย้าย/รวมโต๊ะ — เลขโต๊ะบนจอครัว/คำขอ/บิลเปลี่ยน
+  'table-session.updated': [['table-sessions'], ['tables'], ['orders'], ['service-requests']],
   // ปิดวัตถุดิบเพราะของหมด → เมนู/ตัวเลือกเปลี่ยนทุกจอ
   'menu.updated': [['menu-items'], ['ingredients'], ['public', 'menu']],
 }
@@ -127,6 +130,11 @@ export function useCustomerLiveEvents(sessionToken: string | undefined) {
         refetchSession()
       })
       socket.on('table-session.closed', refetchSession)
+      // พนักงานย้ายโต๊ะ (เลขโต๊ะบนหัวจอเปลี่ยน) หรือรวมโต๊ะอื่นเข้ามา (มีออเดอร์เพิ่มในบิล)
+      socket.on('table-session.updated', () => {
+        refetchSession()
+        refetchOrders()
+      })
       // ของหมด → ตัวเลือกในเมนูหายไป ต้องดึงเมนูใหม่ ไม่งั้นลูกค้ากดสั่งแล้วเจอ error
       socket.on('menu.updated', () => {
         qc.invalidateQueries({ queryKey: ['public', 'menu'] })

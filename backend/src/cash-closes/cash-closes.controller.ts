@@ -12,6 +12,8 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { AuthenticatedUser } from '../auth/jwt.strategy';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Audit } from '../audit/audit.decorator';
+import { loadCashClose } from '../audit/audit-loaders';
 import { CashClosesService } from './cash-closes.service';
 import { CashCloseDateQueryDto } from './dto/cash-close-date-query.dto';
 import { CreateCashCloseDto } from './dto/create-cash-close.dto';
@@ -32,6 +34,20 @@ export class CashClosesController {
 
   @Post()
   @Roles(Role.ADMIN, Role.STAFF)
+  @Audit('CASH_CLOSE_CREATE', {
+    targetId: ({ result }) => (result as { id: string }).id,
+    details: ({ result }) => {
+      const close = result as Record<string, unknown>;
+      return {
+        date: close.date,
+        openingFloat: close.openingFloat,
+        expectedCash: close.expectedCash,
+        countedCash: close.countedCash,
+        difference: close.difference,
+        note: close.note ?? null,
+      };
+    },
+  })
   @ApiOperation({ summary: 'ปิดยอดเงินสดประจำวัน (วันละครั้ง)' })
   create(
     @Body() dto: CreateCashCloseDto,
@@ -56,6 +72,7 @@ export class CashClosesController {
 
   @Delete(':id')
   @Roles(Role.ADMIN)
+  @Audit('CASH_CLOSE_DELETE', { before: loadCashClose, details: ({ before }) => before as Record<string, unknown> })
   @ApiOperation({ summary: 'ลบการปิดยอด เพื่อให้นับใหม่' })
   remove(@Param('id') id: string) {
     return this.cashClosesService.remove(id);

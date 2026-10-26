@@ -1,5 +1,4 @@
 import { CallStaffAlert } from '@/components/CallStaffAlert'
-import { ChangePasswordDialog } from '@/components/layout/ChangePasswordDialog'
 import { Toaster } from '@/components/ui/Toaster'
 import { pageRoles } from '@/features/auth/permissions'
 import { useAuth } from '@/features/auth/use-auth'
@@ -12,9 +11,9 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 function IconChef() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-7 w-7">
-      <path d="M7 21h10v-6H7z" strokeLinejoin="round" />
-      <path d="M6 15a4 4 0 0 1-1-7.9A3.5 3.5 0 0 1 12 4a3.5 3.5 0 0 1 7 3.1A4 4 0 0 1 18 15" strokeLinejoin="round" />
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-7 w-7">
+      <path d="M12 3a4.5 4.5 0 0 0-4.2 2.9A4 4 0 0 0 6 13.7V17h12v-3.3a4 4 0 0 0-1.8-7.8A4.5 4.5 0 0 0 12 3z" />
+      <rect x="6" y="18.2" width="12" height="2.8" rx="0.8" />
     </svg>
   )
 }
@@ -31,7 +30,27 @@ function IconReceipt() {
 function IconFolder() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-7 w-7">
-      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" strokeLinejoin="round" />
+      <path d="M3 18V6a1 1 0 0 1 1-1h5l2 2h7a1 1 0 0 1 1 1v2" strokeLinejoin="round" />
+      <path d="M3 18l2.6-7.3a1 1 0 0 1 .9-.7H21a.6.6 0 0 1 .6.8L19 18.3a1 1 0 0 1-.9.7H4a1 1 0 0 1-1-1z" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function IconTable() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-7 w-7">
+      <path d="M8 9h8M12 9v11M9.5 20h5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 4v16M3 14h3v6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M21 4v16M21 14h-3v6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function IconBag() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-7 w-7">
+      <path d="M5 8h14l-1.2 11.1a1 1 0 0 1-1 .9H7.2a1 1 0 0 1-1-.9z" strokeLinejoin="round" />
+      <path d="M9 10V7a3 3 0 0 1 6 0v3" strokeLinecap="round" />
     </svg>
   )
 }
@@ -85,6 +104,8 @@ const tabs: Tab[] = [
   { to: '/employee/order', label: 'Order', icon: <IconChef />, roles: pageRoles.order },
   { to: '/employee/check', label: 'Check', icon: <IconReceipt />, roles: pageRoles.check },
   { to: '/employee/manage', label: 'Manage', icon: <IconFolder />, roles: pageRoles.manage },
+  { to: '/employee/tables', label: 'Table', icon: <IconTable />, roles: pageRoles.tables },
+  { to: '/employee/takeaway', label: 'Takeaway', icon: <IconBag />, roles: pageRoles.takeaway },
 ]
 
 export function EmployeeLayout() {
@@ -92,7 +113,6 @@ export function EmployeeLayout() {
   const signOut = useAuth((s) => s.signOut)
   const navigate = useNavigate()
   const { data: tables } = useTables()
-  const [changingPassword, setChangingPassword] = useState(false)
   // ต่อ socket ที่ layout จึงได้ event ทุกหน้าของพนักงาน (ครัว / Check / โต๊ะ / คำขอ)
   useStaffLiveEvents()
 
@@ -115,28 +135,7 @@ export function EmployeeLayout() {
             </p>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* หน้าโต๊ะ/QR ไม่ได้อยู่ในแถบล่าง 4 ปุ่มตามดีไซน์ จึงวางทางเข้าไว้ที่ header */}
-            {user && pageRoles.tables.includes(user.role) && (
-              <Link
-                to="/employee/tables"
-                title="เปิดโต๊ะและสร้าง QR ให้ลูกค้า"
-                className="whitespace-nowrap rounded-lg border-2 border-brand-400 px-3 py-2 text-sm font-bold text-brand-500 transition hover:bg-brand-50"
-              >
-                โต๊ะ / QR
-              </Link>
-            )}
-
-            {/* จัดการบัญชีผู้ใช้ — เฉพาะ ADMIN (route + backend @Roles(ADMIN) กันอีกชั้น) */}
-            {user && pageRoles.users.includes(user.role) && (
-              <Link
-                to="/employee/users"
-                className="hidden whitespace-nowrap rounded-lg border-2 border-brand-400 px-3 py-2 text-sm font-bold text-brand-500 transition hover:bg-brand-50 sm:block"
-              >
-                บัญชีผู้ใช้
-              </Link>
-            )}
-
-            {/* ADMIN = เจ้าของร้าน มีหน้า Dashboard แยกอีกชุด */}
+            {/* ADMIN = เจ้าของร้าน มีหน้า Dashboard แยกอีกชุด (บัญชีผู้ใช้อยู่ในนั้นด้วย) */}
             {user?.role === Role.ADMIN && (
               <Link
                 to="/owner"
@@ -145,30 +144,32 @@ export function EmployeeLayout() {
                 Dashboard
               </Link>
             )}
+            <button
+              type="button"
+              onClick={() => {
+                signOut()
+                navigate('/login')
+              }}
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border-2 border-brand-400 px-3 py-2 text-sm font-bold text-brand-500 transition hover:bg-brand-50"
+            >
+              <span aria-hidden className="[&>svg]:h-5 [&>svg]:w-5">
+                <IconLogout />
+              </span>
+              <span className="hidden sm:inline">ออกจากระบบ</span>
+              <span className="sr-only sm:hidden">ออกจากระบบ</span>
+            </button>
             <Clock />
           </div>
         </div>
 
-        <p className="mt-3 text-right text-base font-bold text-black sm:text-xl">
+        <div className="mt-3 text-right text-base font-bold text-black sm:text-xl">
           จำนวนโต๊ะที่ว่าง {tables ? available : '—'} โต๊ะ
           {user && (
             <span className="ml-3 text-sm font-normal text-gray-600">
               ({user.name} · {user.role})
-              {/* บัญชีกลาง (ครัว/หน้าร้าน) ทั้งตำแหน่งรู้รหัสเดิม ให้เปลี่ยนเองได้ = คนเดียวล็อกทั้งตำแหน่ง
-                  จึงให้เฉพาะ ADMIN ส่วนบัญชีกลาง ADMIN ตั้งรหัสใหม่ให้ที่หน้าบัญชีผู้ใช้ */}
-              {user.role === Role.ADMIN && (
-                <button
-                  type="button"
-                  onClick={() => setChangingPassword(true)}
-                  className="ml-2 font-semibold text-brand-500 underline-offset-2 hover:underline"
-                >
-                  เปลี่ยนรหัสผ่าน
-                </button>
-              )}
             </span>
           )}
-        </p>
-        {changingPassword && <ChangePasswordDialog onClose={() => setChangingPassword(false)} />}
+        </div>
       </header>
 
       <main className="flex-1 px-4 pt-4 pb-28 sm:px-8">
@@ -179,8 +180,8 @@ export function EmployeeLayout() {
       {user && pageRoles.requests.includes(user.role) && <CallStaffAlert />}
       <Toaster />
 
-      {/* แถบล่าง 4 ปุ่มตามดีไซน์ — active เป็นบล็อกส้มเต็ม */}
-      <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">
+      {/* แถบล่างตามดีไซน์ (Order · Check · Manage · Table) + Takeaway — active เป็นบล็อกส้มเต็ม */}
+      <nav className="fixed inset-x-0 bottom-0 z-20 flex bg-white shadow-[0_-4px_16px_rgba(0,0,0,0.08)] pb-[env(safe-area-inset-bottom)]">
         {tabs.map((tab) => {
           const iconClass =
             '[&>svg]:h-6 [&>svg]:w-6 sm:[&>svg]:h-8 sm:[&>svg]:w-8'
@@ -224,20 +225,6 @@ export function EmployeeLayout() {
           )
         })}
 
-        <button
-          type="button"
-          aria-label="ออกจากระบบ"
-          onClick={() => {
-            signOut()
-            navigate('/login')
-          }}
-          className="flex flex-1 items-center justify-center gap-2 py-4 text-lg font-bold text-black transition hover:bg-brand-50 sm:gap-3 sm:text-2xl"
-        >
-          <span className="text-brand-500">
-            <IconLogout />
-          </span>
-          <span className="hidden sm:inline">Logout</span>
-        </button>
       </nav>
     </div>
   )

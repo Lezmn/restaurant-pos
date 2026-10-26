@@ -1,3 +1,6 @@
+import { Audit } from '../audit/audit.decorator';
+import { loadUser } from '../audit/audit-loaders';
+import { sanitizeDetails } from '../audit/audit.service';
 import {
   Body,
   Controller,
@@ -26,6 +29,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
+  @Audit('USER_CREATE', { targetId: ({ result }) => (result as { id: string }).id })
   @ApiOperation({ summary: 'เพิ่มพนักงานใหม่' })
   create(@Body() dto: CreateUserDto) {
     return this.usersService.create(dto);
@@ -44,6 +48,10 @@ export class UsersController {
   }
 
   @Patch(':id')
+  @Audit('USER_UPDATE', {
+    before: loadUser,
+    details: ({ before, body }) => ({ before, changes: sanitizeDetails(body) }),
+  })
   @ApiOperation({ summary: 'แก้ไขข้อมูลพนักงาน (ตั้งรหัสผ่านใหม่ / ปิดใช้งานได้ด้วย)' })
   update(
     @Param('id') id: string,
@@ -54,6 +62,7 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @Audit('USER_DELETE', { before: loadUser, details: ({ before }) => before as Record<string, unknown> })
   @ApiOperation({ summary: 'ลบพนักงาน (ลบบัญชีตัวเองไม่ได้)' })
   remove(
     @Param('id') id: string,

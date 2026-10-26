@@ -11,6 +11,8 @@ import { useCreatePayment } from '@/features/payments/hooks'
 import { useServiceRequests } from '@/features/service-requests/hooks'
 import { useCloseSession, useSessions } from '@/features/table-sessions/hooks'
 import { IS_DEMO_PROMPTPAY, PROMPTPAY_ID } from '@/lib/config'
+import { applyDiscountPercent, isValidDiscountPercent } from '@/lib/discount'
+import { splitShare } from '@/lib/split'
 import { formatBaht, formatTime } from '@/lib/format'
 import { LIVE_POLL_MS } from '@/lib/live'
 import { buildPromptPayPayload } from '@/lib/promptpay'
@@ -23,7 +25,8 @@ import {
   ServiceRequestType,
   TableSessionStatus,
 } from '@/types/enums'
-import type { Id, Order, Payment, TableSession } from '@/types/models'
+import type { Id, Order, Payment, SessionSplit, TableSession } from '@/types/models'
+import { BillScopePicker, type BillScope, type PayLine } from './BillScopePicker'
 import { CashDrawerBar } from './CashDrawerBar'
 import { PaidBills } from './PaidBills'
 import { ReceiptDialog } from './ReceiptDialog'
@@ -32,7 +35,7 @@ import { emptySlipInput, isSlipReady, type SlipInput } from './slip-input'
 import { SlipScanField } from './SlipScanField'
 import { QRCodeSVG } from 'qrcode.react'
 import { useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 const POLL_MS = LIVE_POLL_MS
 
@@ -46,11 +49,25 @@ const payMethods = [PaymentMethod.CASH, PaymentMethod.PROMPTPAY] as const
 interface PayTarget {
   sessionId: Id
   tableName: string
+  /** "โต๊ะ 5" หรือ "กลับบ้าน #3 · คุณเอ" */
+  placeLabel: string
+  isTakeaway: boolean
   method: PaymentMethod
   amountDue: number
   /** ลูกค้ากดเช็คบิลมาเองพร้อมเลือกวิธีจ่ายแล้วหรือยัง */
   chosenByCustomer: boolean
+  /** รายการที่เสิร์ฟแล้วยังไม่จ่าย — ให้เลือกตอนแยกบิลตามรายการ */
+  lines: PayLine[]
+  /** โต๊ะนี้หารเท่ากันค้างอยู่ */
+  split: SessionSplit | null
 }
+
+/**
+ * ยอดค้างของโต๊ะ — หารค้างอยู่ = ส่วนที่ยังไม่มีคนจ่ายของบิลที่หาร (หลังส่วนลด)
+ * + ออเดอร์ที่สั่งเพิ่มหลังเริ่มหาร (ไม่อยู่ในชุดที่หาร)
+ */
+const sessionDue = (s: TableSession) =>
+  s.split ? Math.round((s.split.remaining + s.total - s.split.subtotal) * 100) / 100 : s.total
 
 /**
  * สถานะของโต๊ะในมุมแคชเชียร์ เรียงตามความเร่งด่วน (เลขน้อยขึ้นก่อน)
@@ -123,8 +140,7 @@ export function CheckPage() {
         // ออเดอร์ใช้แค่เช็คว่ายังมีอะไรค้างเสิร์ฟไหม — backend ไม่ยอมให้จ่ายถ้ายังไม่เสิร์ฟครบ
         // ส่วนยอดเงินใช้ session.total จาก backend เสมอ ไม่บวกเองฝั่งนี้
         const unpaid = mine.filter(
-          (o) =>
-            o.status !== OrderStatus.PAID && o.status !== OrderStatus.CANCELLED,
+          (o) => !o.paid && o.status !== OrderStatus.CANCELLED,
         )
         const notServed = unpaid.filter((o) => o.status !== OrderStatus.SERVED)
         // ครัวยกเลิกไป = ยอดหายไปจากบิล บอกไว้จะได้ไม่งงว่าทำไมยอดไม่ตรงที่ลูกค้าสั่ง
@@ -135,7 +151,8 @@ export function CheckPage() {
 
         let state: TileState
         if (unpaid.length === 0) state = 'settled'
-        else if (notServed.length > 0) state = 'serving'
+        // กลับบ้านจ่ายก่อนทำได้ (backend ยอม) — ไม่ต้องรอครัวเสิร์ฟ
+        else if (notServed.length > 0 && !session.isTakeaway) state = 'serving'
         else state = checkout ? 'checkout' : 'ready'
 
         return {
@@ -162,17 +179,58 @@ export function CheckPage() {
     ? rows.filter((r) => r.session.tableName.includes(keyword))
     : rows
 
-  const totalOutstanding = rows.reduce((sum, r) => sum + r.session.total, 0)
+  const totalOutstanding = rows.reduce((sum, r) => sum + sessionDue(r.session), 0)
   const waitingCount = rows.filter((r) => r.state === 'checkout').length
 
-  const openPayment = (row: TableRow) =>
-    setTarget({
-      sessionId: row.session.id,
-      tableName: row.session.tableName,
-      method: row.customerMethod ?? PaymentMethod.CASH,
-      amountDue: row.session.total,
-      chosenByCustomer: Boolean(row.customerMethod),
-    })
+  const toPayTarget = (row: TableRow): PayTarget => ({
+    sessionId: row.session.id,
+    tableName: row.session.tableName,
+    placeLabel: row.session.placeLabel,
+    isTakeaway: row.session.isTakeaway,
+    method: row.customerMethod ?? PaymentMethod.CASH,
+    amountDue: row.session.total,
+    chosenByCustomer: Boolean(row.customerMethod),
+    split: row.session.split,
+    // รายการที่เลือกแยกจ่ายได้ — โต๊ะจริงเฉพาะที่เสิร์ฟแล้ว, กลับบ้านจ่ายก่อนทำได้ (ที่ยังไม่จ่าย)
+    lines: (orders ?? [])
+      .filter(
+        (o) =>
+          o.tableSessionId === row.session.id &&
+          (o.status === OrderStatus.SERVED ||
+            (row.session.isTakeaway && !o.paid && o.status !== OrderStatus.CANCELLED)),
+      )
+      .flatMap((o) =>
+        o.items.map((item) => ({
+          id: item.id,
+          name: item.menuItemName,
+          options: item.optionNames,
+          quantity: item.quantity,
+          each: item.unitPrice + item.optionsTotal,
+        })),
+      ),
+  })
+  const openPayment = (row: TableRow) => setTarget(toPayTarget(row))
+
+  // หน้า POS กลับบ้านส่งมาที่ ?pay=<sessionId> = เปิดหน้ารับเงินของบิลนั้นให้เลย
+  // (คิดจาก URL ตอน render ไม่ต้องใช้ effect — ปิดกล่องแล้วล้าง ?pay ทิ้ง)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const payParam = searchParams.get('pay')
+  // มาจากหน้ากลับบ้านที่กด "จ่ายเงินสด" / "จ่าย PromptPay" — เลือกวิธีจ่ายไว้ให้เลย
+  const payMethodParam = payMethods.find((m) => m === searchParams.get('method'))
+  const payRow = payParam
+    ? rows.find(
+        (r) => r.session.id === payParam && (r.state === 'checkout' || r.state === 'ready'),
+      )
+    : undefined
+  const activeTarget =
+    target ??
+    (payRow
+      ? { ...toPayTarget(payRow), ...(payMethodParam ? { method: payMethodParam } : {}) }
+      : null)
+  const finishPayment = () => {
+    setTarget(null)
+    if (payParam) setSearchParams({}, { replace: true })
+  }
 
   // ไม่มีข้อมูลโต๊ะเลยเพราะโหลดไม่ขึ้น — ห้ามแสดงว่า "ไม่มีโต๊ะ"
   const sessionsFailed = sessionsQuery.isError && !sessions
@@ -309,15 +367,19 @@ export function CheckPage() {
 
       {closing && (
         <ConfirmDialog
-          title="ปิดโต๊ะ"
-          subject={`โต๊ะ ${closing.session.tableName}`}
+          title={closing.session.isTakeaway ? 'ปิดบิล' : 'ปิดโต๊ะ'}
+          subject={closing.session.placeLabel}
           detail={
             closing.neverOrdered
               ? 'ยังไม่ได้สั่งอาหาร'
               : 'เก็บเงินครบแล้ว ไม่มียอดค้างชำระ'
           }
-          consequence="QR ของโต๊ะนี้จะใช้สั่งอาหารไม่ได้อีก และโต๊ะจะกลับเป็นว่าง"
-          confirmLabel="ปิดโต๊ะ"
+          consequence={
+            closing.session.isTakeaway
+              ? 'บิลกลับบ้านนี้จะหายจากหน้าเช็คบิล'
+              : 'QR ของโต๊ะนี้จะใช้สั่งอาหารไม่ได้อีก และโต๊ะจะกลับเป็นว่าง'
+          }
+          confirmLabel={closing.session.isTakeaway ? 'ปิดบิล' : 'ปิดโต๊ะ'}
           pendingLabel="กำลังปิด..."
           tone="brand"
           isPending={closeSession.isPending}
@@ -329,7 +391,11 @@ export function CheckPage() {
           onConfirm={() =>
             closeSession.mutate(closing.session.id, {
               onSuccess: () => {
-                toast(`ปิดโต๊ะ ${closing.session.tableName} แล้ว โต๊ะกลับเป็นว่าง`)
+                toast(
+                  closing.session.isTakeaway
+                    ? `ปิดบิล ${closing.session.placeLabel} แล้ว`
+                    : `ปิด${closing.session.placeLabel} แล้ว โต๊ะกลับเป็นว่าง`,
+                )
                 setClosing(null)
               },
             })
@@ -346,34 +412,37 @@ export function CheckPage() {
         />
       )}
 
-      {target && (
+      {activeTarget && (
         <PaymentDialog
-          target={target}
+          target={activeTarget}
           isSaving={createPayment.isPending}
           error={createPayment.error}
           onCancel={() => {
             createPayment.reset()
-            setTarget(null)
+            finishPayment()
           }}
           canOverrideSlip={isAdmin}
-          onSubmit={({ method, note, amount, slip, tendered }) =>
+          onSubmit={({ method, note, discountPercent, slip, tendered, scope }) =>
             createPayment.mutate(
               {
-                tableSessionId: target.sessionId,
+                tableSessionId: activeTarget.sessionId,
                 method,
-                tableName: target.tableName,
+                tableName: activeTarget.tableName,
+                isTakeaway: activeTarget.isTakeaway,
                 note,
                 // PromptPay: ส่งข้อความ QR ของสลิปให้ backend ตรวจกับ SlipOK
                 ...(method === PaymentMethod.PROMPTPAY ? slipFields(slip) : {}),
                 // ยอดที่ลูกค้าเห็นบนจอ/QR — ถ้ายอดจริงเปลี่ยนไประหว่างนี้ backend จะไม่ยอมบันทึก
-                expectedTotal: target.amountDue,
-                // เท่ากับยอดบิลก็ไม่ต้องส่ง ปล่อยให้ backend คิดเองเหมือนเดิม
-                amount: amount === target.amountDue ? undefined : amount,
+                expectedTotal: scope.expectedTotal,
+                items: scope.items,
+                splitParts: scope.splitParts,
+                // ส่งแค่ % — backend คิดยอดส่วนลดเองด้วยสูตรเดียวกับหน้าจอ
+                discountPercent,
               },
               {
                 // ยืนยันผลด้วยแถบบนใบเสร็จ (รับเงิน/ทอน) แทน toast ที่จะจมใต้กล่องใบเสร็จ
                 onSuccess: (payment) => {
-                  setTarget(null)
+                  finishPayment()
                   setReceipt({ payment, tendered })
                 },
               },
@@ -406,10 +475,16 @@ function TableTile({
 }>) {
   const { session, state, notServed, cancelled, neverOrdered, customerMethod } = row
   const badge = stateBadge[state]
+  const due = sessionDue(session)
+  const split = session.split
 
   const badgeText = {
     checkout: 'ขอเช็คบิล',
-    ready: 'เสิร์ฟครบแล้ว',
+    // กลับบ้านรับเงินได้ตั้งแต่ครัวยังไม่เสร็จ — บอกตามจริงว่าของยังไม่พร้อม
+    ready:
+      session.isTakeaway && notServed.length > 0
+        ? `ครัวกำลังทำ ${notServed.length} ออเดอร์`
+        : 'เสิร์ฟครบแล้ว',
     serving: `รอเสิร์ฟ ${notServed.length} ออเดอร์`,
     settled: neverOrdered ? 'ยังไม่ได้สั่ง' : 'เก็บเงินครบแล้ว',
   }[state]
@@ -422,10 +497,12 @@ function TableTile({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-xl font-bold text-black">โต๊ะ {session.tableName}</h2>
+          <h2 className="text-xl font-bold text-black">{session.placeLabel}</h2>
           <p className="text-sm text-gray-600">
-            เปิด {formatTime(session.openedAt)}
-            {state !== 'settled' &&
+            {session.isTakeaway ? 'สั่ง' : 'เปิด'} {formatTime(session.openedAt)}
+            {session.isTakeaway && state !== 'settled' && notServed.length > 0 &&
+              ' · รับเงินก่อนได้'}
+            {!session.isTakeaway && state !== 'settled' &&
               (customerMethod
                 ? ` · ลูกค้าเลือก${methodLabel[customerMethod]}`
                 : ' · ยังไม่เลือกวิธีจ่าย')}
@@ -446,8 +523,13 @@ function TableTile({
               state === 'settled' ? 'text-gray-500' : 'text-black'
             }`}
           >
-            {formatBaht(session.total)}
+            {formatBaht(due)}
           </p>
+          {split && (
+            <p className="text-sm font-semibold text-brand-500">
+              หาร {split.parts} คน · จ่ายแล้ว {split.paidParts} คน
+            </p>
+          )}
           {cancelled.length > 0 && (
             <p className="text-sm text-danger-ink">ครัวยกเลิก {cancelled.length} ออเดอร์</p>
           )}
@@ -457,10 +539,10 @@ function TableTile({
           <button
             type="button"
             onClick={onCharge}
-            aria-label={`รับเงิน โต๊ะ ${session.tableName} ${formatBaht(session.total)}`}
+            aria-label={`รับเงิน ${session.placeLabel} ${formatBaht(due)}`}
             className={`${button('primary')} shrink-0 px-6`}
           >
-            รับเงิน
+            {split ? `รับเงินคนที่ ${split.paidParts + 1}` : 'รับเงิน'}
           </button>
         )}
 
@@ -479,7 +561,7 @@ function TableTile({
             onClick={onClose}
             className={`${button('secondary')} shrink-0`}
           >
-            ปิดโต๊ะ
+            {session.isTakeaway ? 'ปิดบิล' : 'ปิดโต๊ะ'}
           </button>
         )}
       </div>
@@ -515,18 +597,25 @@ function PaymentDialog({
   onSubmit: (input: {
     method: PaymentMethod
     note: string
-    amount: number
+    /** ส่วนลด % (1-100) — undefined = ไม่ลด */
+    discountPercent?: number
     slip: SlipInput
     /** เงินที่ลูกค้ายื่นมา (เงินสด) — ไว้โชว์เงินทอนบนใบเสร็จ ไม่ได้บันทึก */
     tendered: number | null
+    /** เก็บเงินส่วนไหน + ยอดก่อนส่วนลดที่หน้าจอใช้ (backend ตรวจซ้ำ) */
+    scope: {
+      expectedTotal: number
+      items?: { orderItemId: Id; quantity: number }[]
+      splitParts?: number
+    }
   }) => void
 }>) {
   /**
-   * แยกสองยอดออกจากกัน เดิมมีช่องเดียวเลยทำได้แค่คิดเงินทอน แก้ยอดจริงไม่ได้
-   * - charged  = ยอดที่บันทึกเป็นรายได้ (ลดได้ เช่น ลูกค้าต่อรอง/ของมีตำหนิ)
+   * แยกสองยอดออกจากกัน
+   * - charged  = ยอดที่บันทึกเป็นรายได้ = ยอดบิล − ส่วนลด % (ลูกค้าประจำ/ของมีตำหนิ)
    * - received = เงินที่ลูกค้ายื่นมา ใช้คิดเงินทอนอย่างเดียว ไม่ได้บันทึก
    */
-  const [charged, setCharged] = useState(String(target.amountDue))
+  const [percent, setPercent] = useState('')
   const [received, setReceived] = useState('')
   const [note, setNote] = useState('')
   // โต๊ะที่ลูกค้าไม่ได้กดเช็คบิลจาก QR ต้องให้พนักงานเลือกวิธีจ่ายเอง
@@ -535,60 +624,114 @@ function PaymentDialog({
   /** ส่วนลดซ่อนไว้หลังปุ่ม "ให้ส่วนลด" — กันกรอกผิดช่องตอนรีบ และใช้ไม่บ่อย */
   const [discountOpen, setDiscountOpen] = useState(false)
   const [discountReason, setDiscountReason] = useState('')
+  // แยกบิล: โต๊ะที่หารค้างอยู่ ล็อกเป็นหารต่อ (จำนวนคน/ส่วนลดตามที่เริ่มไว้)
+  const split = target.split
+  const [scope, setScope] = useState<BillScope>(split ? 'even' : 'all')
+  const [picked, setPicked] = useState<Record<Id, number>>({})
+  const [parts, setParts] = useState(split?.parts ?? 2)
+
+  const pickedItems = target.lines
+    .filter((line) => (picked[line.id] ?? 0) > 0)
+    .map((line) => ({ orderItemId: line.id, quantity: picked[line.id] }))
+  // คิดเป็นสตางค์ กันทศนิยม float เพี้ยน
+  const pickedTotal =
+    target.lines.reduce(
+      (sum, line) => sum + Math.round(line.each * 100) * (picked[line.id] ?? 0),
+      0,
+    ) / 100
+  /** ยอดก่อนส่วนลดของส่วนที่กำลังเก็บ (ส่งเป็น expectedTotal) */
+  const base = split ? split.subtotal : scope === 'items' ? pickedTotal : target.amountDue
 
   const isPromptPay = method === PaymentMethod.PROMPTPAY
-  const chargedNum = Number(charged)
-  const chargedValid =
-    charged.trim() !== '' &&
-    Number.isFinite(chargedNum) &&
-    chargedNum >= 0 &&
-    chargedNum <= target.amountDue
-  const discount = target.amountDue - chargedNum
-  const hasDiscount = chargedValid && discount > 0
+  const percentNum = Number(percent)
+  const percentEmpty = percent.trim() === ''
+  const percentValid = percentEmpty || isValidDiscountPercent(percentNum)
+  const hasDiscount = !percentEmpty && isValidDiscountPercent(percentNum)
+  const applied = applyDiscountPercent(base, hasDiscount ? percentNum : 0)
+  const discount = applied.discount
+  /** ยอดทั้งบิลหลังส่วนลด (หารค้างอยู่ = ยอดที่ล็อกไว้ตอนเริ่มหาร) */
+  const billTotal = split ? split.total : applied.charged
+  const isEven = scope === 'even'
+  /** ยอดที่เก็บครั้งนี้ — หารเท่ากัน = ส่วนของคนนี้ */
+  const chargedNum = split
+    ? split.nextAmount
+    : isEven
+      ? splitShare(billTotal, parts)
+      : billTotal
+  const lastShare = splitShare(billTotal, parts, parts - 1, splitShare(billTotal, parts) * (parts - 1))
   const receivedNum = Number(received) || 0
   // PromptPay ต้องมีสลิปให้ตรวจ (หรือ ADMIN ยืนยันเอง) — backend ก็บังคับไว้อีกชั้น
   // ลดราคาต้องมีเหตุผลเสมอ เหมือนยกเลิกบิล
   const canSubmit =
-    chargedValid &&
+    percentValid &&
+    (scope !== 'items' || pickedItems.length > 0) &&
     (!isPromptPay || isSlipReady(slip)) &&
     (!hasDiscount || discountReason.trim() !== '')
   const change = receivedNum - chargedNum
-  const chargeAmount = chargedValid ? chargedNum : target.amountDue
+  const chargeAmount = chargedNum
 
   // QR ผูกยอดเงินไว้ด้วย ลูกค้าจึงไม่ต้องกรอกยอดเอง
-  const qrPayload = useMemo(
-    () =>
-      isPromptPay && PROMPTPAY_ID ? buildPromptPayPayload(PROMPTPAY_ID, chargedNum || 0) : '',
-    [isPromptPay, chargedNum],
-  )
+  const qrPayload =
+    isPromptPay && PROMPTPAY_ID ? buildPromptPayPayload(PROMPTPAY_ID, chargedNum || 0) : ''
 
   return (
-    <Modal title={`รับเงิน โต๊ะ ${target.tableName}`} onClose={onCancel}>
+    <Modal title={`รับเงิน ${target.placeLabel}`} onClose={onCancel}>
       <ErrorNote error={error} />
       <form
         onSubmit={(e) => {
           e.preventDefault()
           if (!canSubmit) return
           // เหตุผลส่วนลดเก็บรวมในหมายเหตุของบิล (backend มีช่อง note ช่องเดียว) — พิมพ์ลงใบเสร็จและดูย้อนหลังได้
-          const parts = [
-            hasDiscount ? `ส่วนลด ${formatBaht(discount)}: ${discountReason.trim()}` : '',
+          const noteParts = [
+            hasDiscount
+              ? `ส่วนลด ${percentNum}% (${formatBaht(discount)}): ${discountReason.trim()}`
+              : '',
             note.trim(),
           ].filter(Boolean)
           onSubmit({
             method,
-            note: parts.join(' · '),
-            amount: chargedNum,
+            note: noteParts.join(' · '),
+            discountPercent: split ? undefined : hasDiscount ? percentNum : undefined,
             slip,
             tendered: !isPromptPay && receivedNum > 0 ? receivedNum : null,
+            scope: {
+              expectedTotal: base,
+              ...(scope === 'items' && !split ? { items: pickedItems } : {}),
+              ...(isEven ? { splitParts: split?.parts ?? parts } : {}),
+            },
           })
         }}
       >
         <div className="flex items-baseline justify-between rounded-lg bg-brand-50 px-4 py-3">
-          <span className="text-sm font-semibold text-gray-700">ยอดที่ต้องจ่าย</span>
+          <span className="text-sm font-semibold text-gray-700">
+            {isEven
+              ? `คนที่ ${(split?.paidParts ?? 0) + 1} จาก ${split?.parts ?? parts}`
+              : scope === 'items'
+                ? 'รายการที่เลือก'
+                : 'ยอดที่ต้องจ่าย'}
+            {(isEven || scope === 'items') && (
+              <span className="block font-normal text-gray-600 tabular-nums">
+                ทั้งโต๊ะ {formatBaht(isEven ? billTotal : target.amountDue)}
+              </span>
+            )}
+          </span>
           <span className="text-2xl font-bold text-black tabular-nums">
-            {formatBaht(target.amountDue)}
+            {formatBaht(isEven ? chargedNum : base)}
           </span>
         </div>
+
+        <BillScopePicker
+          scope={scope}
+          onScope={setScope}
+          lines={target.lines}
+          picked={picked}
+          onPick={(id, quantity) => setPicked((prev) => ({ ...prev, [id]: quantity }))}
+          parts={parts}
+          onParts={setParts}
+          split={split}
+          share={splitShare(billTotal, parts)}
+          lastShare={lastShare}
+        />
 
         {/* เลือกได้เสมอ — ลูกค้าอาจกดเช็คบิลเลือก PromptPay ไว้ แต่มาจ่ายเงินสดจริง
             เดิมซ่อนปุ่มไว้เลยต้องบันทึกผิดวิธี ยอดแยกตามวิธีจ่ายในรายงานก็ผิดตาม */}
@@ -671,7 +814,7 @@ function PaymentDialog({
                 className={`${field} tabular-nums`}
               />
             </label>
-            {chargedValid && chargedNum > 0 && (
+            {chargedNum > 0 && (
               <fieldset className="mt-2 flex flex-wrap gap-2">
                 <legend className="sr-only">จำนวนเงินที่รับมา</legend>
                 {quickCash(chargedNum).map((amount, i) => (
@@ -709,34 +852,54 @@ function PaymentDialog({
         )}
 
         {/* ส่วนลด: ซ่อนไว้จนกว่าจะกดเปิด และต้องมีเหตุผลทุกครั้ง — เงินต้องตรวจสอบย้อนหลังได้ */}
-        {discountOpen ? (
+        {split ? null : discountOpen ? (
           <fieldset className="mt-4 rounded-lg border-2 border-gray-200 p-3">
             <legend className={`${fieldLabel} px-1`}>ส่วนลด</legend>
             <label className="block">
-              <span className={fieldLabel}>ราคาที่เก็บจริง</span>
-              <span className="ml-1 text-sm text-gray-600">(ไม่เกิน {formatBaht(target.amountDue)})</span>
-              <input
-                type="number"
-                inputMode="decimal"
-                min="0"
-                max={target.amountDue}
-                step="0.01"
-                value={charged}
-                onChange={(e) => setCharged(e.target.value)}
-                aria-invalid={chargedNum > target.amountDue}
-                className={`${field} tabular-nums`}
-              />
+              <span className={fieldLabel}>ลดกี่ %</span>
+              <span className="ml-1 text-sm text-gray-600">(1-100)</span>
+              <div className="relative">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  max="100"
+                  step="1"
+                  value={percent}
+                  onChange={(e) => setPercent(e.target.value)}
+                  aria-invalid={!percentValid}
+                  placeholder="เช่น 10"
+                  className={`${field} pr-10 tabular-nums`}
+                />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-600">
+                  %
+                </span>
+              </div>
             </label>
-            {/* เก็บเกินยอดบิลไม่ได้ (backend ก็กันไว้อีกชั้น) */}
-            {chargedNum > target.amountDue && (
+            {/* % ที่ใช้บ่อย กดทีเดียวไม่ต้องพิมพ์ */}
+            <div className="mt-2 flex flex-wrap gap-2">
+              {QUICK_DISCOUNT_PERCENTS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  aria-pressed={percentNum === p}
+                  onClick={() => setPercent(String(p))}
+                  className={`${button(percentNum === p ? 'primary' : 'secondary', 'sm')} tabular-nums`}
+                >
+                  {p}%
+                </button>
+              ))}
+            </div>
+            {!percentValid && (
               <p className="mt-1 text-sm font-semibold text-danger-ink">
-                เก็บเกินยอดบิลไม่ได้ สูงสุด {formatBaht(target.amountDue)}
+                ใส่เป็นจำนวนเต็ม 1-100
               </p>
             )}
             {hasDiscount && (
               <>
-                <p className="mt-1 text-right text-sm font-semibold text-danger-ink">
-                  ลด {formatBaht(discount)}
+                <p className="mt-2 flex justify-between text-sm font-semibold">
+                  <span className="text-danger-ink">ลด {formatBaht(discount)}</span>
+                  <span className="text-black tabular-nums">เก็บจริง {formatBaht(chargedNum)}</span>
                 </p>
                 <label className="mt-2 block">
                   <span className={fieldLabel}>
@@ -757,7 +920,7 @@ function PaymentDialog({
             <button
               type="button"
               onClick={() => {
-                setCharged(String(target.amountDue))
+                setPercent('')
                 setDiscountReason('')
                 setDiscountOpen(false)
               }}
@@ -810,6 +973,9 @@ function PaymentDialog({
     </Modal>
   )
 }
+
+/** ปุ่ม % ส่วนลดที่ใช้บ่อย */
+const QUICK_DISCOUNT_PERCENTS = [5, 10, 15, 20] as const
 
 /**
  * ปุ่มเงินด่วน: ยอดพอดี + ยอดที่ปัดขึ้นเป็นแบงก์ถัดไป (50 / 100 / 500 / 1000) ไม่ซ้ำกัน สูงสุด 4 ปุ่ม

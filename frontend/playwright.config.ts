@@ -49,6 +49,8 @@ export default defineConfig({
       dependencies: ['chromium', 'webkit'],
     },
     { name: 'totals-dashboard', use: { ...chrome }, grep: /@totals-dashboard/, dependencies: ['totals-billing'] },
+    // ปิดยอดวันนี้ต้องรันท้ายสุด — ปิดยอดแล้วยกเลิกบิลของวันนั้นไม่ได้ (เทสที่ยกเลิกบิลจะพังถ้ามาทีหลัง)
+    { name: 'totals-cashclose', use: { ...chrome }, grep: /@totals-cashclose/, dependencies: ['totals-dashboard'] },
   ],
   webServer: {
     command: 'npm run dev',

@@ -18,7 +18,7 @@ test('login อยู่แล้ว (ADMIN) เข้าหน้า login ซ�
   await setAuthState(page, accessToken, user)
   await page.reload()
 
-  await expect(page).toHaveURL(/\/employee\/order$/)
+  await expect(page).toHaveURL(/\/owner\/dashboard$/)
 })
 
 test('login อยู่แล้ว (STAFF) เข้าหน้า login ซ้ำ ต้องถูกเด้งไปหน้าแรกของ STAFF (/employee/check)', async ({

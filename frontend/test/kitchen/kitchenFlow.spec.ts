@@ -18,12 +18,22 @@ async function freshOrder(request: import('@playwright/test').APIRequestContext)
   const session = await (
     await request.post(`${API_URL}/table-sessions`, { headers, data: { tableId: table.id } })
   ).json()
-  const menu = await (await request.get(`${API_URL}/public/menu`)).json()
-  const water = menu.flatMap((c: { menuItems: { id: string; name: string }[] }) => c.menuItems).find(
-    (m: { name: string }) => m.name === 'น้ำเปล่า',
-  )
+  // เทสอื่นปิดขายน้ำเปล่าชั่วคราวได้ (public-qr / qr-order-flow) — รอให้กลับมาขายก่อน
+  let water: { id: string } | undefined
+  await expect
+    .poll(
+      async () => {
+        const menu = await (await request.get(`${API_URL}/public/menu`)).json()
+        water = menu
+          .flatMap((c: { menuItems: { id: string; name: string }[] }) => c.menuItems)
+          .find((m: { name: string }) => m.name === 'น้ำเปล่า')
+        return Boolean(water)
+      },
+      { timeout: 15_000 },
+    )
+    .toBe(true)
   const res = await request.post(`${API_URL}/public/orders`, {
-    data: { sessionToken: session.token, items: [{ menuItemId: water.id, quantity: 2 }] },
+    data: { sessionToken: session.token, items: [{ menuItemId: water!.id, quantity: 2 }] },
   })
   // สั่งไม่สำเร็จให้บอกสาเหตุตรง ๆ (เช่น 429 rate limit) แทน "อ่าน id ของ undefined"
   if (!res.ok()) throw new Error(`สร้างออเดอร์ทดสอบไม่สำเร็จ ${res.status()} ${await res.text()}`)
@@ -41,19 +51,21 @@ test('ครัวไล่สถานะ รอคิว → กำลัง�
   await page.goto('/employee/order')
 
   const card = (column: string) =>
-    page.locator('section', { hasText: column }).locator('article', { hasText: `#${orderRef}` })
+    page.getByRole('region', { name: column, exact: true }).locator('article', { hasText: `#${orderRef}` })
 
   await card('รอคิว').getByRole('button', { name: 'เริ่มปรุง' }).click()
   await expect(card('กำลังปรุง')).toBeVisible()
   await card('กำลังปรุง').getByRole('button', { name: 'ทำเสร็จแล้ว' }).click()
-  await expect(card('เมนูที่ทำเสร็จ')).toBeVisible()
+  // ทำเสร็จแล้ว → ขึ้นคอลัมน์ "เสร็จแล้ว" พร้อมปุ่มยกเลิก 5 วิ แล้วค่อยบันทึกเป็นเสิร์ฟแล้ว
+  await expect(card('เสร็จแล้ว')).toBeVisible()
+  await expect(card('เสร็จแล้ว').getByRole('button', { name: 'เสิร์ฟแล้ว · เอาออก' })).toBeVisible({ timeout: 15_000 })
 
   // ลูกค้าเห็นว่าเสิร์ฟแล้ว
   const customer = await (await browser.newContext({ viewport: { width: 375, height: 812 } })).newPage()
   await customer.goto(`/t/${token}/status`)
   await expect(customer.getByText(`ออเดอร์ #${orderRef}`)).toBeVisible()
 
-  await card('เมนูที่ทำเสร็จ').getByRole('button', { name: 'ทำเสร็จเรียบร้อย' }).click()
+  await card('เสร็จแล้ว').getByRole('button', { name: 'เสิร์ฟแล้ว · เอาออก' }).click()
   await expect(page.locator('article', { hasText: `#${orderRef}` })).toHaveCount(0)
   // รีเฟรชแล้วต้องไม่กลับมา (เก็บใน DB ไม่ใช่ state ในจอ)
   await page.reload()

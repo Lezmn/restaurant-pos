@@ -12,7 +12,7 @@ test('admin เข้าหน้าบัญชีผู้ใช้ เห็�
   request,
 }) => {
   await loginAsAdmin(page, request)
-  await page.goto('/employee/users')
+  await page.goto('/owner/users')
 
   await expect(page.getByRole('heading', { name: 'บัญชีผู้ใช้' })).toBeVisible()
   await expect(page.getByText('ชื่อผู้ใช้: staff', { exact: true })).toBeVisible()
@@ -30,7 +30,7 @@ test('admin เพิ่มบัญชีครัว → login ได้ → �
   const password = 'Welcome2Shop!'
 
   await loginAsAdmin(page, request)
-  await page.goto('/employee/users')
+  await page.goto('/owner/users')
   await page.getByRole('button', { name: 'เพิ่มบัญชี', exact: true }).click()
 
   const dialog = page.getByRole('dialog')
@@ -68,7 +68,7 @@ test('admin เพิ่มบัญชีครัว → login ได้ → �
 
 test('ร้านต้องมี ADMIN อย่างน้อย 1 คน: เปลี่ยนสิทธิ์ตัวเองไม่ได้', async ({ page, request }) => {
   await loginAsAdmin(page, request)
-  await page.goto('/employee/users')
+  await page.goto('/owner/users')
   await page.getByRole('button', { name: 'แก้ไข Admin' }).click()
 
   const dialog = page.getByRole('dialog')
@@ -90,7 +90,7 @@ test('มีคนลาออก: ตั้งรหัสใหม่ + ออ
   expect(created.status()).toBe(201)
   const tablet = await loginViaApi(request, username, 'OldShared1')
 
-  await page.goto('/employee/users')
+  await page.goto('/owner/users')
   await page.getByRole('button', { name: `ตั้งรหัสผ่านใหม่ให้ หน้าร้าน ${username}` }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel(/^รหัสผ่านใหม่/).fill('NewShared22')
@@ -112,8 +112,9 @@ test('มีคนลาออก: ตั้งรหัสใหม่ + ออ
 })
 
 test('บัญชีครัว/หน้าร้านไม่เห็นปุ่มเปลี่ยนรหัสผ่านของตัวเอง (ADMIN เห็น)', async ({ page, request }) => {
+  // ปุ่มเปลี่ยนรหัสของตัวเองอยู่ที่การ์ดของ ADMIN ในหน้าบัญชีผู้ใช้ฝั่งเจ้าของร้าน
   await loginAsAdmin(page, request)
-  await page.goto('/employee/manage')
+  await page.goto('/owner/users')
   await expect(page.getByRole('button', { name: 'เปลี่ยนรหัสผ่าน' })).toBeVisible()
 
   const staff = await loginViaApi(request, 'staff', 'ChangeMe123!')

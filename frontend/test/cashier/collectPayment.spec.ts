@@ -78,11 +78,10 @@ test('cashier เก็บเงินผ่าน PromptPay (สแกน) ส�
   await dialog.getByRole('button', { name: 'PromptPay' }).click()
   await expect(dialog.getByRole('button', { name: 'PromptPay' })).toHaveAttribute('aria-pressed', 'true')
 
-  // เลือก PromptPay แล้วต้องเห็น QR ให้ลูกค้าสแกนพร้อมยอดเงิน — โปรเจกต์นี้ยังไม่ได้ตั้ง
-  // VITE_PROMPTPAY_ID ใน .env จริง (มีแค่ .env.example) เลยต้องขึ้นคำเตือนโหมดเดโมเสมอ
+  // เลือก PromptPay แล้วต้องเห็น QR ให้ลูกค้าสแกนพร้อมยอดเงิน
+  // (คำเตือน "โหมดเดโม" ขึ้นเฉพาะตอนไม่ได้ตั้ง VITE_PROMPTPAY_ID — ไม่เช็ค เพราะแต่ละเครื่องตั้งไม่เหมือนกัน)
   await expect(dialog.getByText('ให้ลูกค้าสแกนเพื่อจ่าย')).toBeVisible()
   await expect(dialog.getByText('฿50').first()).toBeVisible()
-  await expect(dialog.getByText('โหมดเดโม')).toBeVisible()
 
   // PromptPay ต้องสแกนสลิปให้ระบบตรวจ (SlipOK) ก่อนบันทึก — ยังไม่สแกนกดบันทึกไม่ได้
   const save = dialog.getByRole('button', { name: 'รับเงิน ฿50' })

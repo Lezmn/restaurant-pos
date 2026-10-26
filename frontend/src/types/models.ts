@@ -59,6 +59,8 @@ export interface Ingredient {
   stockQty: number | null
   /** เหลือเท่านี้หรือน้อยกว่าขึ้นเตือน "ใกล้หมด" */
   lowStockAt: number | null
+  /** รูปวัตถุดิบ — null = ยังไม่มีรูป */
+  imageUrl: string | null
 }
 
 /** วัตถุดิบที่เมนูอ้างถึง — พอให้รู้ชื่อกับว่าหมดหรือยัง */
@@ -108,13 +110,23 @@ export interface TableSession {
   id: Id
   tableId: Id
   tableName: string
+  /** ชื่อที่โชว์บนจอ — "โต๊ะ 5" หรือ "กลับบ้าน #3 · คุณเอ" */
+  placeLabel: string
+  /** บิลกลับบ้าน (สั่งจากหน้า POS) — ไม่มีโต๊ะ ไม่มี QR ให้ลูกค้า */
+  isTakeaway: boolean
+  takeawayNo: number | null
+  customerName: string | null
   token: string
   status: TableSessionStatus
   openedAt: string
   closedAt: string | null
   /** ยอดที่ต้องจ่ายของโต๊ะนี้ — backend คำนวณมาให้ ไม่ได้บวกเองฝั่ง frontend */
   total: number
+  /** หารเท่ากันที่ยังจ่ายไม่ครบ */
+  split: SessionSplit | null
 }
+
+export type SessionSplit = import('./api').ApiSessionSplit
 
 export interface OrderItem {
   id: Id
@@ -135,6 +147,11 @@ export interface Order {
   orderRef: string
   tableSessionId: Id
   tableName: string
+  /** "โต๊ะ 5" หรือ "กลับบ้าน #3 · คุณเอ" */
+  placeLabel: string
+  isTakeaway: boolean
+  /** จ่ายเงินแล้ว — ปกติคือ status PAID แต่กลับบ้านจ่ายก่อนทำ สถานะยังเป็นของครัวอยู่ */
+  paid: boolean
   status: OrderStatus
   createdAt: string
   /** ครัวยกให้ลูกค้าแล้วเมื่อไหร่ — null = ยังอยู่บนบอร์ดครัว */
@@ -157,9 +174,16 @@ export interface Receipt {
   number: string
   subtotal: number
   discount: number
+  /** % ที่ลด — null = ไม่ลด หรือบิลเก่าที่ลดเป็นบาท */
+  discountPercent: number | null
+  /** หารเท่ากัน: ส่วนที่ splitPart จาก splitParts คน — ยอดในใบเป็นของทั้งบิล ส่วนที่จ่ายคือ payment.amount */
+  splitPart: number | null
+  splitParts: number | null
   total: number
   issuedAt: string
   tableName: string
+  /** ใบเสร็จของบิลกลับบ้าน — tableName เป็นเลขคิว ("กลับบ้าน #3") แทนเลขโต๊ะ */
+  isTakeaway: boolean
   /** หมายเหตุท้ายใบเสร็จ — เก็บใน DB แล้ว เปิดดูย้อนหลังก็ยังอยู่ */
   note: string | null
   items: ReceiptItem[]
@@ -169,6 +193,9 @@ export interface Payment {
   id: Id
   tableSessionId: Id
   tableName: string
+  /** "โต๊ะ 5" หรือ "กลับบ้าน #3" */
+  placeLabel: string
+  isTakeaway: boolean
   method: PaymentMethod
   status: PaymentStatus
   amount: number

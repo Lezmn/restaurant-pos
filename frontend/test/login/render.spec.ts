@@ -5,11 +5,11 @@ import { test, expect } from '@playwright/test'
 test('หน้า login แสดงฟอร์มครบ', async ({ page }) => {
   await page.goto('/login')
 
-  await expect(page.getByRole('heading', { name: 'เข้าสู่ระบบ' })).toBeVisible()
-  await expect(page.getByText('ร้านอาหาร', { exact: true })).toBeVisible()
-  await expect(page.getByLabel('ผู้ใช้')).toBeVisible()
-  await expect(page.getByLabel('รหัสผ่าน')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'เข้าสู่ระบบ' })).toBeEnabled()
+  // หัวข้อเป็นชื่อร้าน (VITE_RESTAURANT_NAME) — ไม่มีหัวข้อ "เข้าสู่ระบบ" แล้วตั้งแต่ออกแบบหน้า login ใหม่
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  await expect(page.getByLabel('Username')).toBeVisible()
+  await expect(page.getByLabel('Password')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Login' })).toBeEnabled()
 })
 
 // ลิงก์เก่าที่อาจถูก bookmark ไว้ ต้องพามาหน้า login รวม ไม่ใช่ 404
@@ -18,6 +18,6 @@ for (const oldPath of ['/employee/login', '/owner/login']) {
     await page.goto(oldPath)
 
     await expect(page).toHaveURL(/\/login$/)
-    await expect(page.getByLabel('ผู้ใช้')).toBeVisible()
+    await expect(page.getByLabel('Username')).toBeVisible()
   })
 }

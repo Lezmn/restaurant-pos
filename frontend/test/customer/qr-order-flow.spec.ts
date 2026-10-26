@@ -74,9 +74,10 @@ test('ลูกค้าสั่งผ่าน QR บนมือถือ แ
   await expect(customer.getByText('ยังไม่มีรายการที่เลือก')).toBeVisible()
 
   // ครัวเห็นการ์ดของโต๊ะนี้โผล่ในคอลัมน์ "รอคิว" เอง
-  const queue = page.locator('section', { hasText: 'รอคิว' })
+  // หัวตั๋วเป็น "โต๊ะ X" ต่อท้ายป้าย "ใหม่" ได้ — เทียบต้นข้อความแทนตรงตัว
+  const queue = page.getByRole('region', { name: 'รอคิว', exact: true })
   await expect(
-    queue.locator('article').filter({ has: page.getByText(`โต๊ะ ${tableName}`, { exact: true }) }),
+    queue.locator('article').filter({ has: page.getByText(new RegExp(`^โต๊ะ ${tableName}\\s*(ใหม่)?$`)) }),
   ).toBeVisible({ timeout: 10_000 })
   await customer.context().close()
 })

@@ -56,6 +56,10 @@ services:
       SLIPOK_MOCK: ${SLIPOK_MOCK:-false}
       SLIP_RECHECK_INTERVAL_MS: ${SLIP_RECHECK_INTERVAL_MS:-120000}
       SLIP_RECHECK_MAX_ATTEMPTS: ${SLIP_RECHECK_MAX_ATTEMPTS:-15}
+      # ส่งสรุปยอดเข้า LINE (ไม่ตั้ง = ไม่ส่ง)
+      LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN:-}
+      LINE_TO: ${LINE_TO:-}
+      RESTAURANT_NAME: ${RESTAURANT_NAME:-}
     depends_on:
       postgres:
         condition: service_healthy

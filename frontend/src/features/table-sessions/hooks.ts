@@ -3,6 +3,8 @@ import { LIVE_STALE_TIME, useLivePollInterval } from '@/lib/live'
 import {
   closeSession,
   getSessions,
+  mergeSession,
+  moveSession,
   openSession,
 } from './api'
 
@@ -27,9 +29,14 @@ function useSessionMutation<TVars, TData>(fn: (vars: TVars) => Promise<TData>) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: sessionKeys.all })
       qc.invalidateQueries({ queryKey: ['tables'] })
+      // ย้าย/รวมโต๊ะ: เลขโต๊ะของออเดอร์ (จอครัว) และคำขอที่ค้างเปลี่ยนตาม
+      qc.invalidateQueries({ queryKey: ['orders'] })
+      qc.invalidateQueries({ queryKey: ['service-requests'] })
     },
   })
 }
 
 export const useOpenSession = () => useSessionMutation(openSession)
 export const useCloseSession = () => useSessionMutation(closeSession)
+export const useMoveSession = () => useSessionMutation(moveSession)
+export const useMergeSession = () => useSessionMutation(mergeSession)

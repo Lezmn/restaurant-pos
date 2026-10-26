@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { toast } from '@/components/ui/toast'
 import { button, field, fieldLabel } from '@/components/ui/styles'
 import {
+  ChangePasswordDialog,
   MIN_PASSWORD_LENGTH,
   PasswordField,
 } from '@/components/layout/ChangePasswordDialog'
@@ -46,6 +47,7 @@ export function UsersPage() {
   const [resetting, setResetting] = useState<StaffUser | null>(null)
   const [deactivating, setDeactivating] = useState<StaffUser | null>(null)
   const [deleting, setDeleting] = useState<StaffUser | null>(null)
+  const [changingOwnPassword, setChangingOwnPassword] = useState(false)
 
   const activeCount = users?.filter((u) => u.isActive).length ?? 0
 
@@ -136,6 +138,16 @@ export function UsersPage() {
                 >
                   แก้ไข
                 </button>
+                {/* บัญชีตัวเอง = เปลี่ยนรหัสโดยกรอกรหัสเดิม · บัญชีอื่น = ADMIN ตั้งรหัสชั่วคราวให้ */}
+                {isMe && (
+                  <button
+                    type="button"
+                    onClick={() => setChangingOwnPassword(true)}
+                    className={button('outline', 'sm')}
+                  >
+                    เปลี่ยนรหัสผ่าน
+                  </button>
+                )}
                 {!isMe && (
                   <button
                     type="button"
@@ -245,6 +257,9 @@ export function UsersPage() {
             })
           }
         />
+      )}
+      {changingOwnPassword && (
+        <ChangePasswordDialog onClose={() => setChangingOwnPassword(false)} />
       )}
     </div>
   )

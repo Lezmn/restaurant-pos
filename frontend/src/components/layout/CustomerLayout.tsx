@@ -172,15 +172,17 @@ export function CustomerLayout() {
         <Outlet />
       </main>
 
+      {/* สูงตายตัว h-14 (56px) — แถบลอยของหน้าเมนู/รายละเอียดเมนูวางชิดบนตัวนี้ด้วยค่าเดียวกัน
+          (bottom-[calc(3.5rem+env(safe-area-inset-bottom))]) ไม่งั้นมีช่องว่างโผล่ระหว่างกัน */}
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-brand-500 bg-brand-400 pb-[env(safe-area-inset-bottom)] md:hidden">
-        <div className="mx-auto flex max-w-md">
+        <div className="mx-auto flex h-14 max-w-md">
           {tabs.map((tab) => (
             <NavLink
               key={tab.to}
               to={tab.to}
               end={tab.end}
               className={({ isActive }) =>
-                `relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] ${
+                `relative flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] ${
                   isActive ? 'font-bold text-white' : 'text-white/70'
                 }`
               }

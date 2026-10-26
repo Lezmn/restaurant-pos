@@ -6,7 +6,8 @@ const D = (v: number) => new Prisma.Decimal(v);
 function makePrisma() {
   return {
     payment: { findMany: jest.fn().mockResolvedValue([]), groupBy: jest.fn().mockResolvedValue([]) },
-    order: { count: jest.fn().mockResolvedValue(0) },
+    order: { count: jest.fn().mockResolvedValue(0), findMany: jest.fn().mockResolvedValue([]) },
+    menuItem: { findMany: jest.fn().mockResolvedValue([]) },
     expense: {
       aggregate: jest.fn().mockResolvedValue({ _sum: { amount: null } }),
       findMany: jest.fn().mockResolvedValue([]),
@@ -113,6 +114,61 @@ describe('ReportsService', () => {
       const now = new Date();
       expect(where.paidAt.gte).toEqual(new Date(now.getFullYear(), now.getMonth(), 1));
       expect(where.paidAt.lt).toEqual(new Date(now.getFullYear(), now.getMonth() + 1, 1));
+    });
+  });
+  describe('getSales', () => {
+    const menus = [
+      { id: 'm1', name: 'กะเพรา', isAvailable: true, category: { name: 'จานเดียว' } },
+      { id: 'm2', name: 'ชาเย็น', isAvailable: true, category: { name: 'เครื่องดื่ม' } },
+      { id: 'm3', name: 'ต้มยำ', isAvailable: true, category: { name: 'กับข้าว' } },
+      { id: 'm4', name: 'ปิดขายอยู่', isAvailable: false, category: { name: 'กับข้าว' } },
+    ];
+    const line = (menuItemId: string, quantity: number, unitPrice: number, options: number[] = []) => ({
+      menuItemId,
+      quantity,
+      unitPrice: D(unitPrice),
+      selectedOptions: options.map((price) => ({ price: D(price) })),
+    });
+
+    beforeEach(() => {
+      prisma.menuItem.findMany.mockResolvedValue(menus);
+      prisma.order.findMany.mockResolvedValue([
+        { createdAt: new Date(2026, 8, 3, 12, 15), items: [line('m1', 2, 60, [10]), line('m2', 1, 25)] },
+        { createdAt: new Date(2026, 8, 3, 12, 50), items: [line('m2', 3, 25)] },
+        { createdAt: new Date(2026, 8, 4, 18, 5), items: [line('m1', 1, 60)] },
+      ]);
+    });
+
+    it('นับเฉพาะออเดอร์ที่จ่ายแล้วและบิลไม่ถูก void ในช่วงที่เลือก', async () => {
+      await service.getSales({ month: '2026-09' });
+      const where = prisma.order.findMany.mock.calls[0][0].where;
+      expect(where.payment).toEqual({ status: 'COMPLETED' });
+      expect(where.createdAt).toEqual({ gte: new Date(2026, 8, 1), lt: new Date(2026, 9, 1) });
+    });
+
+    it('เรียงเมนูตามจำนวนที่ขาย คิดยอดรวมราคาตัวเลือก', async () => {
+      const r: any = await service.getSales({ month: '2026-09' });
+      expect(r.topItems.map((i: any) => [i.name, i.quantity, Number(i.revenue)])).toEqual([
+        ['ชาเย็น', 4, 100],
+        ['กะเพรา', 3, 200], // 2 × (60 + 10) + 60
+      ]);
+      expect(r.totalQuantity).toBe(7);
+      expect(Number(r.totalRevenue)).toBe(300);
+      expect(r.orderCount).toBe(3);
+    });
+
+    it('แยกตามชั่วโมงที่สั่ง ครบ 24 ช่อง', async () => {
+      const r: any = await service.getSales({ month: '2026-09' });
+      expect(r.byHour).toHaveLength(24);
+      expect(r.byHour[12]).toMatchObject({ hour: 12, orderCount: 2, quantity: 6 });
+      expect(Number(r.byHour[12].revenue)).toBe(240);
+      expect(r.byHour[18]).toMatchObject({ orderCount: 1, quantity: 1 });
+      expect(r.byHour[9].orderCount).toBe(0);
+    });
+
+    it('เมนูไม่มีคนสั่ง = เฉพาะที่ยังเปิดขาย', async () => {
+      const r: any = await service.getSales({ month: '2026-09' });
+      expect(r.unsoldItems).toEqual([{ menuItemId: 'm3', name: 'ต้มยำ', categoryName: 'กับข้าว' }]);
     });
   });
 });

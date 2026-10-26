@@ -55,10 +55,18 @@ export async function publicMenu(request: APIRequestContext): Promise<PublicMenu
   return categories.flatMap((c) => c.menuItems)
 }
 
+/**
+ * เมนูจาก seed ตามชื่อ — เทสอื่นที่รันพร้อมกันปิดขายเมนูชั่วคราวได้ (เช่น น้ำเปล่า)
+ * จึงรอสูงสุด 15 วิให้กลับมาขายก่อน ค่อยถือว่าไม่มีเมนูนี้จริง
+ */
 export async function menuItemByName(request: APIRequestContext, name: string) {
-  const item = (await publicMenu(request)).find((m) => m.name === name)
-  if (!item) throw new Error(`ไม่พบเมนู ${name} ใน /public/menu`)
-  return item
+  const deadline = Date.now() + 15_000
+  for (;;) {
+    const item = (await publicMenu(request)).find((m) => m.name === name)
+    if (item) return item
+    if (Date.now() > deadline) throw new Error(`ไม่พบเมนู ${name} ใน /public/menu`)
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
 }
 
 /** สร้างโต๊ะใหม่ (เลขสุ่มไม่ชน) — E2E รันซ้ำแล้วโต๊ะ seed ไม่หมด */

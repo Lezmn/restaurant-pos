@@ -46,7 +46,8 @@ export class ReportsService {
           select: { amount: true, method: true },
         }),
         this.prisma.order.count({
-          where: { createdAt: { gte: todayStart, lt: tomorrowStart } },
+          // splitFromId = ออเดอร์ที่แตกออกมาตอนแยกบิลตามรายการ ไม่ใช่การสั่งใหม่
+          where: { createdAt: { gte: todayStart, lt: tomorrowStart }, splitFromId: null },
         }),
         this.prisma.expense.aggregate({
           _sum: { amount: true },
@@ -54,6 +55,8 @@ export class ReportsService {
         }),
         this.prisma.restaurantTable.groupBy({
           by: ['status'],
+          // โต๊ะเสมือนของกลับบ้านไม่ใช่โต๊ะจริง ไม่นับในจำนวนโต๊ะว่าง/มีลูกค้า
+          where: { isTakeaway: false },
           _count: { _all: true },
         }),
         this.prisma.payment.findMany({
@@ -73,7 +76,8 @@ export class ReportsService {
         }),
         // โต๊ะที่เปิดวันนี้ — รวมจำนวนลูกค้าที่พนักงานกดระบุไว้ (QR ที่หมดอายุโดยไม่มีออเดอร์ก็ยังนับ เพราะลูกค้ามานั่งจริง)
         this.prisma.tableSession.aggregate({
-          where: { openedAt: { gte: todayStart, lt: tomorrowStart } },
+          // บิลกลับบ้านไม่มีจำนวนลูกค้านั่งโต๊ะ — ไม่นับ ไม่งั้น "โต๊ะที่ไม่ได้ระบุจำนวน" จะพองตาม
+          where: { openedAt: { gte: todayStart, lt: tomorrowStart }, isTakeaway: false },
           _sum: { guestCount: true },
           _count: { _all: true, guestCount: true },
         }),
@@ -165,6 +169,106 @@ export class ReportsService {
       incomeByMethod: this.sumByMethod(payments),
       expenseByCategory: this.sumByCategory(expenses),
       transactions,
+    };
+  }
+
+  /**
+   * เมนูขายดี + ช่วงเวลาขายดี ของช่วงเวลาหนึ่ง (ไม่ระบุ = เดือนปัจจุบัน)
+   * นับเฉพาะออเดอร์ที่จ่ายเงินแล้วและบิลไม่ถูก void — ออเดอร์ยกเลิก/ค้างจ่ายไม่ใช่ "ขายได้"
+   * ช่วงเวลาใช้เวลาที่ลูกค้าสั่ง (ไม่ใช่เวลาจ่าย) เพราะอยากรู้ว่าครัวยุ่งตอนไหน
+   * ยอดเป็นราคาเมนู + ตัวเลือก ก่อนส่วนลดท้ายบิล (ส่วนลดเป็นของทั้งบิล แบ่งรายเมนูไม่ได้)
+   */
+  async getSales(query: ReportRangeQueryDto) {
+    const range = this.resolveRangeOrCurrentMonth(query);
+
+    const [orders, menuItems] = await Promise.all([
+      this.prisma.order.findMany({
+        where: {
+          createdAt: range,
+          payment: { status: PaymentStatus.COMPLETED },
+        },
+        select: {
+          createdAt: true,
+          items: {
+            select: {
+              quantity: true,
+              unitPrice: true,
+              menuItemId: true,
+              selectedOptions: { select: { price: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.menuItem.findMany({
+        select: {
+          id: true,
+          name: true,
+          isAvailable: true,
+          category: { select: { name: true } },
+        },
+        orderBy: { name: 'asc' },
+      }),
+    ]);
+
+    const byMenu = new Map<string, { quantity: number; revenue: Prisma.Decimal }>();
+    const byHour = Array.from({ length: 24 }, (_, hour) => ({
+      hour,
+      orderCount: 0,
+      quantity: 0,
+      revenue: new Prisma.Decimal(0),
+    }));
+
+    for (const order of orders) {
+      const slot = byHour[order.createdAt.getHours()];
+      slot.orderCount += 1;
+      for (const item of order.items) {
+        const each = item.selectedOptions.reduce(
+          (total, option) => total.plus(option.price),
+          new Prisma.Decimal(item.unitPrice),
+        );
+        const lineTotal = each.times(item.quantity);
+        slot.quantity += item.quantity;
+        slot.revenue = slot.revenue.plus(lineTotal);
+        // รายการราคาเปิดไม่ใช่เมนู — นับในยอดรายชั่วโมง แต่ไม่ขึ้นอันดับเมนูขายดี
+        if (!item.menuItemId) continue;
+        const menu = byMenu.get(item.menuItemId) ?? {
+          quantity: 0,
+          revenue: new Prisma.Decimal(0),
+        };
+        menu.quantity += item.quantity;
+        menu.revenue = menu.revenue.plus(lineTotal);
+        byMenu.set(item.menuItemId, menu);
+      }
+    }
+
+    const items = menuItems
+      .map((menu) => ({
+        menuItemId: menu.id,
+        name: menu.name,
+        categoryName: menu.category.name,
+        isAvailable: menu.isAvailable,
+        quantity: byMenu.get(menu.id)?.quantity ?? 0,
+        revenue: byMenu.get(menu.id)?.revenue ?? new Prisma.Decimal(0),
+      }))
+      // ขายได้มากก่อน เท่ากันดูยอดเงิน แล้วค่อยเรียงชื่อให้ลำดับนิ่ง
+      .sort(
+        (a, b) =>
+          b.quantity - a.quantity ||
+          b.revenue.comparedTo(a.revenue) ||
+          a.name.localeCompare(b.name, 'th'),
+      );
+
+    return {
+      range: { from: range.gte ?? null, to: range.lt ?? range.lte ?? null },
+      orderCount: orders.length,
+      totalQuantity: items.reduce((n, item) => n + item.quantity, 0),
+      totalRevenue: this.sum(items.map((item) => item.revenue)),
+      topItems: items.filter((item) => item.quantity > 0),
+      // เมนูที่ยังเปิดขายแต่ไม่มีใครสั่งเลยในช่วงนี้ — ไว้ให้เจ้าของร้านพิจารณาปรับเมนู
+      unsoldItems: items
+        .filter((item) => item.quantity === 0 && item.isAvailable)
+        .map(({ menuItemId, name, categoryName }) => ({ menuItemId, name, categoryName })),
+      byHour,
     };
   }
 

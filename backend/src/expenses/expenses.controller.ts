@@ -13,6 +13,8 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { AuthenticatedUser } from '../auth/jwt.strategy';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Audit } from '../audit/audit.decorator';
+import { loadExpense } from '../audit/audit-loaders';
 import { CreateDrawerExpenseDto } from './dto/create-drawer-expense.dto';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { FindExpensesQueryDto } from './dto/find-expenses-query.dto';
@@ -27,6 +29,7 @@ export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}
 
   @Post()
+  @Audit('EXPENSE_CREATE', { targetId: ({ result }) => (result as { id: string }).id })
   @ApiOperation({ summary: 'บันทึกรายจ่ายของร้าน' })
   create(
     @Body() dto: CreateExpenseDto,
@@ -37,6 +40,7 @@ export class ExpensesController {
 
   @Post('drawer')
   @Roles(Role.ADMIN, Role.STAFF)
+  @Audit('EXPENSE_DRAWER', { targetId: ({ result }) => (result as { id: string }).id })
   @ApiOperation({ summary: 'พนักงานบันทึกเงินสดที่หยิบจากลิ้นชักไปจ่าย (แก้/ลบได้เฉพาะผู้ดูแล)' })
   createFromDrawer(
     @Body() dto: CreateDrawerExpenseDto,
@@ -58,12 +62,17 @@ export class ExpensesController {
   }
 
   @Patch(':id')
+  @Audit('EXPENSE_UPDATE', {
+    before: loadExpense,
+    details: ({ before, body }) => ({ before, changes: body }),
+  })
   @ApiOperation({ summary: 'แก้ไขรายจ่าย' })
   update(@Param('id') id: string, @Body() dto: UpdateExpenseDto) {
     return this.expensesService.update(id, dto);
   }
 
   @Delete(':id')
+  @Audit('EXPENSE_DELETE', { before: loadExpense, details: ({ before }) => before as Record<string, unknown> })
   @ApiOperation({ summary: 'ลบรายจ่าย' })
   remove(@Param('id') id: string) {
     return this.expensesService.remove(id);

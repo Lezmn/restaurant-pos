@@ -88,15 +88,16 @@ const TablesPage = lazy(() =>
     default: m.TablesPage,
   })),
 )
+const TakeawayPage = lazy(() =>
+  import('@/pages/employee/TakeawayPage').then((m) => ({
+    default: m.TakeawayPage,
+  })),
+)
 const RequestsPage = lazy(() =>
   import('@/pages/employee/RequestsPage').then((m) => ({
     default: m.RequestsPage,
   })),
 )
-const UsersPage = lazy(() =>
-  import('@/pages/employee/UsersPage').then((m) => ({ default: m.UsersPage })),
-)
-
 const DashboardPage = lazy(() =>
   import('@/pages/owner/DashboardPage').then((m) => ({
     default: m.DashboardPage,
@@ -105,8 +106,20 @@ const DashboardPage = lazy(() =>
 const FinancePage = lazy(() =>
   import('@/pages/owner/FinancePage').then((m) => ({ default: m.FinancePage })),
 )
+const SalesPage = lazy(() =>
+  import('@/pages/owner/SalesPage').then((m) => ({ default: m.SalesPage })),
+)
 const CashClosesPage = lazy(() =>
   import('@/pages/owner/CashClosesPage').then((m) => ({ default: m.CashClosesPage })),
+)
+const AuditLogPage = lazy(() =>
+  import('@/pages/owner/AuditLogPage').then((m) => ({ default: m.AuditLogPage })),
+)
+const LineSettingsPage = lazy(() =>
+  import('@/pages/owner/LineSettingsPage').then((m) => ({ default: m.LineSettingsPage })),
+)
+const UsersPage = lazy(() =>
+  import('@/pages/owner/UsersPage').then((m) => ({ default: m.UsersPage })),
 )
 
 /** ครอบ Suspense ให้ทุก element ที่โหลดแบบ lazy กันจอว่างระหว่างดึงไฟล์ */
@@ -137,8 +150,6 @@ export const router = createBrowserRouter([
     path: '/login',
     element: s(
       <LoginPage
-        title="เข้าสู่ระบบ"
-        subtitle="ร้านอาหาร"
         redirectTo="/employee"
         hint="admin (ADMIN) · staff (STAFF) · kitchen (KITCHEN)"
       />,
@@ -174,6 +185,10 @@ export const router = createBrowserRouter([
             element: <ProtectedRoute roles={pageRoles.tables} />,
             children: [{ path: 'tables', element: s(<TablesPage />) }],
           },
+          {
+            element: <ProtectedRoute roles={pageRoles.takeaway} />,
+            children: [{ path: 'takeaway', element: s(<TakeawayPage />) }],
+          },
 
           // หน้าที่ไม่มีในดีไซน์ แต่เขียนไว้แล้วและ backend รองรับ
           // เข้าถึงได้ทาง URL ตรง แต่ไม่ได้อยู่ในแถบล่าง
@@ -185,10 +200,8 @@ export const router = createBrowserRouter([
             element: <ProtectedRoute roles={pageRoles.requests} />,
             children: [{ path: 'requests', element: s(<RequestsPage />) }],
           },
-          {
-            element: <ProtectedRoute roles={pageRoles.users} />,
-            children: [{ path: 'users', element: s(<UsersPage />) }],
-          },
+          // บัญชีผู้ใช้ย้ายไปอยู่ฝั่งเจ้าของร้านแล้ว — ลิงก์เก่าที่อาจถูก bookmark ไว้
+          { path: 'users', element: <Navigate to="/owner/users" replace /> },
         ],
       },
     ],
@@ -207,7 +220,14 @@ export const router = createBrowserRouter([
           { index: true, element: <Navigate to="/owner/dashboard" replace /> },
           { path: 'dashboard', element: s(<DashboardPage />) },
           { path: 'finance', element: s(<FinancePage />) },
+          { path: 'sales', element: s(<SalesPage />) },
           { path: 'cash-closes', element: s(<CashClosesPage />) },
+          { path: 'audit', element: s(<AuditLogPage />) },
+          { path: 'line', element: s(<LineSettingsPage />) },
+          {
+            element: <ProtectedRoute roles={pageRoles.users} fallbackPath="/owner" />,
+            children: [{ path: 'users', element: s(<UsersPage />) }],
+          },
         ],
       },
     ],

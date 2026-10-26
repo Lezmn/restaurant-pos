@@ -8,6 +8,7 @@ import {
   IsString,
   Max,
   MaxLength,
+  Matches,
   Min,
   ValidateIf,
 } from 'class-validator';
@@ -25,6 +26,18 @@ export class CreateIngredientDto {
   @IsOptional()
   @IsBoolean()
   isAvailable?: boolean;
+
+  @ApiPropertyOptional({
+    example: 'https://example.com/uploads/egg.webp',
+    nullable: true,
+    description: 'รูปวัตถุดิบ — null = เอารูปออก (เปลี่ยนได้เฉพาะ ADMIN)',
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(500)
+  @Matches(/^(https?:\/\/|\/uploads\/)/, { message: 'imageUrl ต้องเป็นลิงก์ http(s) หรือรูปที่อัปโหลดไว้' })
+  imageUrl?: string | null;
 
   @ApiPropertyOptional({
     example: 30,

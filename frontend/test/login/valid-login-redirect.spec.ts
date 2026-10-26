@@ -4,16 +4,15 @@ import { submitLogin } from '../helpers'
 // ⚠️ ต้องรัน backend จริง + seed data (prisma/seed.ts) ที่ localhost:3000
 // รหัสผ่าน seed ทุกบัญชีคือ "ChangeMe123!"
 
-test('login ด้วยบัญชี admin สำเร็จ ต้องถูกพาไปหน้า order (homeByRole ของ ADMIN)', async ({
+test('login ด้วยบัญชี admin สำเร็จ ต้องถูกพาไปหน้า owner dashboard', async ({
   page,
 }) => {
   await page.goto('/login')
 
   await submitLogin(page, 'admin', 'ChangeMe123!')
 
-  // /employee -> EmployeeHome -> redirect ต่อตาม role (ADMIN, KITCHEN ไป /employee/order)
-  await expect(page).toHaveURL(/\/employee\/order$/)
-  console.log('login ด้วยบัญชี admin สำเร็จ ต้องถูกพาไปหน้า order (homeByRole ของ ADMIN) ✅')
+  // ADMIN = เจ้าของร้าน ไปหน้า Dashboard ก่อน (STAFF/KITCHEN ยังไปหน้าพนักงานตาม homeByRole)
+  await expect(page).toHaveURL(/\/owner\/dashboard$/)
 })
 
 test('login ด้วยบัญชี staff (STAFF) สำเร็จ ต้องถูกพาไปหน้า check', async ({ page }) => {

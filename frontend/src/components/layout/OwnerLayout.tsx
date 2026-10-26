@@ -1,5 +1,7 @@
+import { Toaster } from '@/components/ui/Toaster'
 import { homeByRole } from '@/features/auth/permissions'
 import { useAuth } from '@/features/auth/use-auth'
+import { RESTAURANT_NAME } from '@/lib/config'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 function IconDashboard() {
@@ -9,6 +11,15 @@ function IconDashboard() {
       <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5" />
       <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5" />
       <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5" />
+    </svg>
+  )
+}
+
+/** กราฟแท่ง — รายงานเมนูขายดี */
+function IconChart() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+      <path d="M4 20h16M7 16v-5M12 16V6M17 16v-8" strokeLinecap="round" />
     </svg>
   )
 }
@@ -27,6 +38,33 @@ function IconDrawer() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
       <rect x="3" y="11" width="18" height="9" rx="1.5" />
       <path d="M6 11V5.5A1.5 1.5 0 0 1 7.5 4h9A1.5 1.5 0 0 1 18 5.5V11M10 15.5h4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function IconHistory() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+      <path d="M3.5 12a8.5 8.5 0 1 0 2.5-6" strokeLinecap="round" />
+      <path d="M3 3.5V8h4.5M12 7.5V12l3 2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function IconUsers() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.5A6.5 6.5 0 0 1 21.5 20" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function IconChat() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+      <path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" strokeLinejoin="round" />
+      <path d="M8 10h8M8 13h5" strokeLinecap="round" />
     </svg>
   )
 }
@@ -51,8 +89,18 @@ function IconLogout() {
 const navItems = [
   { to: '/owner/dashboard', label: 'Dashboard', icon: <IconDashboard /> },
   { to: '/owner/finance', label: 'รายรับ-รายจ่าย', icon: <IconMoney /> },
+  { to: '/owner/sales', label: 'เมนูขายดี', icon: <IconChart /> },
   { to: '/owner/cash-closes', label: 'ปิดยอดเงินสด', icon: <IconDrawer /> },
+  { to: '/owner/audit', label: 'ประวัติการทำรายการ', icon: <IconHistory /> },
+  { to: '/owner/line', label: 'แจ้งเตือน LINE', icon: <IconChat /> },
+  { to: '/owner/users', label: 'บัญชีผู้ใช้', icon: <IconUsers /> },
 ]
+
+/** หน้าตาเดียวกันทุกปุ่มใน sidebar (เมนู / กลับหน้าพนักงาน / Logout) — ใส่ flex หรือ hidden เองตามจอ */
+// พื้น brand-50 + ตัว brand-500 เต็ม (5.3:1) — เดิมพื้น brand-100/70 + ตัว /80 ได้แค่ 2.9:1 · สูง 44px ตามเป้ากดของระบบ
+const navItemBase = 'min-h-11 shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition'
+const navItemClass = `${navItemBase} text-brand-500 hover:bg-brand-75/60`
+const navItemActiveClass = `${navItemBase} bg-brand-500 text-white`
 
 export function OwnerLayout() {
   const user = useAuth((s) => s.user)
@@ -67,17 +115,14 @@ export function OwnerLayout() {
   return (
     <div className="flex min-h-dvh flex-col bg-white lg:flex-row">
       {/* จอใหญ่: sidebar ซ้ายตามดีไซน์ / จอเล็ก: แถบบนเลื่อนแนวนอน */}
-      <aside className="flex shrink-0 flex-col bg-brand-100/70 lg:min-h-dvh lg:w-56">
+      <aside className="flex shrink-0 flex-col border-b border-brand-75 bg-brand-50 lg:min-h-dvh lg:w-56 lg:border-r lg:border-b-0">
         <div className="flex items-center gap-2 px-4 py-4">
-          <span aria-hidden className="text-xl text-brand-400">
-            🍴
-          </span>
-          <p className="text-lg font-bold text-brand-400">ร้านอาหาร</p>
+          <p className="min-w-0 text-lg leading-tight font-bold text-balance text-brand-500">{RESTAURANT_NAME}</p>
           {/* จอเล็ก: แถบเมนูเลื่อนแนวนอน ปุ่มท้ายแถวจะหลุดจอ — วางปุ่มกลับไว้แถวชื่อร้านให้เห็นตลอด */}
           {user && (
             <Link
               to={homeByRole[user.role]}
-              className="ml-auto flex items-center gap-1.5 rounded-lg border-2 border-brand-400/60 px-3 py-1.5 text-sm font-semibold text-brand-500 transition hover:bg-white/60 lg:hidden"
+              className={`ml-auto flex lg:hidden ${navItemClass}`}
             >
               <IconBack />
               <span>หน้าพนักงาน</span>
@@ -91,11 +136,7 @@ export function OwnerLayout() {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
-                  isActive
-                    ? 'bg-white text-brand-500 shadow-sm'
-                    : 'text-brand-500/80 hover:bg-white/50'
-                }`
+                `flex ${isActive ? navItemActiveClass : navItemClass}`
               }
             >
               {item.icon}
@@ -107,7 +148,7 @@ export function OwnerLayout() {
           {user && (
             <Link
               to={homeByRole[user.role]}
-              className="mt-3 hidden shrink-0 items-center gap-2 rounded-lg border-2 border-brand-400/60 px-3 py-2 text-sm font-semibold text-brand-500 transition hover:bg-white/60 lg:flex"
+              className={`hidden lg:flex ${navItemClass}`}
             >
               <IconBack />
               <span>กลับหน้าพนักงาน</span>
@@ -117,7 +158,7 @@ export function OwnerLayout() {
           <button
             type="button"
             onClick={handleSignOut}
-            className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-brand-500/80 transition hover:bg-white/50 lg:hidden"
+            className={`flex lg:hidden ${navItemClass}`}
           >
             <IconLogout />
             <span>Logout</span>
@@ -126,14 +167,14 @@ export function OwnerLayout() {
 
         <div className="hidden px-3 pb-4 lg:block">
           {user && (
-            <p className="px-3 pb-2 text-xs text-brand-500/70">
+            <p className="px-3 pb-2 text-xs text-brand-500">
               {user.name} · {user.role}
             </p>
           )}
           <button
             type="button"
             onClick={handleSignOut}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-brand-500/80 transition hover:bg-white/50"
+            className={`flex w-full ${navItemClass}`}
           >
             <IconLogout />
             <span>Logout</span>
@@ -144,6 +185,8 @@ export function OwnerLayout() {
       <main className="flex-1 overflow-x-auto px-4 py-5 sm:px-6">
         <Outlet />
       </main>
+      {/* หน้าเจ้าของร้านก็เรียก toast() (บัญชีผู้ใช้, LINE) — ไม่มีตัวนี้ข้อความสำเร็จจะไม่ขึ้นเลย */}
+      <Toaster />
     </div>
   )
 }

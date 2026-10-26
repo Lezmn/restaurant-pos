@@ -25,7 +25,7 @@ test('cashier เปิดโต๊ะ ลูกค้าสั่งอาห�
   // ก็มีป้าย "รอเสิร์ฟ N ออเดอร์" เหมือนกัน ถ้าไม่ระบุเจาะจงโต๊ะ จะชนกันกลายเป็น strict mode violation
   // ตัดคำว่า "โต๊ะ" ออกเหลือแค่ชื่อ แล้วให้ checkTableTile ประกอบหัวการ์ด "โต๊ะ {name}" เอง
   const tableName = tableCardText.replace(/^โต๊ะ\s*/, '')
-  await availableTable.getByRole('button', { name: 'เปิดโต๊ะ + สร้าง QR' }).click()
+  await availableTable.getByRole('button', { name: 'เปิดโต๊ะ/สร้าง QR' }).click()
 
   // เปิดโต๊ะสำเร็จ ระบบเด้ง QR dialog ขึ้นมาให้เองทันที (ดู TablesPage.tsx onSuccess ของ openSession)
   const qrDialog = page.getByRole('dialog')

@@ -34,10 +34,16 @@ export async function getSessionByToken(token: string): Promise<TableSession> {
     id: data.id,
     tableId: data.tableId ?? data.table?.id ?? '',
     tableName: data.table ? String(data.table.number) : '-',
+    // หน้าลูกค้าเปิดผ่าน QR ของโต๊ะจริงเท่านั้น
+    placeLabel: `โต๊ะ ${data.table ? data.table.number : '-'}`,
+    isTakeaway: false,
+    takeawayNo: null,
+    customerName: null,
     token: data.token,
     status: data.status,
     openedAt: data.openedAt,
     closedAt: data.closedAt ?? null,
+    split: data.split ?? null,
     // /public/sessions ไม่ได้ส่ง total มา ฝั่งลูกค้าใช้ยอดจากรายการออเดอร์แทน
     total: data.total ?? 0,
   }

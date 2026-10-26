@@ -8,6 +8,11 @@ export function startOfDay(date: Date = new Date()) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
+/** วันตามเวลาร้านเป็น 'YYYY-MM-DD' — รูปแบบเดียวกับ DailyCashClose.date */
+export function toDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 /** บวก/ลบวัน โดยไม่แก้ค่าเดิม */
 export function addDays(date: Date, days: number) {
   const copy = new Date(date);

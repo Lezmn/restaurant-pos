@@ -1,3 +1,4 @@
+import { FoodImage } from '@/components/ui/FoodImage'
 import { button, field } from '@/components/ui/styles'
 import { ErrorNote } from '@/components/ui/ErrorNote'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -9,6 +10,8 @@ import {
   useIngredients,
   useUpdateIngredient,
 } from '@/features/ingredients/hooks'
+import { uploadMenuImage } from '@/features/menu/api'
+import { resizeImage } from '@/lib/image-resize'
 import type { Ingredient } from '@/types/models'
 import { useState } from 'react'
 
@@ -121,9 +124,23 @@ export function IngredientsPanel({ canEdit }: Readonly<{ canEdit: boolean }>) {
             }`}
           >
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate font-bold text-black">{item.name}</p>
-                <p className="text-sm text-gray-600">{usageText(item)}</p>
+              <div className="flex min-w-0 items-center gap-3">
+                <IngredientImage
+                  item={item}
+                  canEdit={canEdit}
+                  onChange={(imageUrl) =>
+                    update
+                      .mutateAsync({ id: item.id, imageUrl })
+                      .then(() => toast(imageUrl ? `${item.name}: บันทึกรูปแล้ว` : `${item.name}: เอารูปออกแล้ว`))
+                      .catch(() => {
+                        // error ขึ้นที่ ErrorNote ด้านบนอยู่แล้ว
+                      })
+                  }
+                />
+                <div className="min-w-0">
+                  <p className="truncate font-bold text-black">{item.name}</p>
+                  <p className="text-sm text-gray-600">{usageText(item)}</p>
+                </div>
               </div>
 
               {/* นับสต็อกอยู่และยอดเป็น 0 — เปิดไปก็สั่งไม่ได้จริง เปิดฟอร์มตั้งยอดให้แทน */}
@@ -220,7 +237,72 @@ export function IngredientsPanel({ canEdit }: Readonly<{ canEdit: boolean }>) {
   )
 }
 
-/** "ใช้ใน 1 เมนู · 4 ตัวเลือก" — บอกให้รู้ว่าปิดแล้วกระทบอะไรบ้าง */
+/**
+ * รูปวัตถุดิบ 64px — ADMIN แตะเพื่อเลือกรูปจากเครื่อง (ย่อแล้วอัปโหลดเหมือนรูปเมนู)
+ * ครัวเห็นรูปอย่างเดียว ไม่มีรูป = ไอคอนแทน
+ */
+function IngredientImage({
+  item,
+  canEdit,
+  onChange,
+}: Readonly<{
+  item: Ingredient
+  canEdit: boolean
+  onChange: (imageUrl: string | null) => Promise<unknown>
+}>) {
+  const [uploading, setUploading] = useState(false)
+
+  const pick = async (file: File | undefined) => {
+    if (!file) return
+    setUploading(true)
+    try {
+      await onChange(await uploadMenuImage(await resizeImage(file)))
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'อัปโหลดรูปไม่สำเร็จ')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const frame = 'relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-brand-50'
+  const image = <FoodImage src={item.imageUrl} alt={item.imageUrl ? `รูป ${item.name}` : ''} />
+  if (!canEdit) return <div className={frame}>{image}</div>
+
+  return (
+    <div className="flex shrink-0 flex-col items-center gap-1">
+      <label
+        className={`${frame} cursor-pointer hover:border-brand-400 ${uploading ? 'pointer-events-none opacity-60' : ''}`}
+      >
+        {image}
+        <span className="absolute inset-x-0 bottom-0 bg-black/55 py-0.5 text-center text-[11px] font-semibold text-white">
+          {uploading ? 'กำลังอัป...' : item.imageUrl ? 'เปลี่ยนรูป' : 'เพิ่มรูป'}
+        </span>
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          aria-label={`${item.imageUrl ? 'เปลี่ยนรูป' : 'เพิ่มรูป'} ${item.name}`}
+          disabled={uploading}
+          onChange={(e) => {
+            void pick(e.target.files?.[0])
+            // เลือกไฟล์เดิมซ้ำได้ (เช่น อัปโหลดล้มแล้วลองใหม่)
+            e.target.value = ''
+          }}
+          className="sr-only"
+        />
+      </label>
+      {item.imageUrl && !uploading && (
+        <button
+          type="button"
+          onClick={() => void onChange(null)}
+          className="text-xs font-semibold text-gray-600 underline-offset-2 hover:text-danger-ink hover:underline"
+        >
+          เอารูปออก
+        </button>
+      )}
+    </div>
+  )
+}
+
 /** ผลของการลบวัตถุดิบ — บอกตามสิ่งที่ผูกอยู่จริง */
 function deleteConsequence(item: Ingredient) {
   const base = 'ลบแล้วกู้คืนไม่ได้'
