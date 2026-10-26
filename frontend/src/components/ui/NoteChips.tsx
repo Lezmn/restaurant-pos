@@ -1,8 +1,8 @@
-import { ALLERGY_PRESETS, NOTE_PRESETS, hasNoteTag, toggleNoteTag } from '@/lib/item-note'
+import { NOTE_PRESETS, hasNoteTag, toggleNoteTag } from '@/lib/item-note'
 
 /**
- * ปุ่มลัดเหนือช่องหมายเหตุ — กดแล้วเติม/เอาคำออกจากโน้ต ไม่ต้องพิมพ์บนมือถือ
- * ปุ่มแพ้อาหารสีแดง แยกจากปุ่มรสชาติ ให้รู้ว่าเป็นเรื่องที่ครัวต้องระวังจริง
+ * ปุ่มลัดเหนือช่องหมายเหตุ — ระดับความเผ็ด (เลือกได้อย่างเดียว) กดซ้ำ = เอาออก
+ * เรื่องอื่นพิมพ์ในช่องหมายเหตุเอง
  */
 export function NoteChips({
   value,
@@ -17,15 +17,11 @@ export function NoteChips({
 }>) {
   const pad = size === 'sm' ? 'min-h-8 px-2.5 text-xs' : 'min-h-9 px-3 text-sm'
 
-  const chip = (tag: string, allergy: boolean) => {
+  const chip = (tag: string) => {
     const on = hasNoteTag(value, tag)
-    const tone = allergy
-      ? on
-        ? 'border-danger-ink bg-danger-ink text-white'
-        : 'border-danger/40 bg-white text-danger-ink hover:border-danger-ink'
-      : on
-        ? 'border-brand-300 bg-brand-300 text-white'
-        : 'border-gray-300 bg-white text-gray-700 hover:border-brand-300'
+    const tone = on
+      ? 'border-brand-300 bg-brand-300 text-white'
+      : 'border-gray-300 bg-white text-gray-700 hover:border-brand-300'
     return (
       <button
         key={tag}
@@ -40,9 +36,8 @@ export function NoteChips({
   }
 
   return (
-    <div className="flex flex-wrap gap-1.5" role="group" aria-label="หมายเหตุที่ใช้บ่อย">
-      {NOTE_PRESETS.map((tag) => chip(tag, false))}
-      {ALLERGY_PRESETS.map((tag) => chip(tag, true))}
+    <div className="flex flex-wrap gap-1.5" role="group" aria-label="ระดับความเผ็ด">
+      {NOTE_PRESETS.map((tag) => chip(tag))}
     </div>
   )
 }

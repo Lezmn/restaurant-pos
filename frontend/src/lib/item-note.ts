@@ -1,19 +1,12 @@
 /**
- * โน้ตต่อจานของร้านตามสั่ง — ปุ่มลัดที่ลูกค้า/พนักงานกดบ่อย แทนการพิมพ์เอง
+ * โน้ตต่อจานของร้านตามสั่ง — ปุ่มลัดระดับความเผ็ด แทนการพิมพ์เอง (ร้านขอให้เหลือแค่ 3 ปุ่มนี้)
  * เก็บเป็นข้อความธรรมดาใน note (คั่นด้วย ", ") backend ไม่ต้องรู้จักแท็กพวกนี้
+ * อย่างอื่น (ไม่ใส่ผัก / แพ้กุ้ง) ลูกค้าพิมพ์เองได้ — คำว่า "แพ้" ยังขึ้นแดงบนจอครัว (isAllergyNote)
  */
-export const NOTE_PRESETS = [
-  'ไม่เผ็ด',
-  'เผ็ดน้อย',
-  'เผ็ดมาก',
-  'ไม่ใส่ผัก',
-  'ไม่ใส่ผงชูรส',
-  'ไข่ดาวไม่สุก',
-  'แยกน้ำ',
-] as const
+export const NOTE_PRESETS = ['ไม่เผ็ด', 'เผ็ดน้อย', 'เผ็ดมาก'] as const
 
-/** ปุ่มแพ้อาหาร — ครัวต้องเห็นชัดกว่าโน้ตทั่วไป (ขึ้นแดงบนตั๋ว) */
-export const ALLERGY_PRESETS = ['แพ้กุ้ง', 'แพ้ถั่ว', 'แพ้นม', 'แพ้ไข่', 'มังสวิรัติ'] as const
+/** ระดับความเผ็ดเลือกได้อย่างเดียว — กดอันใหม่แทนอันเดิม */
+const EXCLUSIVE_GROUPS: readonly (readonly string[])[] = [NOTE_PRESETS]
 
 const SEPARATOR = ', '
 
@@ -29,7 +22,10 @@ export const hasNoteTag = (note: string, tag: string) => parts(note).includes(ta
 /** กดปุ่มลัด = เพิ่ม/เอาคำนั้นออกจากโน้ต ข้อความที่พิมพ์เองยังอยู่ครบ */
 export function toggleNoteTag(note: string, tag: string, maxLength = 200): string {
   const current = parts(note)
-  const next = current.includes(tag) ? current.filter((p) => p !== tag) : [...current, tag]
+  const group = EXCLUSIVE_GROUPS.find((g) => g.includes(tag)) ?? []
+  const next = current.includes(tag)
+    ? current.filter((p) => p !== tag)
+    : [...current.filter((p) => !group.includes(p)), tag]
   const joined = next.join(SEPARATOR)
   // เกินความยาวช่อง = ไม่เพิ่ม (ดีกว่าตัดข้อความลูกค้าทิ้งเงียบ ๆ)
   return joined.length > maxLength ? note : joined
