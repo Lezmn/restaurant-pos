@@ -73,7 +73,7 @@ export function CustomItemDialog({
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             inputMode="decimal"
-            placeholder="0"
+            placeholder="เช่น 10"
             className={field}
           />
           {price.trim() !== '' && !priceValid && (
@@ -95,7 +95,7 @@ export function CustomItemDialog({
         <div className="mt-4 flex items-center justify-between gap-3">
           <QuantityStepper value={quantity} min={1} onChange={(n) => setQuantity(Math.max(1, n))} />
           <button type="submit" disabled={!canAdd} className={`${button('primary', 'lg')} flex-1`}>
-            เพิ่ม {priceValid ? formatBaht(priceNum * quantity) : ''}
+            {canAdd ? `เพิ่ม ${formatBaht(priceNum * quantity)}` : 'ใส่ชื่อและราคาก่อน'}
           </button>
         </div>
       </form>
