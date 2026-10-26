@@ -118,6 +118,9 @@ const SystemStatusPage = lazy(() =>
 const AuditLogPage = lazy(() =>
   import('@/pages/owner/AuditLogPage').then((m) => ({ default: m.AuditLogPage })),
 )
+const LineSettingsPage = lazy(() =>
+  import('@/pages/owner/LineSettingsPage').then((m) => ({ default: m.LineSettingsPage })),
+)
 const UsersPage = lazy(() =>
   import('@/pages/owner/UsersPage').then((m) => ({ default: m.UsersPage })),
 )
@@ -224,6 +227,7 @@ export const router = createBrowserRouter([
           { path: 'cash-closes', element: s(<CashClosesPage />) },
           { path: 'audit', element: s(<AuditLogPage />) },
           { path: 'system', element: s(<SystemStatusPage />) },
+          { path: 'line', element: s(<LineSettingsPage />) },
           {
             element: <ProtectedRoute roles={pageRoles.users} fallbackPath="/owner" />,
             children: [{ path: 'users', element: s(<UsersPage />) }],

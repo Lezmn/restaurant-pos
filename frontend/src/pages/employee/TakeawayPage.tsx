@@ -8,6 +8,7 @@ import { useCategories, useMenuItems } from '@/features/menu/hooks'
 import { useCreateTakeawayOrder, useOrders } from '@/features/orders/hooks'
 import { formatBaht, formatTime } from '@/lib/format'
 import { LIVE_POLL_MS } from '@/lib/live'
+import { useSlashFocus } from '@/lib/use-slash-focus'
 import { OrderStatus, PaymentMethod } from '@/types/enums'
 import type { Id, MenuItem, MenuOptionGroup, Order } from '@/types/models'
 import { useMemo, useRef, useState } from 'react'
@@ -32,6 +33,34 @@ interface CartLine {
 
 const ALL = 'all'
 
+/** ไอคอนจานสำหรับเมนูที่ไม่มีรูป / รูปโหลดไม่ขึ้น — วาดเอง ไม่ใช้อีโมจิ */
+function PlateIcon() {
+  return (
+    <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden className="h-10 w-10">
+      <circle cx="24" cy="26" r="14" />
+      <circle cx="24" cy="26" r="8" />
+      <path d="M6 8v8a3 3 0 0 0 3 3v19M9 8v8M42 8c-3 2-4 6-4 11h4v19" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden className="h-5 w-5">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden className="h-4 w-4">
+      <path d="m5 12 5 5 9-10" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 /**
  * หน้า POS สั่งกลับบ้าน — กดเมนูลงตะกร้า แล้วส่งเข้าครัว
  * - "จ่ายเงินสด" / "จ่าย PromptPay": ส่งเข้าครัว แล้วไปหน้ารับเงินของบิลนั้นทันที เลือกวิธีจ่ายไว้ให้แล้ว
@@ -55,6 +84,12 @@ export function TakeawayPage() {
   const [addingCustom, setAddingCustom] = useState(false)
   /** บิลล่าสุดที่ส่งแบบจ่ายตอนรับของ — โชว์เลขคิวให้บอกลูกค้า */
   const [lastQueue, setLastQueue] = useState<string | null>(null)
+  /** รูปเมนูที่โหลดไม่ขึ้น (ลิงก์เสีย) — แสดงไอคอนจานแทนไอคอนรูปแตกของเบราว์เซอร์ */
+  const [brokenImages, setBrokenImages] = useState<ReadonlySet<Id>>(() => new Set())
+  /** ประกาศให้โปรแกรมอ่านหน้าจอรู้ว่าเพิ่มอะไรลงตะกร้า (การ์ดไม่เปลี่ยนหน้า) */
+  const [announcement, setAnnouncement] = useState('')
+  const searchRef = useRef<HTMLInputElement>(null)
+  useSlashFocus(searchRef)
 
   const items = menuQuery.data
   const itemById = useMemo(() => new Map((items ?? []).map((i) => [i.id, i])), [items])
@@ -65,14 +100,19 @@ export function TakeawayPage() {
     .sort((a, b) => a.sortOrder - b.sortOrder)
 
   const keyword = search.trim().toLowerCase()
-  const visibleItems = (items ?? []).filter(
-    (i) =>
-      (category === ALL || i.categoryId === category) &&
-      (!keyword || i.name.toLowerCase().includes(keyword)),
-  )
+  // ของหมดไปอยู่ท้ายสุด — ช่วงคนเยอะ แคชเชียร์ไล่ตาหาเฉพาะของที่ขายได้
+  const visibleItems = (items ?? [])
+    .filter(
+      (i) =>
+        (category === ALL || i.categoryId === category) &&
+        (!keyword || i.name.toLowerCase().includes(keyword)),
+    )
+    .sort((a, b) => Number(isOrderable(b)) - Number(isOrderable(a)))
 
   const addLine = (line: Omit<CartLine, 'key'>) => {
     setLastQueue(null)
+    const name = line.customName ?? itemById.get(line.menuItemId)?.name ?? ''
+    setAnnouncement(`เพิ่ม ${name} ${line.quantity} ลงตะกร้าแล้ว`)
     setLines((prev) => {
       // เมนูเดิม ตัวเลือกเดิม ไม่มีหมายเหตุ = เพิ่มจำนวนในบรรทัดเดิม ไม่ต้องแตกบรรทัดใหม่
       const sameKey = (l: CartLine) =>
@@ -114,6 +154,15 @@ export function TakeawayPage() {
   const updateLine = (key: number, patch: Partial<CartLine>) =>
     setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)))
   const removeLine = (key: number) => setLines((prev) => prev.filter((l) => l.key !== key))
+  /** ล้างทั้งตะกร้า — กดพลาดได้ง่ายช่วงรีบ จึงเลิกทำได้จาก toast */
+  const clearCart = () => {
+    const previous = lines
+    setLines([])
+    toast(`ล้างตะกร้าแล้ว (${previous.length} รายการ)`, {
+      label: 'เลิกทำ',
+      run: () => setLines(previous),
+    })
+  }
 
   const count = lines.reduce((n, l) => n + l.quantity, 0)
   const total = lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0)
@@ -170,7 +219,11 @@ export function TakeawayPage() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start lg:gap-6">
+      {/* แท็บเล็ตแนวตั้งขึ้นไปแบ่งสองฝั่ง ตะกร้าอยู่ข้างเมนูเสมอ — ไม่ต้องเลื่อนลงไปดู */}
+      <div className="md:grid md:grid-cols-[minmax(0,1fr)_19rem] md:items-start md:gap-5 lg:grid-cols-[minmax(0,1fr)_24rem] lg:gap-6">
+      <p className="sr-only" role="status" aria-live="polite">
+        {announcement}
+      </p>
         <section aria-labelledby="takeaway-heading">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
@@ -179,20 +232,24 @@ export function TakeawayPage() {
               </h1>
               <p className="mt-1 text-base text-gray-600">กดเมนูเพื่อใส่ตะกร้า · ได้เลขคิวตอนส่งเข้าครัว</p>
             </div>
-            <label className="w-full sm:w-64">
-              <span className="sr-only">ค้นหาเมนู</span>
+            <label className="relative w-full sm:w-64">
+              <span className="sr-only">ค้นหาเมนู (กด / เพื่อค้นหา)</span>
+              <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-gray-500">
+                <SearchIcon />
+              </span>
               <input
+                ref={searchRef}
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="ค้นหาเมนู"
-                className={`${field} mt-0`}
+                className={`${field} mt-0 pl-10`}
               />
             </label>
           </div>
 
           <div
-            role="tablist"
+            role="group"
             aria-label="หมวดเมนู"
             className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0"
           >
@@ -200,10 +257,9 @@ export function TakeawayPage() {
               <button
                 key={c.id}
                 type="button"
-                role="tab"
-                aria-selected={category === c.id}
+                aria-pressed={category === c.id}
                 onClick={() => setCategory(c.id)}
-                className={`min-h-10 shrink-0 rounded-full border-2 px-4 text-sm font-bold transition ${
+                className={`min-h-11 shrink-0 rounded-full border-2 px-4 text-sm font-bold transition ${
                   category === c.id
                     ? 'border-brand-500 bg-brand-500 text-white'
                     : 'border-gray-300 bg-white text-gray-700 hover:border-brand-400'
@@ -225,43 +281,57 @@ export function TakeawayPage() {
             )}
             {menuQuery.isPending && <MenuSkeleton />}
 
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {visibleItems.map((item) => {
                 const orderable = isOrderable(item)
                 const inCart = lines
                   .filter((l) => l.menuItemId === item.id)
                   .reduce((n, l) => n + l.quantity, 0)
+                const showImage = Boolean(item.imageUrl) && !brokenImages.has(item.id)
+                // สร้างคลาสขอบทีละสถานะ — เดิมต่อ border-brand-400 ท้ายสตริงชนกับ border-gray-200 แล้วไม่ขึ้น
+                const tone = !orderable
+                  ? 'cursor-not-allowed border-gray-200 bg-gray-50'
+                  : inCart > 0
+                    ? 'border-brand-500 bg-white'
+                    : 'border-gray-200 bg-white hover:border-brand-400 active:scale-[0.98]'
                 return (
                   <li key={item.id} className="flex">
                     <button
                       type="button"
                       disabled={!orderable}
                       onClick={() => tapItem(item)}
-                      aria-label={`${item.name} ${formatBaht(item.price)}${orderable ? '' : ' (หมด)'}`}
-                      className={`relative flex w-full flex-col overflow-hidden rounded-xl border-2 bg-white text-left transition ${
-                        orderable
-                          ? 'border-gray-200 hover:border-brand-400 active:scale-[0.98]'
-                          : 'cursor-not-allowed border-gray-200 opacity-50'
-                      } ${inCart > 0 ? 'border-brand-400' : ''}`}
+                      aria-label={`${item.name} ${formatBaht(item.price)}${orderable ? '' : ' (หมด)'}${inCart > 0 ? ` · ในตะกร้า ${inCart}` : ''}`}
+                      className={`relative flex w-full flex-col overflow-hidden rounded-xl border-2 text-left transition ${tone}`}
                     >
-                      <div className="aspect-[4/3] w-full bg-brand-50">
-                        {item.imageUrl ? (
+                      {/* รูปอยู่ในกรอบ 4:3 ตายตัว — รูปแนวตั้งใหญ่ ๆ เคยดันการ์ดสูงไม่เท่ากันทั้งแถว */}
+                      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-brand-50">
+                        {showImage ? (
                           <img
-                            src={item.imageUrl}
+                            src={item.imageUrl ?? undefined}
                             alt=""
                             loading="lazy"
-                            className="h-full w-full object-cover"
+                            decoding="async"
+                            onError={() => setBrokenImages((prev) => new Set(prev).add(item.id))}
+                            className={`absolute inset-0 h-full w-full object-cover ${orderable ? '' : 'opacity-50 grayscale'}`}
                           />
                         ) : (
-                          <div className="flex h-full items-center justify-center text-3xl text-brand-200" aria-hidden>
-                            🍽
+                          <div className="absolute inset-0 flex items-center justify-center text-brand-200">
+                            <PlateIcon />
                           </div>
                         )}
+                        {!orderable && (
+                          <span className="absolute top-2 left-2 rounded-md bg-black px-2 py-0.5 text-sm font-bold text-white">
+                            หมด
+                          </span>
+                        )}
                       </div>
-                      <div className="flex flex-1 flex-col justify-between gap-1 px-3 py-2">
-                        <p className="line-clamp-2 text-sm font-semibold text-text">{item.name}</p>
-                        <p className="text-base font-bold text-amount tabular-nums">
-                          {orderable ? formatBaht(item.price) : 'หมด'}
+                      <div className="flex flex-1 flex-col gap-1 px-3 py-2">
+                        {/* จองที่ 2 บรรทัด ราคาจะอยู่ระดับเดียวกันทั้งแถว */}
+                        <p className="line-clamp-2 min-h-[2lh] text-sm leading-snug font-semibold text-text">{item.name}</p>
+                        <p
+                          className={`mt-auto text-base font-bold tabular-nums ${orderable ? 'text-price' : 'text-gray-600'}`}
+                        >
+                          {formatBaht(item.price)}
                         </p>
                       </div>
                       {inCart > 0 && (
@@ -283,7 +353,7 @@ export function TakeawayPage() {
           </div>
         </section>
 
-        <aside id="takeaway-cart" className="mt-8 space-y-6 lg:sticky lg:top-4 lg:mt-0">
+        <aside id="takeaway-cart" className="mt-8 space-y-6 md:mt-0 lg:sticky lg:top-4">
           <section
             aria-labelledby="cart-heading"
             className="rounded-xl border-2 border-brand-75 bg-white p-4"
@@ -295,8 +365,8 @@ export function TakeawayPage() {
               {lines.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setLines([])}
-                  className="text-sm font-semibold text-danger-ink"
+                  onClick={clearCart}
+                  className="-mr-2 min-h-11 rounded-lg px-3 text-sm font-semibold text-danger-ink transition hover:bg-danger/5"
                 >
                   ล้างตะกร้า
                 </button>
@@ -311,7 +381,7 @@ export function TakeawayPage() {
             )}
 
             {lines.length === 0 && !lastQueue && (
-              <p className="py-8 text-center text-sm text-gray-500">ยังไม่มีรายการ — กดเมนูทางซ้าย</p>
+              <p className="py-8 text-center text-sm text-gray-500">ยังไม่มีรายการ — กดเมนูเพื่อเพิ่ม</p>
             )}
 
             {lines.length > 0 && (
@@ -332,7 +402,7 @@ export function TakeawayPage() {
                           <p className="text-sm font-semibold text-text">
                             {name}
                             {line.customName && (
-                              <span className="ml-1.5 rounded bg-brand-50 px-1.5 text-xs font-semibold text-brand-500">
+                              <span className="ml-1.5 rounded bg-gray-100 px-1.5 text-xs font-semibold text-gray-700">
                                 ราคาเปิด
                               </span>
                             )}
@@ -342,13 +412,12 @@ export function TakeawayPage() {
                           )}
                           {bad && <p className="text-xs font-semibold text-danger-ink">หมดแล้ว — ลบออกก่อนส่ง</p>}
                         </div>
-                        <p className="shrink-0 text-sm font-bold text-amount tabular-nums">
+                        <p className="shrink-0 text-sm font-bold text-price tabular-nums">
                           {formatBaht(line.unitPrice * line.quantity)}
                         </p>
                       </div>
                       <div className="mt-2 flex items-center justify-between gap-2">
                         <QuantityStepper
-                          size="sm"
                           min={1}
                           value={line.quantity}
                           onChange={(next) => updateLine(line.key, { quantity: Math.max(1, next) })}
@@ -357,7 +426,7 @@ export function TakeawayPage() {
                           type="button"
                           onClick={() => removeLine(line.key)}
                           aria-label={`ลบ ${name}`}
-                          className="min-h-10 px-2 text-sm font-semibold text-danger-ink"
+                          className="-mr-2 min-h-11 min-w-11 rounded-lg px-3 text-sm font-semibold text-danger-ink transition hover:bg-danger/5"
                         >
                           ลบ
                         </button>
@@ -368,7 +437,7 @@ export function TakeawayPage() {
                         maxLength={200}
                         placeholder="หมายเหตุ เช่น ไม่เผ็ด แยกน้ำ"
                         aria-label={`หมายเหตุของ ${name}`}
-                        className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-brand-300"
+                        className={`${field} mt-2 py-2 text-sm`}
                       />
                     </li>
                   )
@@ -379,7 +448,7 @@ export function TakeawayPage() {
             <button
               type="button"
               onClick={() => setAddingCustom(true)}
-              className="mt-3 min-h-11 w-full rounded-lg border-2 border-dashed border-gray-300 text-sm font-bold text-gray-700 transition hover:border-brand-400 hover:text-brand-500"
+              className={`${button('secondary')} mt-3 w-full`}
             >
               + รายการพิเศษ (ราคาเปิด)
             </button>
@@ -409,24 +478,39 @@ export function TakeawayPage() {
                   type="button"
                   disabled={count === 0 || unavailable.length > 0 || createTakeaway.isPending}
                   onClick={() => submit(PaymentMethod.CASH)}
-                  className={button('primary', 'lg')}
+                  className={`${button('primary', 'lg')} flex-col gap-0 leading-tight`}
                 >
-                  {createTakeaway.isPending ? 'กำลังส่ง...' : 'จ่ายเงินสด'}
+                  {createTakeaway.isPending ? (
+                    'กำลังส่ง...'
+                  ) : (
+                    <>
+                      <span>เงินสด</span>
+                      <span className="text-sm tabular-nums">{formatBaht(total)}</span>
+                    </>
+                  )}
                 </button>
                 <button
                   type="button"
                   disabled={count === 0 || unavailable.length > 0 || createTakeaway.isPending}
                   onClick={() => submit(PaymentMethod.PROMPTPAY)}
-                  className={button('primary', 'lg')}
+                  // สีน้ำเงิน PromptPay แยกจากปุ่มเงินสด — ไม่ต้องอ่านป้ายตอนรีบ
+                  className={`${button('primary', 'lg').replace('bg-brand-500', 'bg-promptpay')} flex-col gap-0 leading-tight`}
                 >
-                  {createTakeaway.isPending ? 'กำลังส่ง...' : 'จ่าย PromptPay'}
+                  {createTakeaway.isPending ? (
+                    'กำลังส่ง...'
+                  ) : (
+                    <>
+                      <span>PromptPay</span>
+                      <span className="text-sm tabular-nums">{formatBaht(total)}</span>
+                    </>
+                  )}
                 </button>
               </div>
               <button
                 type="button"
                 disabled={count === 0 || unavailable.length > 0 || createTakeaway.isPending}
                 onClick={() => submit(null)}
-                className={button('outline', 'lg')}
+                className={button('secondary', 'lg')}
               >
                 ส่งเข้าครัว · จ่ายตอนรับของ
               </button>
@@ -441,7 +525,7 @@ export function TakeawayPage() {
       {count > 0 && (
         <a
           href="#takeaway-cart"
-          className="fixed inset-x-4 bottom-24 z-10 flex items-center justify-between rounded-xl bg-brand-500 px-5 py-3 font-bold text-white shadow-lg lg:hidden"
+          className="fixed inset-x-4 bottom-24 z-10 flex items-center justify-between rounded-xl bg-brand-500 px-5 py-3 font-bold text-white shadow-lg md:hidden"
         >
           <span>ตะกร้า {count} รายการ</span>
           <span className="tabular-nums">{formatBaht(total)}</span>
@@ -509,7 +593,7 @@ function OptionPicker({
         <fieldset key={group.id} className="mt-1 mb-4">
           <legend className="text-sm font-semibold text-gray-700">
             {group.name}
-            {group.required && <span className="ml-1 text-danger">* เลือก 1</span>}
+            {group.required && <span className="ml-1 text-danger-ink">* เลือก 1</span>}
           </legend>
           <div className="mt-2 flex flex-wrap gap-2">
             {group.options.map((option) => {
@@ -527,14 +611,16 @@ function OptionPicker({
                       setMulti((m) => (checked ? m.filter((id) => id !== option.id) : [...m, option.id]))
                     }
                   }}
-                  className={`min-h-11 rounded-full border-2 px-4 text-sm transition ${
+                  className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border-2 px-4 text-sm transition ${
                     checked
                       ? 'border-brand-500 bg-brand-500 font-bold text-white'
                       : 'border-gray-300 bg-white text-gray-700 hover:border-brand-400'
                   }`}
                 >
+                  {/* เครื่องหมายถูก — บอกว่าเลือกแล้วด้วยรูปทรง ไม่ใช่สีอย่างเดียว */}
+                  {checked && <CheckIcon />}
                   {option.name}
-                  {option.price > 0 && ` +${option.price}`}
+                  {option.price > 0 && ` +${formatBaht(option.price)}`}
                 </button>
               )
             })}
@@ -547,6 +633,7 @@ function OptionPicker({
         onChange={(e) => setNote(e.target.value)}
         maxLength={200}
         placeholder="หมายเหตุ เช่น ไม่เผ็ด"
+        aria-label={`หมายเหตุของ ${item.name}`}
         className={field}
       />
 
@@ -578,12 +665,12 @@ function OptionPicker({
 
 const queueStatus = (orders: Order[]) => {
   if (orders.every((o) => o.status === OrderStatus.SERVED || o.status === OrderStatus.PAID)) {
-    return { text: 'เสร็จแล้ว รอรับ', tone: 'bg-success/15 text-success' }
+    return { text: 'เสร็จแล้ว รอรับ', tone: 'bg-status-done/15 text-status-done-ink' }
   }
   if (orders.some((o) => o.status === OrderStatus.PREPARING)) {
-    return { text: 'กำลังทำ', tone: 'bg-brand-50 text-brand-500' }
+    return { text: 'กำลังทำ', tone: 'bg-status-cooking/15 text-status-cooking-ink' }
   }
-  return { text: 'รอคิวครัว', tone: 'bg-gray-100 text-gray-700' }
+  return { text: 'รอคิวครัว', tone: 'bg-status-queue/15 text-status-queue-ink' }
 }
 
 /**
@@ -630,7 +717,7 @@ function TakeawayQueue() {
                 </p>
               </div>
               {q.paid ? (
-                <span className="shrink-0 text-sm font-semibold text-success">จ่ายแล้ว</span>
+                <span className="shrink-0 text-sm font-semibold text-success-ink">จ่ายแล้ว</span>
               ) : (
                 <Link
                   to={`/employee/check?pay=${q.sessionId}`}
@@ -649,9 +736,12 @@ function TakeawayQueue() {
 
 function MenuSkeleton() {
   return (
-    <div aria-hidden className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+    <div aria-hidden className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {[0, 1, 2, 3, 4, 5].map((i) => (
-        <div key={i} className="aspect-[4/5] animate-pulse rounded-xl bg-gray-100" />
+        <div key={i} className="overflow-hidden rounded-xl border-2 border-gray-100">
+          <div className="aspect-[4/3] animate-pulse bg-gray-100" />
+          <div className="h-16" />
+        </div>
       ))}
     </div>
   )

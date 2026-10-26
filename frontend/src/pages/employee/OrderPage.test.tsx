@@ -110,7 +110,7 @@ describe('OrderPage (จอครัว)', () => {
 
     const ticket = (await screen.findByText('โต๊ะ 4')).closest('article')!
     expect(within(ticket).queryByRole('button', { name: 'ยกเลิกออเดอร์' })).not.toBeInTheDocument()
-    expect(within(ticket).queryByText(/รอ \d+ นาที/)).not.toBeInTheDocument()
+    expect(within(ticket).queryByText(/รอมาแล้ว|เพิ่งสั่ง/)).not.toBeInTheDocument()
     expect(within(ticket).getByRole('button', { name: 'เสิร์ฟแล้ว · เอาออก' })).toBeEnabled()
   })
 
@@ -172,7 +172,16 @@ describe('OrderPage (จอครัว)', () => {
     renderPage()
 
     expect(await screen.findByText('ใหม่')).toBeInTheDocument()
-    expect(screen.getByText(/รอ 0 นาที/)).toBeInTheDocument()
+    // นาทีแรกไม่ขึ้น "รอมาแล้ว 0 นาที" ที่อ่านแล้วแปลก
+    expect(screen.getByText('เพิ่งสั่ง')).toBeInTheDocument()
+  })
+
+  it('รอเกิน 1 นาที → "รอมาแล้ว X นาที"', async () => {
+    const earlier = new Date(Date.now() - 7 * 60_000 - 5_000).toISOString()
+    vi.mocked(getOrders).mockResolvedValue([{ ...order, createdAt: earlier }])
+    renderPage()
+
+    expect(await screen.findByText('รอมาแล้ว 7 นาที')).toBeInTheDocument()
   })
 
   it('รอเกิน 15 นาที → screen reader ได้ยิน "เกินเวลา" ไม่ใช่แค่เห็นสีเปลี่ยน', async () => {

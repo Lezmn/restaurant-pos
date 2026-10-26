@@ -183,7 +183,7 @@ export function SystemStatusPage() {
           <StatusRow title="แจ้งเตือน LINE" state={data.line.state}>
             {data.line.configured
               ? 'ตั้งค่าแล้ว — ส่งสรุปยอดตอนปิดลิ้นชัก'
-              : 'ยังไม่ได้ตั้งค่า (ไม่บังคับ) — ระบบใช้งานได้ปกติ แค่ไม่ส่งสรุปเข้า LINE'}
+              : 'ยังไม่ได้ตั้งค่าหรือปิดไว้ (ไม่บังคับ) — ตั้งได้ที่เมนู "แจ้งเตือน LINE"'}
           </StatusRow>
         )}
 

@@ -40,7 +40,7 @@ describe('SystemStatusPage', () => {
     expect(await screen.findByText('ทุกอย่างทำงานปกติ')).toBeInTheDocument()
     expect(screen.getByText(/ล่าสุด 9 ชั่วโมงที่แล้ว/)).toHaveTextContent('2.3 MB')
     // LINE ไม่ตั้ง = ไม่บังคับ ไม่ทำให้ภาพรวมขึ้นเตือน
-    expect(screen.getByText(/ยังไม่ได้ตั้งค่า \(ไม่บังคับ\)/)).toBeInTheDocument()
+    expect(screen.getByText(/ยังไม่ได้ตั้งค่าหรือปิดไว้ \(ไม่บังคับ\)/)).toBeInTheDocument()
   })
 
   it('สำรองเก่าเกิน → ภาพรวม "ควรตรวจสอบ"', async () => {

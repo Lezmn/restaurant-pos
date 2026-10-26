@@ -22,6 +22,7 @@ export const AUDIT_ACTIONS = [
   'USER_CREATE',
   'USER_UPDATE',
   'USER_DELETE',
+  'SETTINGS_LINE_UPDATE',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

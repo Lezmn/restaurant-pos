@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { LineMessagingService } from '../line/line-messaging.service';
+import { LineSettingsService } from '../line/line-settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SlipOkService } from '../slipok/slipok.service';
 
@@ -28,7 +28,7 @@ export class SystemStatusService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly slipOk: SlipOkService,
-    private readonly line: LineMessagingService,
+    private readonly lineSettings: LineSettingsService,
     config: ConfigService,
   ) {
     // docker-compose mount ./backups เข้ามาแบบอ่านอย่างเดียว (ไม่ตั้ง = เครื่อง dev ไม่มีระบบสำรอง)
@@ -38,10 +38,11 @@ export class SystemStatusService {
   }
 
   async getStatus(now = new Date()) {
-    const [database, backup, offsite] = await Promise.all([
+    const [database, backup, offsite, line] = await Promise.all([
       this.checkDatabase(),
       this.checkBackup(now),
       this.checkOffsite(now),
+      this.checkLine(),
     ]);
 
     return {
@@ -55,11 +56,20 @@ export class SystemStatusService {
         mock: this.slipOk.mock,
         configured: this.slipOk.configured,
       },
-      line: {
-        state: (this.line.isConfigured ? 'ok' : 'off') as CheckState,
-        configured: this.line.isConfigured,
-      },
+      line,
     };
+  }
+
+  /** ตั้งจากหน้า /owner/line (หรือ .env) — ตั้งครบแต่ปิดไว้ = off เหมือนยังไม่ตั้ง */
+  private async checkLine() {
+    try {
+      const cfg = await this.lineSettings.get();
+      const configured = Boolean(cfg.enabled && cfg.token && cfg.to);
+      return { state: (configured ? 'ok' : 'off') as CheckState, configured };
+    } catch {
+      // อ่านค่าไม่ได้ (เช่น เปลี่ยน secret แล้วถอดรหัส token เดิมไม่ออก) = ต้องไปตั้งใหม่
+      return { state: 'warn' as CheckState, configured: false };
+    }
   }
 
   private async checkDatabase() {

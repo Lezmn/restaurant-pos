@@ -22,6 +22,7 @@ export const auditActionMeta: Record<AuditAction, { label: string; tone: BadgeTo
   USER_CREATE: { label: 'เพิ่มบัญชี', tone: 'gray' },
   USER_UPDATE: { label: 'แก้บัญชี', tone: 'gray' },
   USER_DELETE: { label: 'ลบบัญชี', tone: 'gray' },
+  SETTINGS_LINE_UPDATE: { label: 'ตั้งค่า LINE', tone: 'gray' },
 }
 
 /** ลำดับในตัวกรอง — เรื่องเงิน (แดง) ขึ้นก่อน */
@@ -132,6 +133,11 @@ export function describeAudit(log: AuditLog): { summary: string; reason: string 
     }
     case 'USER_DELETE':
       return { summary: `${String(d.name ?? 'บัญชี')} (${String(d.email ?? '')})`, reason: null }
+    case 'SETTINGS_LINE_UPDATE':
+      return {
+        summary: `${d.enabled ? 'เปิด' : 'ปิด'}การส่งสรุปยอด · ส่งถึง ${String(d.to ?? '—')}${d.tokenChanged ? ' · เปลี่ยน token' : ''}`,
+        reason: null,
+      }
     default:
       return { summary: String(log.action), reason: null }
   }

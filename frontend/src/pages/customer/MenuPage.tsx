@@ -119,7 +119,7 @@ export function CustomerMenuPage() {
       {lines.length > 0 && (
         <Link
           to={`/t/${token}/cart`}
-          className="fixed inset-x-0 bottom-16 z-10 mx-auto flex max-w-md items-center justify-between bg-brand-300 px-4 py-3 text-white shadow-lg md:hidden"
+          className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-10 mx-auto flex max-w-md items-center justify-between bg-brand-300 px-4 py-3 text-white shadow-lg md:hidden"
         >
           <span className="text-sm md:text-base font-medium">
             เลือกแล้ว {cartCount(lines)} รายการ

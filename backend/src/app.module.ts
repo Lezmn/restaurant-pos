@@ -23,11 +23,13 @@ import { IngredientsModule } from './ingredients/ingredients.module';
 import { EventsModule } from './events/events.module';
 import { HealthModule } from './health/health.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { LineModule } from './line/line.module';
 
 @Module({
   imports: [
     HealthModule,
     UploadsModule,
+    LineModule,
     ConfigModule.forRoot({ isGlobal: true }),
     // Rate limit 2 ชั้น (ดูเหตุผลใน common/throttle-trackers.ts)
     //   default = ต่อคน (พนักงาน/QR โต๊ะ) THROTTLE_LIMIT ครั้ง/นาที — /auth/login เข้มกว่านี้ (ดู auth.controller)

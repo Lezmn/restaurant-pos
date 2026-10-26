@@ -566,7 +566,8 @@ function KitchenTicket({
           }`}
         >
           {late ? <AlertIcon /> : <ClockIcon />}
-          รอ {waited} นาที
+          {/* นาทีแรกขึ้น "เพิ่งสั่ง" — "รอมาแล้ว 0 นาที" อ่านแล้วแปลก */}
+          {waited < 1 ? 'เพิ่งสั่ง' : `รอมาแล้ว ${waited} นาที`}
           {late && <span className="sr-only"> เกินเวลา {LATE_MINUTES} นาที</span>}
         </p>
       )}

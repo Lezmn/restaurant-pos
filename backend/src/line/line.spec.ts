@@ -32,22 +32,27 @@ describe('formatCashCloseSummary', () => {
   });
 });
 
+const settingsStub = (cfg: Partial<{ token: string; to: string; enabled: boolean }>) =>
+  ({ get: async () => ({ token: '', to: '', enabled: true, source: 'database', tokenUnreadable: false, ...cfg }) }) as any;
+
 describe('LineMessagingService', () => {
   const realFetch = global.fetch;
   afterEach(() => {
     global.fetch = realFetch;
   });
 
-  it('ไม่ตั้ง token → ไม่ส่ง ไม่เรียก LINE', async () => {
+  it('ยังไม่ตั้ง token / ปิดไว้ → ไม่ส่ง ไม่เรียก LINE', async () => {
     global.fetch = jest.fn() as any;
-    const line = new LineMessagingService(config({}));
-    await expect(line.push('hi')).resolves.toBe(false);
+    await expect(new LineMessagingService(config({}), settingsStub({})).push('hi')).resolves.toBe(false);
+    await expect(
+      new LineMessagingService(config({}), settingsStub({ token: 'tok', to: 'U1', enabled: false })).push('hi'),
+    ).resolves.toBe(false);
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it('ตั้งครบ → push ไปหา LINE_TO ด้วย Bearer token', async () => {
+  it('ตั้งครบ → push ไปหาปลายทางด้วย Bearer token', async () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: true }) as any;
-    const line = new LineMessagingService(config({ LINE_CHANNEL_ACCESS_TOKEN: 'tok', LINE_TO: 'U123' }));
+    const line = new LineMessagingService(config({}), settingsStub({ token: 'tok', to: 'U123' }));
     await expect(line.push('สรุปยอด')).resolves.toBe(true);
     const [url, init] = (global.fetch as jest.Mock).mock.calls[0];
     expect(url).toBe('https://api.line.me/v2/bot/message/push');
@@ -55,10 +60,13 @@ describe('LineMessagingService', () => {
     expect(JSON.parse(init.body)).toEqual({ to: 'U123', messages: [{ type: 'text', text: 'สรุปยอด' }] });
   });
 
-  it('LINE ตอบ error / ต่อไม่ได้ → คืน false ไม่ throw', async () => {
-    const line = new LineMessagingService(config({ LINE_CHANNEL_ACCESS_TOKEN: 'tok', LINE_TO: 'U123' }));
+  it('LINE ตอบ error / ต่อไม่ได้ → push คืน false ไม่ throw และ send บอกสาเหตุเป็นภาษาคน', async () => {
+    const line = new LineMessagingService(config({}), settingsStub({ token: 'tok', to: 'U123' }));
     global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 401, text: async () => 'bad token' }) as any;
     await expect(line.push('x')).resolves.toBe(false);
+    const r = await line.send('tok', 'U123', 'x');
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.message).toMatch(/token ไม่ถูกต้อง/);
     global.fetch = jest.fn().mockRejectedValue(new Error('network down')) as any;
     await expect(line.push('x')).resolves.toBe(false);
   });

@@ -10,7 +10,7 @@ describe('SystemStatusService', () => {
   let dir: string;
   let prisma: { $queryRaw: jest.Mock };
   let slipOk: { mock: boolean; configured: boolean };
-  let line: { isConfigured: boolean };
+  let line: { get: jest.Mock };
 
   const make = (env: Record<string, string> = {}) =>
     new SystemStatusService(
@@ -33,7 +33,7 @@ describe('SystemStatusService', () => {
     dir = await mkdtemp(join(tmpdir(), 'status-'));
     prisma = { $queryRaw: jest.fn().mockResolvedValue([1]) };
     slipOk = { mock: false, configured: true };
-    line = { isConfigured: false };
+    line = { get: jest.fn().mockResolvedValue({ enabled: true, token: '', to: '' }) };
   });
   afterEach(() => rm(dir, { recursive: true, force: true }));
 
@@ -89,5 +89,14 @@ describe('SystemStatusService', () => {
     const s = await make().getStatus(NOW);
     expect(s.database).toEqual({ state: 'error', latencyMs: null });
     expect(s.slipOk.state).toBe('warn');
+  });
+
+  it('LINE: ตั้งครบและเปิดอยู่ = ok / ปิดไว้ = off / อ่านค่าไม่ได้ = warn', async () => {
+    line.get.mockResolvedValue({ enabled: true, token: 't', to: 'U1' });
+    expect((await make().getStatus(NOW)).line).toEqual({ state: 'ok', configured: true });
+    line.get.mockResolvedValue({ enabled: false, token: 't', to: 'U1' });
+    expect((await make().getStatus(NOW)).line.state).toBe('off');
+    line.get.mockRejectedValue(new Error('bad secret'));
+    expect((await make().getStatus(NOW)).line.state).toBe('warn');
   });
 });

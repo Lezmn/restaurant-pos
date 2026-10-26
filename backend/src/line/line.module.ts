@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
 import { LineMessagingService } from './line-messaging.service';
+import { LineSettingsController } from './line-settings.controller';
+import { LineSettingsService } from './line-settings.service';
 
 @Module({
-  providers: [LineMessagingService],
-  exports: [LineMessagingService],
+  controllers: [LineSettingsController],
+  providers: [LineMessagingService, LineSettingsService],
+  exports: [LineMessagingService, LineSettingsService],
 })
 export class LineModule {}
