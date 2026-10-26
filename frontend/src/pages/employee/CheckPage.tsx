@@ -215,12 +215,18 @@ export function CheckPage() {
   // (คิดจาก URL ตอน render ไม่ต้องใช้ effect — ปิดกล่องแล้วล้าง ?pay ทิ้ง)
   const [searchParams, setSearchParams] = useSearchParams()
   const payParam = searchParams.get('pay')
+  // มาจากหน้ากลับบ้านที่กด "จ่ายเงินสด" / "จ่าย PromptPay" — เลือกวิธีจ่ายไว้ให้เลย
+  const payMethodParam = payMethods.find((m) => m === searchParams.get('method'))
   const payRow = payParam
     ? rows.find(
         (r) => r.session.id === payParam && (r.state === 'checkout' || r.state === 'ready'),
       )
     : undefined
-  const activeTarget = target ?? (payRow ? toPayTarget(payRow) : null)
+  const activeTarget =
+    target ??
+    (payRow
+      ? { ...toPayTarget(payRow), ...(payMethodParam ? { method: payMethodParam } : {}) }
+      : null)
   const finishPayment = () => {
     setTarget(null)
     if (payParam) setSearchParams({}, { replace: true })

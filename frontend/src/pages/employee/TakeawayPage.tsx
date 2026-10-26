@@ -8,7 +8,7 @@ import { useCategories, useMenuItems } from '@/features/menu/hooks'
 import { useCreateTakeawayOrder, useOrders } from '@/features/orders/hooks'
 import { formatBaht, formatTime } from '@/lib/format'
 import { LIVE_POLL_MS } from '@/lib/live'
-import { OrderStatus } from '@/types/enums'
+import { OrderStatus, PaymentMethod } from '@/types/enums'
 import type { Id, MenuItem, MenuOptionGroup, Order } from '@/types/models'
 import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -34,7 +34,7 @@ const ALL = 'all'
 
 /**
  * หน้า POS สั่งกลับบ้าน — กดเมนูลงตะกร้า แล้วส่งเข้าครัว
- * - "รับเงินเลย": ส่งเข้าครัว แล้วไปหน้ารับเงินของบิลนั้นทันที (จ่ายก่อน ครัวทำต่อได้)
+ * - "จ่ายเงินสด" / "จ่าย PromptPay": ส่งเข้าครัว แล้วไปหน้ารับเงินของบิลนั้นทันที เลือกวิธีจ่ายไว้ให้แล้ว
  * - "จ่ายตอนรับของ": ส่งเข้าครัวอย่างเดียว บิลรออยู่หน้า Check
  * แต่ละครั้งได้บิลใหม่พร้อมเลขคิวของวัน ("กลับบ้าน #3") ไว้เรียกลูกค้า
  */
@@ -126,7 +126,8 @@ export function TakeawayPage() {
     return l.optionIds.some((id) => !ok.has(id))
   })
 
-  const submit = (payNow: boolean) => {
+  /** payNow = วิธีจ่ายที่จะรับเงินทันที / null = จ่ายตอนรับของ */
+  const submit = (payNow: PaymentMethod | null) => {
     if (sending.current || lines.length === 0) return
     sending.current = true
     createTakeaway.mutate(
@@ -154,7 +155,7 @@ export function TakeawayPage() {
           setLines([])
           setCustomerName('')
           if (payNow) {
-            navigate(`/employee/check?pay=${order.tableSessionId}`)
+            navigate(`/employee/check?pay=${order.tableSessionId}&method=${payNow}`)
             return
           }
           setLastQueue(order.placeLabel)
@@ -402,18 +403,29 @@ export function TakeawayPage() {
             <ErrorNote error={createTakeaway.error} />
 
             <div className="mt-3 grid gap-2">
+              {/* ส่งเข้าครัวแล้วไปรับเงินทันที — เลือกวิธีจ่ายตรงนี้เลย ไม่ต้องกดซ้ำในหน้ารับเงิน */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={count === 0 || unavailable.length > 0 || createTakeaway.isPending}
+                  onClick={() => submit(PaymentMethod.CASH)}
+                  className={button('primary', 'lg')}
+                >
+                  {createTakeaway.isPending ? 'กำลังส่ง...' : 'จ่ายเงินสด'}
+                </button>
+                <button
+                  type="button"
+                  disabled={count === 0 || unavailable.length > 0 || createTakeaway.isPending}
+                  onClick={() => submit(PaymentMethod.PROMPTPAY)}
+                  className={button('primary', 'lg')}
+                >
+                  {createTakeaway.isPending ? 'กำลังส่ง...' : 'จ่าย PromptPay'}
+                </button>
+              </div>
               <button
                 type="button"
                 disabled={count === 0 || unavailable.length > 0 || createTakeaway.isPending}
-                onClick={() => submit(true)}
-                className={button('primary', 'lg')}
-              >
-                {createTakeaway.isPending ? 'กำลังส่ง...' : 'ส่งเข้าครัว + รับเงินเลย'}
-              </button>
-              <button
-                type="button"
-                disabled={count === 0 || unavailable.length > 0 || createTakeaway.isPending}
-                onClick={() => submit(false)}
+                onClick={() => submit(null)}
                 className={button('outline', 'lg')}
               >
                 ส่งเข้าครัว · จ่ายตอนรับของ
