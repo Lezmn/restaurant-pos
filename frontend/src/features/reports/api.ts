@@ -216,5 +216,6 @@ export async function getDashboardPeriod({ from, to }: DateRange): Promise<Perio
     promptPayCount: countByMethod(PaymentMethod.PROMPTPAY),
     paymentCount: incomes.length,
     trend,
+    payments: incomes.map((t) => ({ amount: t.amount, paidAt: t.date })),
   }
 }
