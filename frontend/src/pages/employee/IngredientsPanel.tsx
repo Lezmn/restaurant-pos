@@ -1,7 +1,8 @@
 import { FoodImage } from '@/components/ui/FoodImage'
-import { button, field } from '@/components/ui/styles'
+import { button, field, fieldLabel } from '@/components/ui/styles'
 import { ErrorNote } from '@/components/ui/ErrorNote'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Modal } from '@/components/ui/Modal'
 import { Switch } from '@/components/ui/Switch'
 import { toast } from '@/components/ui/toast'
 import {
@@ -33,8 +34,9 @@ export function IngredientsPanel({ canEdit }: Readonly<{ canEdit: boolean }>) {
   const [name, setName] = useState('')
   const [invalid, setInvalid] = useState('')
   const [deleting, setDeleting] = useState<Ingredient | null>(null)
-  /** การ์ดที่กำลังตั้งยอดคงเหลือ */
+  /** วัตถุดิบที่กำลังตั้งยอดคงเหลือ (เปิด popup) */
   const [stockEditing, setStockEditing] = useState<string | null>(null)
+  const editingStock = ingredients?.find((i) => i.id === stockEditing) ?? null
 
   const submit = () => {
     if (!name.trim()) {
@@ -162,8 +164,8 @@ export function IngredientsPanel({ canEdit }: Readonly<{ canEdit: boolean }>) {
               <div className="flex shrink-0 gap-2">
                 <button
                   type="button"
-                  onClick={() => setStockEditing(stockEditing === item.id ? null : item.id)}
-                  aria-expanded={stockEditing === item.id}
+                  onClick={() => setStockEditing(item.id)}
+                  aria-haspopup="dialog"
                   className={button('outline', 'sm')}
                 >
                   ตั้งยอด
@@ -181,31 +183,36 @@ export function IngredientsPanel({ canEdit }: Readonly<{ canEdit: boolean }>) {
               </div>
             </div>
 
-            {stockEditing === item.id && (
-              <StockForm
-                item={item}
-                busy={update.isPending}
-                onCancel={() => setStockEditing(null)}
-                onSave={(stockQty, lowStockAt) =>
-                  update
-                    .mutateAsync({ id: item.id, stockQty, lowStockAt })
-                    .then(() => {
-                      setStockEditing(null)
-                      toast(
-                        stockQty === null
-                          ? `${item.name}: เลิกนับสต็อกแล้ว`
-                          : `${item.name}: ตั้งยอดคงเหลือ ${stockQty}`,
-                      )
-                    })
-                    .catch(() => {
-                      // error ขึ้นที่ ErrorNote ด้านบนอยู่แล้ว
-                    })
-                }
-              />
-            )}
           </article>
         ))}
       </div>
+
+      {editingStock && (
+        <Modal title={`ตั้งยอด ${editingStock.name}`} onClose={() => setStockEditing(null)}>
+          {/* error ต้องโชว์ในกล่องนี้ — ErrorNote ของหน้าอยู่หลัง popup มองไม่เห็น */}
+          <ErrorNote error={update.error} />
+          <StockForm
+            item={editingStock}
+            busy={update.isPending}
+            onCancel={() => setStockEditing(null)}
+            onSave={(stockQty, lowStockAt) =>
+              update
+                .mutateAsync({ id: editingStock.id, stockQty, lowStockAt })
+                .then(() => {
+                  setStockEditing(null)
+                  toast(
+                    stockQty === null
+                      ? `${editingStock.name}: เลิกนับสต็อกแล้ว`
+                      : `${editingStock.name}: ตั้งยอดคงเหลือ ${stockQty}`,
+                  )
+                })
+                .catch(() => {
+                  // error ขึ้นใน popup อยู่แล้ว
+                })
+            }
+          />
+        </Modal>
+      )}
 
       {deleting && (
         <ConfirmDialog
@@ -385,11 +392,14 @@ function StockForm({
         e.preventDefault()
         if (stockValid && warnValid) onSave(stockNum, warn.trim() === '' ? null : warnNum)
       }}
-      className="mt-3 space-y-2 rounded-lg bg-gray-50 p-3"
+      className="space-y-3"
     >
-      <div className="grid grid-cols-2 gap-2">
-        <label className="text-sm">
-          <span className="font-semibold text-gray-700">คงเหลือ</span>
+      <p className="text-sm text-gray-600">
+        ใส่จำนวนที่แบ่งไว้ (เช่น ที่ / ฟอง) ระบบจะตัดตามออเดอร์และปิดขายเองเมื่อเหลือ 0
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block">
+          <span className={fieldLabel}>คงเหลือ</span>
           <input
             type="number"
             inputMode="numeric"
@@ -402,8 +412,8 @@ function StockForm({
             className={`${field} mt-1 tabular-nums`}
           />
         </label>
-        <label className="text-sm">
-          <span className="font-semibold text-gray-700">เตือนเมื่อเหลือ</span>
+        <label className="block">
+          <span className={fieldLabel}>เตือนเมื่อเหลือ</span>
           <input
             type="number"
             inputMode="numeric"
@@ -417,27 +427,27 @@ function StockForm({
           />
         </label>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      {item.stockQty !== null && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onSave(null, null)}
+          className="text-sm font-semibold text-gray-600 underline-offset-2 hover:underline"
+        >
+          เลิกนับสต็อก (กลับไปเปิด/ปิดด้วยมือ)
+        </button>
+      )}
+      <div className="grid grid-cols-2 gap-3 pt-2">
+        <button type="button" onClick={onCancel} className={button('secondary', 'lg')}>
+          ยกเลิก
+        </button>
         <button
           type="submit"
           disabled={busy || !stockValid || !warnValid}
-          className={button('primary', 'sm')}
+          className={button('primary', 'lg')}
         >
-          บันทึก
+          {busy ? 'กำลังบันทึก...' : 'บันทึก'}
         </button>
-        <button type="button" onClick={onCancel} className={button('secondary', 'sm')}>
-          ยกเลิก
-        </button>
-        {item.stockQty !== null && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => onSave(null, null)}
-            className="ml-auto text-sm font-semibold text-gray-600 underline-offset-2 hover:underline"
-          >
-            เลิกนับสต็อก
-          </button>
-        )}
       </div>
     </form>
   )
