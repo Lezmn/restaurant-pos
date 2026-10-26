@@ -2,14 +2,17 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Patch,
   Post,
+  Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { AuthenticatedUser } from '../auth/jwt.strategy';
 import { CreateIngredientDto } from './dto/create-ingredient.dto';
 import { UpdateIngredientDto } from './dto/update-ingredient.dto';
 import { IngredientsService } from './ingredients.service';
@@ -45,7 +48,15 @@ export class IngredientsController {
   @ApiOperation({
     summary: 'แก้ชื่อ หรือเปิด/ปิดวัตถุดิบ (ปิดแล้วตัวเลือกที่ผูกไว้จะสั่งไม่ได้ทุกเมนู)',
   })
-  update(@Param('id') id: string, @Body() dto: UpdateIngredientDto) {
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateIngredientDto,
+    @Req() request: { user: AuthenticatedUser },
+  ) {
+    // ครัวเปิด/ปิดของและตั้งยอดได้ แต่รูปเปลี่ยนได้เฉพาะ ADMIN (เหมือนรูปเมนู)
+    if (dto.imageUrl !== undefined && request.user.role !== Role.ADMIN) {
+      throw new ForbiddenException('เปลี่ยนรูปวัตถุดิบได้เฉพาะผู้ดูแล');
+    }
     return this.ingredientsService.update(id, dto);
   }
 

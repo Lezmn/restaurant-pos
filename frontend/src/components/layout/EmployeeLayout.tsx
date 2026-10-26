@@ -1,5 +1,4 @@
 import { CallStaffAlert } from '@/components/CallStaffAlert'
-import { DeviceNameButton } from '@/components/layout/DeviceNameButton'
 import { Toaster } from '@/components/ui/Toaster'
 import { pageRoles } from '@/features/auth/permissions'
 import { useAuth } from '@/features/auth/use-auth'
@@ -170,7 +169,6 @@ export function EmployeeLayout() {
               ({user.name} · {user.role})
             </span>
           )}
-          {user && <DeviceNameButton />}
         </div>
       </header>
 

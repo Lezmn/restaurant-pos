@@ -137,6 +137,8 @@ model Ingredient {
   id          String   @id @default(uuid())
   name        String   @unique
   isAvailable Boolean  @default(true)
+  /// รูปวัตถุดิบ (อัปโหลดผ่าน /uploads/menu-image เหมือนรูปเมนู) — ช่วยครัวหาของถูกตัวเร็วขึ้น
+  imageUrl    String?
   /// จำนวนคงเหลือ (หน่วยตามที่ร้านนับ เช่น ฟอง/ที่) — null = ไม่นับสต็อก เปิด/ปิดด้วยมือแบบเดิม
   /// นับอยู่: ออเดอร์ใหม่ตัดยอด เหลือ 0 ปิด isAvailable ให้เอง เติมของแล้วเปิดคืนเอง
   stockQty    Int?

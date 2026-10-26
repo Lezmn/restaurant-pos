@@ -11,6 +11,7 @@ const mapIngredient = (i: ApiIngredient): Ingredient => ({
   menuItemCount: i._count?.menuItems ?? 0,
   stockQty: i.stockQty ?? null,
   lowStockAt: i.lowStockAt ?? null,
+  imageUrl: i.imageUrl ?? null,
 })
 
 /** GET /ingredients — ทุก role ที่ login แล้วดูได้ (ครัวต้องเห็นว่าอะไรหมด) */
@@ -40,6 +41,8 @@ export async function updateIngredient(vars: {
   /** null = เลิกนับสต็อก · ตั้งยอดโดยไม่ส่ง isAvailable: 0 ปิดให้ / มากกว่า 0 เปิดให้ */
   stockQty?: number | null
   lowStockAt?: number | null
+  /** รูปวัตถุดิบ (ADMIN เท่านั้น) — null = เอารูปออก */
+  imageUrl?: string | null
 }): Promise<Ingredient> {
   const data = await apiClient<ApiIngredient>(`/ingredients/${vars.id}`, {
     method: 'PATCH',
@@ -50,6 +53,7 @@ export async function updateIngredient(vars: {
         : { isAvailable: vars.isAvailable }),
       ...(vars.stockQty === undefined ? {} : { stockQty: vars.stockQty }),
       ...(vars.lowStockAt === undefined ? {} : { lowStockAt: vars.lowStockAt }),
+      ...(vars.imageUrl === undefined ? {} : { imageUrl: vars.imageUrl }),
     }),
   })
   return mapIngredient(data)

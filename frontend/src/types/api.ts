@@ -64,6 +64,8 @@ export interface ApiIngredient {
   /** null = ไม่นับสต็อก */
   stockQty?: number | null
   lowStockAt?: number | null
+  /** รูปวัตถุดิบ (ไม่บังคับ) */
+  imageUrl?: string | null
   _count?: { menuOptions: number; menuItems?: number }
 }
 

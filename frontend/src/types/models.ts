@@ -59,6 +59,8 @@ export interface Ingredient {
   stockQty: number | null
   /** เหลือเท่านี้หรือน้อยกว่าขึ้นเตือน "ใกล้หมด" */
   lowStockAt: number | null
+  /** รูปวัตถุดิบ — null = ยังไม่มีรูป */
+  imageUrl: string | null
 }
 
 /** วัตถุดิบที่เมนูอ้างถึง — พอให้รู้ชื่อกับว่าหมดหรือยัง */

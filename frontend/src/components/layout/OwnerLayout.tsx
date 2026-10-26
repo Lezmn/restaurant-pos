@@ -1,3 +1,4 @@
+import { Toaster } from '@/components/ui/Toaster'
 import { homeByRole } from '@/features/auth/permissions'
 import { useAuth } from '@/features/auth/use-auth'
 import { RESTAURANT_NAME } from '@/lib/config'
@@ -184,6 +185,8 @@ export function OwnerLayout() {
       <main className="flex-1 overflow-x-auto px-4 py-5 sm:px-6">
         <Outlet />
       </main>
+      {/* หน้าเจ้าของร้านก็เรียก toast() (บัญชีผู้ใช้, LINE) — ไม่มีตัวนี้ข้อความสำเร็จจะไม่ขึ้นเลย */}
+      <Toaster />
     </div>
   )
 }
