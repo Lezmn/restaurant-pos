@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { hasNoteTag, isAllergyNote, toggleNoteTag } from './item-note'
 
 describe('toggleNoteTag', () => {
+  it('ระดับความเผ็ดเลือกได้อย่างเดียว — กดอันใหม่แทนอันเดิม ข้อความที่พิมพ์เองยังอยู่', () => {
+    const mild = toggleNoteTag('ไม่ใส่ผัก', 'เผ็ดน้อย')
+    expect(mild).toBe('ไม่ใส่ผัก, เผ็ดน้อย')
+    expect(toggleNoteTag(mild, 'เผ็ดมาก')).toBe('ไม่ใส่ผัก, เผ็ดมาก')
+  })
+
   it('เพิ่มคำต่อท้ายข้อความที่พิมพ์ไว้ และเอาออกได้', () => {
     const added = toggleNoteTag('ข้าวน้อย', 'ไม่เผ็ด')
     expect(added).toBe('ข้าวน้อย, ไม่เผ็ด')
