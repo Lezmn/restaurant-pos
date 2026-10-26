@@ -254,14 +254,8 @@ export function ManagePage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="ค้นหาเมนู"
-              className={`${field} mt-0 pr-10 pl-10`}
+              className={`${field} mt-0 pl-10`}
             />
-            <kbd
-              aria-hidden
-              className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 rounded border border-gray-300 px-1.5 text-sm text-gray-600 sm:block"
-            >
-              /
-            </kbd>
           </label>
         )}
       </div>
