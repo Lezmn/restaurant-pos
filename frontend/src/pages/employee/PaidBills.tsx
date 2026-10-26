@@ -293,7 +293,7 @@ function VoidDialog({
       >
         <div className="rounded-lg bg-brand-50 px-4 py-3 text-sm text-gray-700">
           <p>
-            โต๊ะ <b className="text-black">{payment.tableName}</b> ·{' '}
+            <b className="text-black">{payment.placeLabel}</b> ·{' '}
             {payment.receipt?.number ?? '-'} · {methodLabel[payment.method]}
           </p>
           <p className="mt-1 text-lg font-bold text-black">

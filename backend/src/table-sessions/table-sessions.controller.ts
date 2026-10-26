@@ -4,6 +4,8 @@ import { Role } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CreateTableSessionDto } from './dto/create-table-session.dto';
 import { UpdateGuestCountDto } from './dto/update-guest-count.dto';
+import { MergeTableSessionDto } from './dto/merge-table-session.dto';
+import { MoveTableSessionDto } from './dto/move-table-session.dto';
 import { FindTableSessionsQueryDto } from './dto/find-table-sessions-query.dto';
 import { TableSessionsService } from './table-sessions.service';
 
@@ -39,6 +41,22 @@ export class TableSessionsController {
   @ApiOperation({ summary: 'ระบุ/แก้จำนวนลูกค้าของโต๊ะ (Dashboard รวมเป็นลูกค้าเข้าใช้บริการ)' })
   setGuestCount(@Param('id') id: string, @Body() dto: UpdateGuestCountDto) {
     return this.tableSessionsService.setGuestCount(id, dto.guestCount);
+  }
+
+  @Patch(':id/move')
+  @Roles(Role.ADMIN, Role.STAFF)
+  @ApiOperation({ summary: 'ย้ายโต๊ะ — ทั้งบิลไปโต๊ะที่ว่าง (QR เดิมยังใช้ได้)' })
+  move(@Param('id') id: string, @Body() dto: MoveTableSessionDto) {
+    return this.tableSessionsService.move(id, dto.tableId);
+  }
+
+  @Patch(':id/merge')
+  @Roles(Role.ADMIN, Role.STAFF)
+  @ApiOperation({
+    summary: 'รวมโต๊ะ — ออเดอร์ที่ยังไม่จ่ายย้ายไปบิลโต๊ะปลายทาง แล้วปิดบิลโต๊ะนี้',
+  })
+  merge(@Param('id') id: string, @Body() dto: MergeTableSessionDto) {
+    return this.tableSessionsService.merge(id, dto.targetSessionId);
   }
 
   @Patch(':id/close')

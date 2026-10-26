@@ -29,6 +29,8 @@ export type ServerEvent =
   | 'payment.voided'
   | 'table-session.created'
   | 'table-session.closed'
+  /** ย้ายโต๊ะ/รวมโต๊ะ — เลขโต๊ะของบิลเปลี่ยน หรือมีออเดอร์ย้ายเข้าบิล */
+  | 'table-session.updated'
   /** เมนู/วัตถุดิบเปลี่ยน — ทุกจอต้องดึงเมนูใหม่ (เช่น ปิดวัตถุดิบเพราะของหมด) */
   | 'menu.updated'
   /** ผลตรวจสลิป PromptPay เปลี่ยน (ตรวจซ้ำผ่าน/ไม่ผ่าน, ADMIN ยืนยันเอง) */

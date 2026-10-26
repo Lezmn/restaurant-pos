@@ -25,7 +25,9 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { closeSessionIfSettled } from '../table-sessions/session-settlement';
 import { TableSessionsService } from '../table-sessions/table-sessions.service';
+import { randomBytes } from 'node:crypto';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { CreateTakeawayOrderDto } from './dto/create-takeaway-order.dto';
 import { FindOrdersQueryDto } from './dto/find-orders-query.dto';
 import { OrderItemInputDto } from './dto/order-item-input.dto';
 
@@ -39,6 +41,9 @@ const ORDER_INCLUDE = {
       closedAt: true,
       expiresAt: true,
       tableId: true,
+      isTakeaway: true,
+      takeawayNo: true,
+      customerName: true,
     },
   },
   items: { include: { menuItem: true, selectedOptions: { include: { menuOption: true } } } },
@@ -68,6 +73,9 @@ const ACTIVE_ORDERS_WHERE = (): Prisma.OrderWhereInput => ({
     { createdAt: { gte: startOfDay() } },
   ],
 });
+
+/** key ของ pg_advisory_xact_lock ตอนเปิดบิลกลับบ้าน (ไม่ชนกับ RECEIPT_NUMBER_LOCK ของ payments) */
+const TAKEAWAY_LOCK = 7_420_002;
 
 /** เท่ากับ BILLING_TX_OPTIONS ของ payments — รอคิว connection ได้ 10 วิ, รันได้ 15 วิ */
 const ORDER_TX_OPTIONS = { maxWait: 10_000, timeout: 15_000 } as const;
@@ -117,11 +125,22 @@ export class OrdersService {
     const order = await this.runOrderTransaction(async (tx) => {
       // ออเดอร์ต้องผูกกับ session ที่เปิดอยู่เสมอ — POST /payments เก็บเงินได้เฉพาะออเดอร์ที่มี session
       // ออเดอร์ที่ไม่มี session จะค้างตลอดไป (เก็บเงินไม่ได้ / โต๊ะ OCCUPIED ค้าง)
+      // โต๊ะกลับบ้านมีบิลเปิดพร้อมกันหลายใบ — ต้องระบุบิลมาเสมอ ไม่งั้นออเดอร์จะไปเข้าบิลของคนอื่น
+      if (table.isTakeaway && !dto.tableSessionId) {
+        throw new BadRequestException('สั่งเพิ่มให้บิลกลับบ้านต้องระบุบิล (tableSessionId)');
+      }
       const openSession = await tx.tableSession.findFirst({
-        where: { tableId: dto.tableId, status: TableSessionStatus.OPEN },
+        where: {
+          tableId: dto.tableId,
+          status: TableSessionStatus.OPEN,
+          ...(table.isTakeaway ? { id: dto.tableSessionId } : {}),
+        },
         select: { id: true },
       });
 
+      if (table.isTakeaway && !openSession) {
+        throw new ConflictException('บิลกลับบ้านนี้ปิดไปแล้ว — เปิดบิลใหม่ที่หน้า POS');
+      }
       if (!openSession) {
         throw new BadRequestException(
           'โต๊ะนี้ยังไม่ได้เปิด หรือเพิ่งปิดบิลไปแล้ว — เปิดโต๊ะก่อนรับออเดอร์',
@@ -150,6 +169,78 @@ export class OrdersService {
     this.emitOrderEvent('order.created', order);
     if (ingredientClosed) this.notifyMenuChanged();
     return order;
+  }
+
+  /**
+   * สั่งกลับบ้าน (หน้า POS) — เปิดบิลกลับบ้านใบใหม่ + ออเดอร์แรก ในทรานแซกชันเดียว
+   * บิลอยู่บนโต๊ะเสมือน (isTakeaway) จึงใช้หน้าเก็บเงิน/แยกบิล/ใบเสร็จ/ยกเลิกบิลชุดเดียวกับโต๊ะจริง
+   */
+  async createTakeaway(dto: CreateTakeawayOrderDto) {
+    const menuItems = await this.prisma.menuItem.findMany({
+      where: { id: { in: dto.items.map((i) => i.menuItemId) } },
+      include: MENU_ITEM_WITH_OPTIONS,
+    });
+    this.assertAllMenuItemsExistAndAvailable(dto.items, menuItems);
+    const { items: itemsData, usage } = this.buildOrderItems(dto.items, menuItems);
+
+    let ingredientClosed = false;
+    const order = await this.runOrderTransaction(async (tx) => {
+      // ออกเลขคิวทีละใบ (นับแล้ว +1 สองเครื่องกดพร้อมกันจะได้เลขซ้ำ) — กันสร้างโต๊ะเสมือนซ้อนด้วย
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${TAKEAWAY_LOCK})`;
+      const table = await this.ensureTakeawayTable(tx);
+      const todayCount = await tx.tableSession.count({
+        where: { isTakeaway: true, openedAt: { gte: startOfDay() } },
+      });
+
+      const session = await tx.tableSession.create({
+        data: {
+          tableId: table.id,
+          // ไม่มี QR ให้ลูกค้า แต่ token เป็นคอลัมน์บังคับ — สุ่มไว้เหมือนโต๊ะจริง
+          token: randomBytes(24).toString('hex'),
+          isTakeaway: true,
+          takeawayNo: todayCount + 1,
+          customerName: dto.customerName || null,
+          // ไม่หมดอายุ — บิลปิดเองตอนเก็บเงินครบ
+          expiresAt: null,
+        },
+      });
+
+      ingredientClosed = await deductStock(tx, usage);
+
+      return tx.order.create({
+        data: {
+          tableId: table.id,
+          tableSessionId: session.id,
+          items: { create: itemsData },
+        },
+        include: ORDER_INCLUDE,
+      });
+    });
+
+    this.events.emitToStaff('table-session.created', {
+      id: order.tableSessionId,
+      status: TableSessionStatus.OPEN,
+      tableId: order.tableId,
+    });
+    this.emitOrderEvent('order.created', order);
+    if (ingredientClosed) this.notifyMenuChanged();
+    return order;
+  }
+
+  /** โต๊ะเสมือนของกลับบ้าน — มีแถวเดียว สร้างให้ตอนสั่งกลับบ้านครั้งแรก (เรียกภายใต้ TAKEAWAY_LOCK) */
+  private async ensureTakeawayTable(tx: Prisma.TransactionClient) {
+    const existing = await tx.restaurantTable.findFirst({ where: { isTakeaway: true } });
+    if (existing) return existing;
+
+    // เลขโต๊ะเป็น unique — ใช้ 0 (โต๊ะจริงเริ่มที่ 1) ถ้ามีคนใช้ไปแล้วถอยลงไปเรื่อย ๆ
+    const lowest = await tx.restaurantTable.findFirst({
+      where: { number: { lte: 0 } },
+      orderBy: { number: 'asc' },
+      select: { number: true },
+    });
+    return tx.restaurantTable.create({
+      data: { number: lowest ? lowest.number - 1 : 0, seats: 0, isTakeaway: true },
+    });
   }
 
   async createFromTableSession(sessionToken: string, items: OrderItemInputDto[]) {
@@ -222,7 +313,7 @@ export class OrdersService {
 
   async addItem(orderId: string, dto: OrderItemInputDto) {
     const order = await this.findOne(orderId);
-    this.assertOrderIsEditable(order.status);
+    this.assertOrderIsEditable(order);
     // เสิร์ฟแล้ว = ครัวเอาออกจากคิวไปแล้ว ของชิ้นใหม่จะเข้าบิลโดยไม่มีใครทำ
     if (order.status === OrderStatus.SERVED) {
       throw new BadRequestException('ออเดอร์นี้เสิร์ฟแล้ว — สั่งเพิ่มเป็นออเดอร์ใหม่แทน');
@@ -252,7 +343,7 @@ export class OrdersService {
 
   async removeItem(orderId: string, orderItemId: string) {
     const order = await this.findOne(orderId);
-    this.assertOrderIsEditable(order.status);
+    this.assertOrderIsEditable(order);
 
     const item = order.items.find((i) => i.id === orderItemId);
     if (!item) {
@@ -279,6 +370,12 @@ export class OrdersService {
   async updateStatus(id: string, status: OrderStatus) {
     const order = await this.findOne(id);
     this.assertValidTransition(order.status, status);
+    // บิลกลับบ้านที่จ่ายก่อนทำ — ครัวทำ/เสิร์ฟต่อได้ แต่ยกเลิกเฉย ๆ ไม่ได้ (เงินลูกค้าค้างอยู่ในบิล)
+    if (status === OrderStatus.CANCELLED && order.paymentId) {
+      throw new BadRequestException(
+        'ออเดอร์นี้ลูกค้าจ่ายเงินแล้ว — ยกเลิกบิลที่หน้า Check (คืนเงิน) ก่อน แล้วค่อยยกเลิกออเดอร์',
+      );
+    }
 
     let sessionClosed = false;
     let ingredientReopened = false;
@@ -286,7 +383,12 @@ export class OrdersService {
       // เปลี่ยนเฉพาะถ้าสถานะยังเป็นค่าที่เพิ่งอ่านมา — กันกรณีแคชเชียร์เก็บเงินไปพอดี
       // แล้วครัวกดยกเลิกทับ ได้ออเดอร์ CANCELLED ที่มี payment ผูกอยู่
       const changed = await tx.order.updateMany({
-        where: { id, status: order.status, paymentId: null },
+        where: {
+          id,
+          status: order.status,
+          // ยกเลิกต้องยังไม่จ่าย · ทำ/เสิร์ฟต้องตรงกับตอนอ่าน (จ่ายก่อนได้เฉพาะกลับบ้าน — ดู PaymentsService)
+          paymentId: status === OrderStatus.CANCELLED ? null : order.paymentId,
+        },
         data: { status },
       });
       if (changed.count === 0) {
@@ -517,9 +619,13 @@ export class OrdersService {
     return (Number(item.unitPrice) + optionTotal) * item.quantity;
   }
 
-  private assertOrderIsEditable(status: OrderStatus) {
-    if (status === OrderStatus.PAID || status === OrderStatus.CANCELLED) {
+  private assertOrderIsEditable(order: { status: OrderStatus; paymentId: string | null }) {
+    if (order.status === OrderStatus.PAID || order.status === OrderStatus.CANCELLED) {
       throw new BadRequestException('ออเดอร์นี้ปิดแล้ว ไม่สามารถแก้ไขรายการได้');
+    }
+    // กลับบ้านจ่ายก่อนทำ — แก้รายการแล้วยอดจะไม่ตรงกับเงินที่รับไป
+    if (order.paymentId) {
+      throw new BadRequestException('ออเดอร์นี้จ่ายเงินแล้ว แก้รายการไม่ได้ — สั่งเพิ่มเป็นบิลใหม่แทน');
     }
   }
 

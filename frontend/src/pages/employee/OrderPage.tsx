@@ -232,7 +232,7 @@ export function OrderPage() {
                   >
                     <div className="flex items-baseline justify-between gap-2">
                       <p className="font-bold text-black">
-                        โต๊ะ {order.tableName}
+                        {order.placeLabel}
                       </p>
                       <p className="text-sm text-gray-600">
                         รอมาแล้ว {waitedMinutes(order.createdAt)} นาที
@@ -283,7 +283,7 @@ export function OrderPage() {
         <ConfirmDialog
           title="ยกเลิกออเดอร์"
           subject={`ออเดอร์ #${cancelling.orderRef}`}
-          detail={`โต๊ะ ${cancelling.tableName} · ${cancelling.items.length} รายการ`}
+          detail={`${cancelling.placeLabel} · ${cancelling.items.length} รายการ`}
           consequence="ออเดอร์นี้จะไม่ถูกคิดเงิน และลูกค้าจะเห็นว่าถูกยกเลิกทันที"
           confirmLabel="ยกเลิกออเดอร์"
           pendingLabel="กำลังยกเลิก..."

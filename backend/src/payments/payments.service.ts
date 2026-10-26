@@ -39,11 +39,25 @@ const TABLE_SESSION_SELECT = {
   expiresAt: true,
   tableId: true,
   table: true,
+  isTakeaway: true,
+  takeawayNo: true,
+  customerName: true,
 } as const;
 
 const PAYABLE_ORDER_INCLUDE = {
   items: { include: { menuItem: true, selectedOptions: true } },
+  tableSession: { select: { isTakeaway: true } },
 } as const;
+
+/**
+ * ออเดอร์สถานะไหนเก็บเงินได้ — โต๊ะจริงต้องเสิร์ฟแล้ว (กินก่อนจ่าย)
+ * บิลกลับบ้านจ่ายก่อนทำได้ (ลูกค้าจ่ายตอนสั่งที่เคาน์เตอร์) — ครัวยังเห็นและทำต่อตามปกติ
+ * "จ่ายแล้ว" ของบิลกลับบ้านจึงดูจาก paymentId ไม่ใช่ status = PAID (status ยังเป็นของครัว)
+ */
+const PAYABLE_STATUSES: OrderStatus[] = [OrderStatus.SERVED];
+const PREPAYABLE_STATUSES: OrderStatus[] = [OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.SERVED];
+const payableStatusesOf = (order: { tableSession: { isTakeaway: boolean } | null }) =>
+  order.tableSession?.isTakeaway ? PREPAYABLE_STATUSES : PAYABLE_STATUSES;
 
 /** key ของ pg_advisory_xact_lock สำหรับออกเลขใบเสร็จ (เลขอะไรก็ได้ที่ไม่ชนกับ lock อื่นในระบบ) */
 const RECEIPT_NUMBER_LOCK = 7_420_001;
@@ -305,16 +319,21 @@ export class PaymentsService {
       const claimed = await tx.order.updateMany({
         where: {
           id: { in: orders.map((order) => order.id) },
-          status: OrderStatus.SERVED,
+          status: { in: payableStatusesOf(orders[0]) },
           paymentId: null,
         },
-        data: { status: OrderStatus.PAID, paymentId: payment.id },
+        data: { paymentId: payment.id },
       });
       if (claimed.count !== orders.length) {
         throw new ConflictException(
           'บิลนี้เพิ่งถูกเก็บเงินหรือแก้ไขไปจากอีกเครื่อง กรุณารีเฟรชแล้วลองใหม่',
         );
       }
+      // เสิร์ฟแล้ว + จ่ายแล้ว = จบ — ที่ยังไม่เสิร์ฟ (กลับบ้านจ่ายก่อน) คงสถานะไว้ให้ครัวทำต่อ
+      await tx.order.updateMany({
+        where: { paymentId: payment.id, status: OrderStatus.SERVED },
+        data: { status: OrderStatus.PAID },
+      });
     }
 
     const receipt = await tx.receipt.create({
@@ -438,15 +457,20 @@ export class PaymentsService {
 
       // ออเดอร์พวกนี้เสิร์ฟถึงมือลูกค้าไปแล้ว (ถึงได้เก็บเงิน) ยกเลิกบิลคือเรื่องของแคชเชียร์
       // ไม่ใช่ครัว — ปิดธงไว้ก่อนคืนสถานะ ไม่งั้นจะไปโผล่บอร์ดครัวเหมือนมีของต้องทำใหม่
+      // (เฉพาะที่เสิร์ฟแล้ว — บิลกลับบ้านที่จ่ายก่อนทำ ครัวยังต้องเห็นของที่ยังไม่เสร็จ)
       await tx.order.updateMany({
-        where: { paymentId: id, clearedAt: null },
+        where: { paymentId: id, status: OrderStatus.PAID, clearedAt: null },
         data: { clearedAt: new Date() },
       });
 
-      // คืนออเดอร์กลับไปสถานะเสิร์ฟแล้ว เพื่อให้เก็บเงินใหม่ได้
+      // คืนออเดอร์กลับไปสถานะเสิร์ฟแล้ว เพื่อให้เก็บเงินใหม่ได้ — ที่ยังไม่เสิร์ฟคงสถานะครัวไว้
+      await tx.order.updateMany({
+        where: { paymentId: id, status: OrderStatus.PAID },
+        data: { status: OrderStatus.SERVED },
+      });
       await tx.order.updateMany({
         where: { paymentId: id },
-        data: { status: OrderStatus.SERVED, paymentId: null },
+        data: { paymentId: null },
       });
 
       for (const sessionId of affectedSessionIds) {
@@ -575,10 +599,10 @@ export class PaymentsService {
           `ออเดอร์ ${order.id} ไม่ได้อยู่ใน QR session จึงเก็บเงินแบบนี้ไม่ได้`,
         );
       }
-      if (order.status === OrderStatus.PAID) {
+      if (order.status === OrderStatus.PAID || order.paymentId) {
         throw new ConflictException(`ออเดอร์ ${order.id} ถูกชำระเงินไปแล้ว`);
       }
-      if (order.status !== OrderStatus.SERVED) {
+      if (!payableStatusesOf(order).includes(order.status)) {
         throw new BadRequestException(
           `ออเดอร์ ${order.id} ยังไม่ถูกเสิร์ฟ จึงเก็บเงินไม่ได้`,
         );
@@ -595,7 +619,7 @@ export class PaymentsService {
   ): Promise<PayableOrder[]> {
     const session = await tx.tableSession.findUnique({
       where: { id: tableSessionId },
-      select: { id: true },
+      select: { id: true, isTakeaway: true },
     });
     if (!session) {
       throw new NotFoundException(`ไม่พบ QR session id: ${tableSessionId}`);
@@ -615,7 +639,7 @@ export class PaymentsService {
     }
 
     const hasNotReadyOrder = orders.some(
-      (order) => order.status !== OrderStatus.SERVED,
+      (order) => !payableStatusesOf(order).includes(order.status),
     );
     if (hasNotReadyOrder) {
       throw new BadRequestException(
@@ -633,9 +657,11 @@ export class PaymentsService {
   ) {
     const sessions = await tx.tableSession.findMany({
       where: { id: { in: sessionIds } },
-      select: { id: true, tableId: true, table: { select: { number: true } } },
+      select: { id: true, tableId: true, isTakeaway: true, table: { select: { number: true } } },
     });
     for (const session of sessions) {
+      // บิลกลับบ้านหลายใบเปิดพร้อมกันบนโต๊ะเสมือนได้อยู่แล้ว — เปิดกลับได้เสมอ
+      if (session.isTakeaway) continue;
       const other = await tx.tableSession.findFirst({
         where: {
           tableId: session.tableId,
@@ -659,7 +685,7 @@ export class PaymentsService {
   ) {
     const session = await tx.tableSession.findUnique({
       where: { id: tableSessionId },
-      select: { id: true, status: true, tableId: true },
+      select: { id: true, status: true, tableId: true, isTakeaway: true },
     });
     if (!session || session.status === TableSessionStatus.OPEN) return;
 
@@ -676,6 +702,8 @@ export class PaymentsService {
             )
           : e;
       });
+    // โต๊ะเสมือนของกลับบ้านไม่มีสถานะว่าง/มีลูกค้า — เปิดบิลกลับอย่างเดียว
+    if (session.isTakeaway) return;
     await tx.restaurantTable.update({
       where: { id: session.tableId },
       data: { status: TableStatus.OCCUPIED },

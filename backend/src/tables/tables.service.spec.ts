@@ -22,9 +22,9 @@ describe('TablesService — จัดการโต๊ะ (ADMIN)', () => {
   it('หน้าพนักงานเห็นเฉพาะโต๊ะที่ใช้งาน, หน้าจัดการโต๊ะขอรวมที่ปิดไว้ได้', async () => {
     const { prisma, service } = setup();
     await service.findAll();
-    expect(prisma.restaurantTable.findMany.mock.calls[0][0].where).toEqual({ status: undefined, isActive: true });
+    expect(prisma.restaurantTable.findMany.mock.calls[0][0].where).toEqual({ status: undefined, isActive: true, isTakeaway: false });
     await service.findAll(undefined, true);
-    expect(prisma.restaurantTable.findMany.mock.calls[1][0].where).toEqual({ status: undefined, isActive: undefined });
+    expect(prisma.restaurantTable.findMany.mock.calls[1][0].where).toEqual({ status: undefined, isActive: undefined, isTakeaway: false });
   });
 
   it('เลขโต๊ะซ้ำ → 409 บอกเลขที่ซ้ำ', async () => {

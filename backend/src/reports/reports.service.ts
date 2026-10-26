@@ -55,6 +55,8 @@ export class ReportsService {
         }),
         this.prisma.restaurantTable.groupBy({
           by: ['status'],
+          // โต๊ะเสมือนของกลับบ้านไม่ใช่โต๊ะจริง ไม่นับในจำนวนโต๊ะว่าง/มีลูกค้า
+          where: { isTakeaway: false },
           _count: { _all: true },
         }),
         this.prisma.payment.findMany({
@@ -74,7 +76,8 @@ export class ReportsService {
         }),
         // โต๊ะที่เปิดวันนี้ — รวมจำนวนลูกค้าที่พนักงานกดระบุไว้ (QR ที่หมดอายุโดยไม่มีออเดอร์ก็ยังนับ เพราะลูกค้ามานั่งจริง)
         this.prisma.tableSession.aggregate({
-          where: { openedAt: { gte: todayStart, lt: tomorrowStart } },
+          // บิลกลับบ้านไม่มีจำนวนลูกค้านั่งโต๊ะ — ไม่นับ ไม่งั้น "โต๊ะที่ไม่ได้ระบุจำนวน" จะพองตาม
+          where: { openedAt: { gte: todayStart, lt: tomorrowStart }, isTakeaway: false },
           _sum: { guestCount: true },
           _count: { _all: true, guestCount: true },
         }),

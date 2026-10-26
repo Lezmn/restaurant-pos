@@ -35,7 +35,7 @@ import { emptySlipInput, isSlipReady, type SlipInput } from './slip-input'
 import { SlipScanField } from './SlipScanField'
 import { QRCodeSVG } from 'qrcode.react'
 import { useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 const POLL_MS = LIVE_POLL_MS
 
@@ -49,6 +49,9 @@ const payMethods = [PaymentMethod.CASH, PaymentMethod.PROMPTPAY] as const
 interface PayTarget {
   sessionId: Id
   tableName: string
+  /** "โต๊ะ 5" หรือ "กลับบ้าน #3 · คุณเอ" */
+  placeLabel: string
+  isTakeaway: boolean
   method: PaymentMethod
   amountDue: number
   /** ลูกค้ากดเช็คบิลมาเองพร้อมเลือกวิธีจ่ายแล้วหรือยัง */
@@ -137,8 +140,7 @@ export function CheckPage() {
         // ออเดอร์ใช้แค่เช็คว่ายังมีอะไรค้างเสิร์ฟไหม — backend ไม่ยอมให้จ่ายถ้ายังไม่เสิร์ฟครบ
         // ส่วนยอดเงินใช้ session.total จาก backend เสมอ ไม่บวกเองฝั่งนี้
         const unpaid = mine.filter(
-          (o) =>
-            o.status !== OrderStatus.PAID && o.status !== OrderStatus.CANCELLED,
+          (o) => !o.paid && o.status !== OrderStatus.CANCELLED,
         )
         const notServed = unpaid.filter((o) => o.status !== OrderStatus.SERVED)
         // ครัวยกเลิกไป = ยอดหายไปจากบิล บอกไว้จะได้ไม่งงว่าทำไมยอดไม่ตรงที่ลูกค้าสั่ง
@@ -149,7 +151,8 @@ export function CheckPage() {
 
         let state: TileState
         if (unpaid.length === 0) state = 'settled'
-        else if (notServed.length > 0) state = 'serving'
+        // กลับบ้านจ่ายก่อนทำได้ (backend ยอม) — ไม่ต้องรอครัวเสิร์ฟ
+        else if (notServed.length > 0 && !session.isTakeaway) state = 'serving'
         else state = checkout ? 'checkout' : 'ready'
 
         return {
@@ -179,26 +182,49 @@ export function CheckPage() {
   const totalOutstanding = rows.reduce((sum, r) => sum + sessionDue(r.session), 0)
   const waitingCount = rows.filter((r) => r.state === 'checkout').length
 
-  const openPayment = (row: TableRow) =>
-    setTarget({
-      sessionId: row.session.id,
-      tableName: row.session.tableName,
-      method: row.customerMethod ?? PaymentMethod.CASH,
-      amountDue: row.session.total,
-      chosenByCustomer: Boolean(row.customerMethod),
-      split: row.session.split,
-      lines: (orders ?? [])
-        .filter((o) => o.tableSessionId === row.session.id && o.status === OrderStatus.SERVED)
-        .flatMap((o) =>
-          o.items.map((item) => ({
-            id: item.id,
-            name: item.menuItemName,
-            options: item.optionNames,
-            quantity: item.quantity,
-            each: item.unitPrice + item.optionsTotal,
-          })),
-        ),
-    })
+  const toPayTarget = (row: TableRow): PayTarget => ({
+    sessionId: row.session.id,
+    tableName: row.session.tableName,
+    placeLabel: row.session.placeLabel,
+    isTakeaway: row.session.isTakeaway,
+    method: row.customerMethod ?? PaymentMethod.CASH,
+    amountDue: row.session.total,
+    chosenByCustomer: Boolean(row.customerMethod),
+    split: row.session.split,
+    // รายการที่เลือกแยกจ่ายได้ — โต๊ะจริงเฉพาะที่เสิร์ฟแล้ว, กลับบ้านจ่ายก่อนทำได้ (ที่ยังไม่จ่าย)
+    lines: (orders ?? [])
+      .filter(
+        (o) =>
+          o.tableSessionId === row.session.id &&
+          (o.status === OrderStatus.SERVED ||
+            (row.session.isTakeaway && !o.paid && o.status !== OrderStatus.CANCELLED)),
+      )
+      .flatMap((o) =>
+        o.items.map((item) => ({
+          id: item.id,
+          name: item.menuItemName,
+          options: item.optionNames,
+          quantity: item.quantity,
+          each: item.unitPrice + item.optionsTotal,
+        })),
+      ),
+  })
+  const openPayment = (row: TableRow) => setTarget(toPayTarget(row))
+
+  // หน้า POS กลับบ้านส่งมาที่ ?pay=<sessionId> = เปิดหน้ารับเงินของบิลนั้นให้เลย
+  // (คิดจาก URL ตอน render ไม่ต้องใช้ effect — ปิดกล่องแล้วล้าง ?pay ทิ้ง)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const payParam = searchParams.get('pay')
+  const payRow = payParam
+    ? rows.find(
+        (r) => r.session.id === payParam && (r.state === 'checkout' || r.state === 'ready'),
+      )
+    : undefined
+  const activeTarget = target ?? (payRow ? toPayTarget(payRow) : null)
+  const finishPayment = () => {
+    setTarget(null)
+    if (payParam) setSearchParams({}, { replace: true })
+  }
 
   // ไม่มีข้อมูลโต๊ะเลยเพราะโหลดไม่ขึ้น — ห้ามแสดงว่า "ไม่มีโต๊ะ"
   const sessionsFailed = sessionsQuery.isError && !sessions
@@ -335,15 +361,19 @@ export function CheckPage() {
 
       {closing && (
         <ConfirmDialog
-          title="ปิดโต๊ะ"
-          subject={`โต๊ะ ${closing.session.tableName}`}
+          title={closing.session.isTakeaway ? 'ปิดบิล' : 'ปิดโต๊ะ'}
+          subject={closing.session.placeLabel}
           detail={
             closing.neverOrdered
               ? 'ยังไม่ได้สั่งอาหาร'
               : 'เก็บเงินครบแล้ว ไม่มียอดค้างชำระ'
           }
-          consequence="QR ของโต๊ะนี้จะใช้สั่งอาหารไม่ได้อีก และโต๊ะจะกลับเป็นว่าง"
-          confirmLabel="ปิดโต๊ะ"
+          consequence={
+            closing.session.isTakeaway
+              ? 'บิลกลับบ้านนี้จะหายจากหน้าเช็คบิล'
+              : 'QR ของโต๊ะนี้จะใช้สั่งอาหารไม่ได้อีก และโต๊ะจะกลับเป็นว่าง'
+          }
+          confirmLabel={closing.session.isTakeaway ? 'ปิดบิล' : 'ปิดโต๊ะ'}
           pendingLabel="กำลังปิด..."
           tone="brand"
           isPending={closeSession.isPending}
@@ -355,7 +385,11 @@ export function CheckPage() {
           onConfirm={() =>
             closeSession.mutate(closing.session.id, {
               onSuccess: () => {
-                toast(`ปิดโต๊ะ ${closing.session.tableName} แล้ว โต๊ะกลับเป็นว่าง`)
+                toast(
+                  closing.session.isTakeaway
+                    ? `ปิดบิล ${closing.session.placeLabel} แล้ว`
+                    : `ปิด${closing.session.placeLabel} แล้ว โต๊ะกลับเป็นว่าง`,
+                )
                 setClosing(null)
               },
             })
@@ -372,22 +406,23 @@ export function CheckPage() {
         />
       )}
 
-      {target && (
+      {activeTarget && (
         <PaymentDialog
-          target={target}
+          target={activeTarget}
           isSaving={createPayment.isPending}
           error={createPayment.error}
           onCancel={() => {
             createPayment.reset()
-            setTarget(null)
+            finishPayment()
           }}
           canOverrideSlip={isAdmin}
           onSubmit={({ method, note, discountPercent, slip, tendered, scope }) =>
             createPayment.mutate(
               {
-                tableSessionId: target.sessionId,
+                tableSessionId: activeTarget.sessionId,
                 method,
-                tableName: target.tableName,
+                tableName: activeTarget.tableName,
+                isTakeaway: activeTarget.isTakeaway,
                 note,
                 // PromptPay: ส่งข้อความ QR ของสลิปให้ backend ตรวจกับ SlipOK
                 ...(method === PaymentMethod.PROMPTPAY ? slipFields(slip) : {}),
@@ -401,7 +436,7 @@ export function CheckPage() {
               {
                 // ยืนยันผลด้วยแถบบนใบเสร็จ (รับเงิน/ทอน) แทน toast ที่จะจมใต้กล่องใบเสร็จ
                 onSuccess: (payment) => {
-                  setTarget(null)
+                  finishPayment()
                   setReceipt({ payment, tendered })
                 },
               },
@@ -439,7 +474,11 @@ function TableTile({
 
   const badgeText = {
     checkout: 'ขอเช็คบิล',
-    ready: 'เสิร์ฟครบแล้ว',
+    // กลับบ้านรับเงินได้ตั้งแต่ครัวยังไม่เสร็จ — บอกตามจริงว่าของยังไม่พร้อม
+    ready:
+      session.isTakeaway && notServed.length > 0
+        ? `ครัวกำลังทำ ${notServed.length} ออเดอร์`
+        : 'เสิร์ฟครบแล้ว',
     serving: `รอเสิร์ฟ ${notServed.length} ออเดอร์`,
     settled: neverOrdered ? 'ยังไม่ได้สั่ง' : 'เก็บเงินครบแล้ว',
   }[state]
@@ -452,10 +491,12 @@ function TableTile({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-xl font-bold text-black">โต๊ะ {session.tableName}</h2>
+          <h2 className="text-xl font-bold text-black">{session.placeLabel}</h2>
           <p className="text-sm text-gray-600">
-            เปิด {formatTime(session.openedAt)}
-            {state !== 'settled' &&
+            {session.isTakeaway ? 'สั่ง' : 'เปิด'} {formatTime(session.openedAt)}
+            {session.isTakeaway && state !== 'settled' && notServed.length > 0 &&
+              ' · รับเงินก่อนได้'}
+            {!session.isTakeaway && state !== 'settled' &&
               (customerMethod
                 ? ` · ลูกค้าเลือก${methodLabel[customerMethod]}`
                 : ' · ยังไม่เลือกวิธีจ่าย')}
@@ -492,7 +533,7 @@ function TableTile({
           <button
             type="button"
             onClick={onCharge}
-            aria-label={`รับเงิน โต๊ะ ${session.tableName} ${formatBaht(due)}`}
+            aria-label={`รับเงิน ${session.placeLabel} ${formatBaht(due)}`}
             className={`${button('primary')} shrink-0 px-6`}
           >
             {split ? `รับเงินคนที่ ${split.paidParts + 1}` : 'รับเงิน'}
@@ -514,7 +555,7 @@ function TableTile({
             onClick={onClose}
             className={`${button('secondary')} shrink-0`}
           >
-            ปิดโต๊ะ
+            {session.isTakeaway ? 'ปิดบิล' : 'ปิดโต๊ะ'}
           </button>
         )}
       </div>
@@ -628,7 +669,7 @@ function PaymentDialog({
     isPromptPay && PROMPTPAY_ID ? buildPromptPayPayload(PROMPTPAY_ID, chargedNum || 0) : ''
 
   return (
-    <Modal title={`รับเงิน โต๊ะ ${target.tableName}`} onClose={onCancel}>
+    <Modal title={`รับเงิน ${target.placeLabel}`} onClose={onCancel}>
       <ErrorNote error={error} />
       <form
         onSubmit={(e) => {

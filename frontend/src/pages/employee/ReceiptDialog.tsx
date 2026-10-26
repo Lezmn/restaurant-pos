@@ -101,7 +101,7 @@ export function ReceiptDialog({
             <dd className="font-semibold text-black">{receipt.number}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-gray-600">โต๊ะ</dt>
+            <dt className="text-gray-600">{receipt.isTakeaway ? 'คิว' : 'โต๊ะ'}</dt>
             <dd className="font-semibold text-black">{receipt.tableName}</dd>
           </div>
           <div className="flex justify-between">

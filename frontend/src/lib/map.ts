@@ -12,6 +12,7 @@ import type {
   ApiServiceRequest,
   ApiTable,
   ApiTableSession,
+  ApiTakeawayFields,
   ApiUser,
 } from '@/types/api'
 import type {
@@ -30,6 +31,23 @@ import type {
 /** โต๊ะฝั่ง API เป็นตัวเลข แต่หน้าจอแสดงเป็นข้อความเสมอ */
 const tableName = (table?: { number: number }) =>
   table ? String(table.number) : '-'
+
+/**
+ * บิลกลับบ้านอยู่บนโต๊ะเสมือน — เลขโต๊ะไม่มีความหมาย ใช้เลขคิวของวันแทน
+ * name = ใส่ช่องที่เคยเป็นเลขโต๊ะ, label = ข้อความเต็มที่โชว์บนจอ ("โต๊ะ 5" / "กลับบ้าน #3 · คุณเอ")
+ */
+const placeOf = (table?: { number: number }, session?: ApiTakeawayFields | null) => {
+  if (session?.isTakeaway) {
+    const name = `กลับบ้าน #${session.takeawayNo ?? '-'}`
+    return {
+      isTakeaway: true,
+      name,
+      label: session.customerName ? `${name} · ${session.customerName}` : name,
+    }
+  }
+  const name = tableName(table)
+  return { isTakeaway: false, name, label: `โต๊ะ ${name}` }
+}
 
 /** backend ไม่มีเลขที่ออเดอร์ — ใช้ 6 ตัวแรกของ uuid ให้พนักงานอ้างอิงกันได้ */
 const orderRef = (id: string) => id.slice(0, 6).toUpperCase()
@@ -125,42 +143,55 @@ export const mapMenuItem = (m: ApiMenuItem): MenuItem => {
   }
 }
 
-export const mapOrder = (o: ApiOrder): Order => ({
-  id: o.id,
-  orderRef: orderRef(o.id),
-  tableSessionId: o.tableSessionId ?? '',
-  tableName: tableName(o.table),
-  status: o.status,
-  createdAt: o.createdAt,
-  clearedAt: o.clearedAt ?? null,
-  items: o.items.map((item) => ({
-    id: item.id,
-    menuItemId: item.menuItemId ?? '',
-    // ทรง /public ส่ง name/options มาแบน ๆ ส่วนทรง /orders ซ้อนอยู่ใน menuItem/selectedOptions
-    menuItemName: item.menuItem?.name ?? item.name ?? 'ไม่ทราบชื่อเมนู',
-    imageUrl: item.menuItem?.imageUrl ?? null,
-    quantity: item.quantity,
-    unitPrice: item.unitPrice,
-    note: item.note,
-    optionNames: (item.selectedOptions ?? item.options ?? []).map((o) => o.name),
-    optionsTotal: (item.selectedOptions ?? item.options ?? []).reduce(
-      (sum, o) => sum + o.price,
-      0,
-    ),
-  })),
-})
+export const mapOrder = (o: ApiOrder): Order => {
+  const place = placeOf(o.table, o.tableSession)
+  return {
+    id: o.id,
+    orderRef: orderRef(o.id),
+    tableSessionId: o.tableSessionId ?? '',
+    tableName: place.name,
+    placeLabel: place.label,
+    isTakeaway: place.isTakeaway,
+    paid: o.status === 'PAID' || Boolean(o.paymentId),
+    status: o.status,
+    createdAt: o.createdAt,
+    clearedAt: o.clearedAt ?? null,
+    items: o.items.map((item) => ({
+      id: item.id,
+      menuItemId: item.menuItemId ?? '',
+      // ทรง /public ส่ง name/options มาแบน ๆ ส่วนทรง /orders ซ้อนอยู่ใน menuItem/selectedOptions
+      menuItemName: item.menuItem?.name ?? item.name ?? 'ไม่ทราบชื่อเมนู',
+      imageUrl: item.menuItem?.imageUrl ?? null,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      note: item.note,
+      optionNames: (item.selectedOptions ?? item.options ?? []).map((o) => o.name),
+      optionsTotal: (item.selectedOptions ?? item.options ?? []).reduce(
+        (sum, o) => sum + o.price,
+        0,
+      ),
+    })),
+  }
+}
 
-export const mapSession = (s: ApiTableSession): TableSession => ({
-  id: s.id,
-  tableId: s.tableId,
-  tableName: tableName(s.table),
-  token: s.token,
-  status: s.status,
-  openedAt: s.openedAt,
-  closedAt: s.closedAt,
-  total: s.total ?? 0,
-  split: s.split ?? null,
-})
+export const mapSession = (s: ApiTableSession): TableSession => {
+  const place = placeOf(s.table, s)
+  return {
+    id: s.id,
+    tableId: s.tableId,
+    tableName: place.name,
+    placeLabel: place.label,
+    isTakeaway: place.isTakeaway,
+    takeawayNo: s.takeawayNo ?? null,
+    customerName: s.customerName ?? null,
+    token: s.token,
+    status: s.status,
+    openedAt: s.openedAt,
+    closedAt: s.closedAt,
+    total: s.total ?? 0,
+    split: s.split ?? null,
+  }
+}
 
 export const mapServiceRequest = (r: ApiServiceRequest): ServiceRequest => ({
   id: r.id,
@@ -177,6 +208,7 @@ export const mapServiceRequest = (r: ApiServiceRequest): ServiceRequest => ({
 export const mapReceipt = (
   r: ApiReceipt,
   tableNameText: string,
+  isTakeaway = false,
 ): Receipt => ({
   id: r.id,
   number: r.number,
@@ -188,6 +220,7 @@ export const mapReceipt = (
   total: r.total,
   issuedAt: r.issuedAt,
   tableName: tableNameText,
+  isTakeaway,
   note: r.note ?? null,
   items: (r.items ?? []).map((item) => ({
     id: item.id,
@@ -200,15 +233,30 @@ export const mapReceipt = (
   })),
 })
 
-/** fallbackTableName ใช้ตอน backend ไม่ได้ส่ง tableSession มาด้วย (เช่นตอน POST /payments) */
-export const mapPayment = (p: ApiPayment, fallbackTableName?: string): Payment => {
-  const table = p.tableSession?.table
-    ? tableName(p.tableSession.table)
-    : (fallbackTableName ?? '-')
+/**
+ * fallbackTableName ใช้ตอน backend ไม่ได้ส่ง tableSession มาด้วย (เช่นตอน POST /payments)
+ * fallbackTakeaway = บิลนั้นเป็นกลับบ้าน (fallbackTableName เป็น "กลับบ้าน #3" แล้ว)
+ */
+export const mapPayment = (
+  p: ApiPayment,
+  fallbackTableName?: string,
+  fallbackTakeaway = false,
+): Payment => {
+  const fallbackName = fallbackTableName ?? '-'
+  const place = p.tableSession?.table
+    ? placeOf(p.tableSession.table, p.tableSession)
+    : {
+        isTakeaway: fallbackTakeaway,
+        name: fallbackName,
+        label: fallbackTakeaway ? fallbackName : `โต๊ะ ${fallbackName}`,
+      }
+  const table = place.name
   return {
     id: p.id,
     tableSessionId: p.tableSessionId,
     tableName: table,
+    placeLabel: place.label,
+    isTakeaway: place.isTakeaway,
     method: p.method,
     status: p.status,
     amount: p.amount,
@@ -216,7 +264,7 @@ export const mapPayment = (p: ApiPayment, fallbackTableName?: string): Payment =
     voidedAt: p.voidedAt ?? null,
     voidReason: p.voidReason ?? null,
     note: p.note ?? null,
-    receipt: p.receipt ? mapReceipt(p.receipt, table) : null,
+    receipt: p.receipt ? mapReceipt(p.receipt, table, place.isTakeaway) : null,
     slip: p.slipStatus
       ? {
           status: p.slipStatus,

@@ -115,13 +115,25 @@ export interface ApiOrder {
   clearedAt?: string | null
   tableId?: string
   tableSessionId?: string | null
+  /** จ่ายด้วยบิลไหน (null = ยังไม่จ่าย) — กลับบ้านจ่ายก่อนทำได้ สถานะยังไม่เป็น PAID */
+  paymentId?: string | null
   table?: ApiTable
+  /** ทรง /orders ส่งข้อมูลบิลมาด้วย — ใช้แยกออเดอร์กลับบ้านออกจากโต๊ะจริง */
+  tableSession?: ApiTakeawayFields | null
   items: ApiOrderItem[]
   /** เฉพาะทรง /public — backend รวมยอดของออเดอร์มาให้แล้ว */
   total?: number
 }
 
-export interface ApiTableSession {
+/** ฟิลด์บิลกลับบ้านของ table session (บิลโต๊ะจริง isTakeaway = false) */
+export interface ApiTakeawayFields {
+  isTakeaway?: boolean
+  /** เลขคิวของวัน */
+  takeawayNo?: number | null
+  customerName?: string | null
+}
+
+export interface ApiTableSession extends ApiTakeawayFields {
   id: string
   token: string
   status: TableSessionStatus

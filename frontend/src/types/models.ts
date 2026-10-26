@@ -108,6 +108,12 @@ export interface TableSession {
   id: Id
   tableId: Id
   tableName: string
+  /** ชื่อที่โชว์บนจอ — "โต๊ะ 5" หรือ "กลับบ้าน #3 · คุณเอ" */
+  placeLabel: string
+  /** บิลกลับบ้าน (สั่งจากหน้า POS) — ไม่มีโต๊ะ ไม่มี QR ให้ลูกค้า */
+  isTakeaway: boolean
+  takeawayNo: number | null
+  customerName: string | null
   token: string
   status: TableSessionStatus
   openedAt: string
@@ -139,6 +145,11 @@ export interface Order {
   orderRef: string
   tableSessionId: Id
   tableName: string
+  /** "โต๊ะ 5" หรือ "กลับบ้าน #3 · คุณเอ" */
+  placeLabel: string
+  isTakeaway: boolean
+  /** จ่ายเงินแล้ว — ปกติคือ status PAID แต่กลับบ้านจ่ายก่อนทำ สถานะยังเป็นของครัวอยู่ */
+  paid: boolean
   status: OrderStatus
   createdAt: string
   /** ครัวยกให้ลูกค้าแล้วเมื่อไหร่ — null = ยังอยู่บนบอร์ดครัว */
@@ -169,6 +180,8 @@ export interface Receipt {
   total: number
   issuedAt: string
   tableName: string
+  /** ใบเสร็จของบิลกลับบ้าน — tableName เป็นเลขคิว ("กลับบ้าน #3") แทนเลขโต๊ะ */
+  isTakeaway: boolean
   /** หมายเหตุท้ายใบเสร็จ — เก็บใน DB แล้ว เปิดดูย้อนหลังก็ยังอยู่ */
   note: string | null
   items: ReceiptItem[]
@@ -178,6 +191,9 @@ export interface Payment {
   id: Id
   tableSessionId: Id
   tableName: string
+  /** "โต๊ะ 5" หรือ "กลับบ้าน #3" */
+  placeLabel: string
+  isTakeaway: boolean
   method: PaymentMethod
   status: PaymentStatus
   amount: number

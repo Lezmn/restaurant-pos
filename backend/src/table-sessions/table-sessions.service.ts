@@ -78,6 +78,10 @@ export class TableSessionsService {
       if (!table.isActive) {
         throw new BadRequestException('โต๊ะนี้ปิดใช้งานอยู่ — เปิดใช้งานที่ "จัดการโต๊ะ" ก่อน');
       }
+      if (table.isTakeaway) {
+        // บิลกลับบ้านเปิดจากหน้า POS พร้อมออเดอร์แรกเท่านั้น (POST /orders/takeaway)
+        throw new BadRequestException('โต๊ะกลับบ้านเปิดจากหน้านี้ไม่ได้ — สั่งกลับบ้านที่หน้า POS');
+      }
 
       const activeSession = await tx.tableSession.findFirst({
         where: { tableId: dto.tableId, status: TableSessionStatus.OPEN },
@@ -253,6 +257,138 @@ export class TableSessionsService {
       tableId: session.tableId,
     });
     return this.findOne(id);
+  }
+
+  /**
+   * ย้ายโต๊ะ — ลูกค้าขอเปลี่ยนที่นั่ง ทั้งบิล (ออเดอร์ที่สั่งแล้ว/จ่ายบางส่วน/คำขอที่ค้าง) ตามไปโต๊ะใหม่
+   * QR เดิมในมือลูกค้ายังใช้ได้ เพราะ token ผูกกับ session ไม่ใช่โต๊ะ
+   */
+  async move(id: string, targetTableId: string) {
+    const result = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const session = await this.findMovableSession(tx, id);
+      if (session.tableId === targetTableId) {
+        throw new BadRequestException('เลือกโต๊ะปลายทางเป็นโต๊ะเดิม');
+      }
+
+      const target = await tx.restaurantTable.findUnique({ where: { id: targetTableId } });
+      if (!target || target.isTakeaway) {
+        throw new NotFoundException(`ไม่พบโต๊ะ id: ${targetTableId}`);
+      }
+      if (!target.isActive) {
+        throw new BadRequestException(`โต๊ะ ${target.number} ปิดใช้งานอยู่`);
+      }
+      const targetOpen = await tx.tableSession.findFirst({
+        where: { tableId: targetTableId, status: TableSessionStatus.OPEN },
+        select: { id: true },
+      });
+      if (targetOpen) {
+        throw new ConflictException(
+          `โต๊ะ ${target.number} มีลูกค้าอยู่แล้ว — ถ้าจะให้นั่งด้วยกันให้ใช้ "รวมโต๊ะ" แทน`,
+        );
+      }
+
+      await tx.tableSession
+        .update({ where: { id }, data: { tableId: targetTableId } })
+        .catch((e: unknown) => {
+          // อีกเครื่องเปิดโต๊ะปลายทางแทรกเข้ามาพอดี — unique index ของ DB กันไว้
+          throw isUniqueViolation(e)
+            ? new ConflictException(`โต๊ะ ${target.number} เพิ่งเปิดรับลูกค้า — เลือกโต๊ะอื่น`)
+            : e;
+        });
+      // ออเดอร์ทุกใบของรอบนี้ (รวมที่จ่ายแล้ว) ย้ายตาม — จอครัว/หน้าเก็บเงินจะได้ขึ้นโต๊ะใหม่
+      // ใบเสร็จที่ออกไปแล้วคงโต๊ะเดิมไว้ เพราะเป็นหลักฐานของตอนที่จ่าย
+      await tx.order.updateMany({ where: { tableSessionId: id }, data: { tableId: targetTableId } });
+      await tx.serviceRequest.updateMany({
+        where: { tableSessionId: id, status: ServiceRequestStatus.PENDING },
+        data: { tableId: targetTableId },
+      });
+      await tx.restaurantTable.update({
+        where: { id: session.tableId },
+        data: { status: TableStatus.AVAILABLE },
+      });
+      await tx.restaurantTable.update({
+        where: { id: targetTableId },
+        data: { status: TableStatus.OCCUPIED },
+      });
+      return { fromTableId: session.tableId, toTableId: targetTableId };
+    });
+
+    // ลูกค้าโต๊ะนี้เห็นเลขโต๊ะใหม่ในหน้า QR
+    this.events.emitToStaffAndSession(id, 'table-session.updated', { id, ...result });
+    return this.findOne(id);
+  }
+
+  /**
+   * รวมโต๊ะ — ลูกค้าสองโต๊ะมานั่งด้วยกัน/ขอจ่ายรวม: ออเดอร์ที่ยังไม่จ่ายของโต๊ะนี้ย้ายไปบิลโต๊ะปลายทาง
+   * แล้วปิดบิลโต๊ะนี้ คืนโต๊ะว่าง (QR ของโต๊ะนี้ใช้ต่อไม่ได้ ให้ลูกค้าใช้ QR ของโต๊ะปลายทาง)
+   * ออเดอร์ที่จ่ายไปแล้ว (แยกบิลไว้ก่อน) อยู่กับบิลเดิม ใบเสร็จจะได้ตรงกับที่จ่ายจริง
+   */
+  async merge(id: string, targetSessionId: string) {
+    if (id === targetSessionId) {
+      throw new BadRequestException('เลือกโต๊ะปลายทางเป็นโต๊ะเดิม');
+    }
+
+    const result = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const source = await this.findMovableSession(tx, id);
+      const target = await this.findMovableSession(tx, targetSessionId);
+
+      const moved = await tx.order.updateMany({
+        where: { tableSessionId: id, paymentId: null },
+        data: { tableSessionId: targetSessionId, tableId: target.tableId },
+      });
+
+      if (source.guestCount) {
+        await tx.tableSession.update({
+          where: { id: targetSessionId },
+          data: { guestCount: Math.min(99, (target.guestCount ?? 0) + source.guestCount) },
+        });
+      }
+
+      // เหลือแต่ออเดอร์ที่จ่ายแล้ว (หรือไม่มีเลย) — ปิดบิลโต๊ะนี้ได้เลย
+      await tx.tableSession.update({
+        where: { id },
+        data: { status: TableSessionStatus.CLOSED, closedAt: new Date() },
+      });
+      await tx.restaurantTable.update({
+        where: { id: source.tableId },
+        data: { status: TableStatus.AVAILABLE },
+      });
+      // คำขอที่ค้างของโต๊ะนี้ (เรียกพนักงาน/เช็คบิล) จบไปพร้อมบิล — ไม่งั้นป๊อปอัปค้างบนจอ
+      await tx.serviceRequest.updateMany({
+        where: { tableSessionId: id, status: ServiceRequestStatus.PENDING },
+        data: { status: ServiceRequestStatus.RESOLVED, resolvedAt: new Date() },
+      });
+      return { movedOrders: moved.count, fromTableId: source.tableId };
+    });
+
+    // ลูกค้าโต๊ะนี้: บิลปิดแล้ว · ลูกค้าโต๊ะปลายทาง: มีออเดอร์ย้ายเข้าบิล
+    this.events.emitToStaffAndSession(id, 'table-session.closed', {
+      id,
+      status: TableSessionStatus.CLOSED,
+      tableId: result.fromTableId,
+    });
+    this.events.emitToStaffAndSession(targetSessionId, 'table-session.updated', {
+      id: targetSessionId,
+    });
+    return { ...(await this.findOne(targetSessionId)), movedOrders: result.movedOrders };
+  }
+
+  /** session ที่ย้าย/รวมได้: เปิดอยู่ และเป็นโต๊ะจริง (บิลกลับบ้านไม่มีที่นั่งให้ย้าย) */
+  private async findMovableSession(tx: Prisma.TransactionClient, id: string) {
+    const session = await tx.tableSession.findUnique({
+      where: { id },
+      select: { id: true, status: true, tableId: true, isTakeaway: true, guestCount: true },
+    });
+    if (!session) {
+      throw new NotFoundException(`ไม่พบ QR session id: ${id}`);
+    }
+    if (session.isTakeaway) {
+      throw new BadRequestException('บิลกลับบ้านย้าย/รวมโต๊ะไม่ได้');
+    }
+    if (session.status !== TableSessionStatus.OPEN) {
+      throw new ConflictException('โต๊ะนี้ปิดบิลไปแล้ว — รีเฟรชหน้าแล้วลองใหม่');
+    }
+    return session;
   }
 
   /** ใช้ร่วมกันโดย public/service-requests เพื่อ resolve + validate QR session จาก token */
