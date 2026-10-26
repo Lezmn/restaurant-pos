@@ -129,4 +129,6 @@ export interface PeriodData {
   paymentCount: number
   /** รายรับรายวัน ครบทุกวันในช่วง (วันที่ไม่มีบิล = 0) */
   trend: RevenuePoint[]
+  /** บิลที่รับเงินในช่วง — ใช้ทำกราฟรายชั่วโมงตอนดูวันเดียว */
+  payments: { amount: number; paidAt: string }[]
 }

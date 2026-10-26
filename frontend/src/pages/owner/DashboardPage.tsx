@@ -1,6 +1,6 @@
 import { LoadError } from '@/components/ui/LoadError'
 import { PageLoading } from '@/components/ui/PageLoading'
-import { HourlyChart } from '@/components/ui/HourlyChart'
+import { HourlyChart, revenueByHour } from '@/components/ui/HourlyChart'
 import { Pagination } from '@/components/ui/Pagination'
 import { StatCard } from '@/components/ui/StatCard'
 import { TrendChart } from '@/components/ui/TrendChart'
@@ -250,6 +250,7 @@ export function DashboardPage() {
           isError={periodQuery.isError}
           error={periodQuery.error}
           onRetry={() => void periodQuery.refetch()}
+          now={now}
         />
       ) : (
         <>
@@ -385,6 +386,7 @@ function PeriodView({
   isError,
   error,
   onRetry,
+  now,
 }: Readonly<{
   /** "7 วัน" / "วันนั้น" — ต่อท้ายชื่อการ์ด */
   label: string
@@ -393,11 +395,19 @@ function PeriodView({
   isError: boolean
   error: unknown
   onRetry: () => void
+  /** เวลาปัจจุบัน — ดูวันเดียวที่เป็นวันนี้ กราฟรายชั่วโมงจะบอก "ตอนนี้" */
+  now: number
 }>) {
   if (isPending) return <PageLoading />
   if (!data) return <LoadError what={`สรุป${label}`} error={error} onRetry={onRetry} />
 
   const days = data.days
+  const singleDay = days === 1
+  const isToday = singleDay && data.from === todayYmd()
+  const byHour = revenueByHour(data.payments)
+  const bestHourRevenue = Math.max(0, ...byHour.values())
+  const bestHour = [...byHour.entries()].find(([, v]) => v === bestHourRevenue && v > 0)?.[0]
+  const pad = (n: number) => String(n).padStart(2, '0')
 
   const netNegative = data.netProfit < 0
   const perDay = data.revenue / days
@@ -442,22 +452,47 @@ function PeriodView({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        {/* วันเดียวไม่มีอะไรให้เทียบในกราฟรายวัน */}
-        {days > 1 && (
-          <section className="rounded-xl border border-gray-200 p-4 lg:col-span-2">
-            <h2 className="mb-3 text-lg font-bold text-black">รายรับรายวัน</h2>
-            <TrendChart points={data.trend} />
-          </section>
-        )}
+        {/* วันเดียวไม่มีอะไรให้เทียบในกราฟรายวัน — ดูรายชั่วโมงแทน */}
+        <section className="rounded-xl border border-gray-200 p-4 lg:col-span-2">
+          {singleDay ? (
+            <>
+              <h2 className="mb-3 text-lg font-bold text-black">รายรับรายชั่วโมง</h2>
+              <HourlyChart
+                payments={data.payments}
+                now={isToday ? now : undefined}
+                emptyText={isToday ? 'ยังไม่มีรายรับวันนี้' : 'ไม่มีรายรับวันนั้น'}
+              />
+            </>
+          ) : (
+            <>
+              <h2 className="mb-3 text-lg font-bold text-black">รายรับรายวัน</h2>
+              <TrendChart points={data.trend} />
+            </>
+          )}
+        </section>
 
         <section className="flex flex-col rounded-xl border border-gray-200 p-4">
-          <h2 className="mb-1 text-lg font-bold text-black">ภาพรวมช่วงนี้</h2>
+          <h2 className="mb-1 text-lg font-bold text-black">{singleDay ? 'ภาพรวมวันนั้น' : 'ภาพรวมช่วงนี้'}</h2>
           <dl className="divide-y divide-gray-200">
             {days > 1 && <StatusRow label="เฉลี่ยต่อวัน" value={formatBaht(Math.round(perDay))} />}
+            {singleDay && (
+              <StatusRow label="จำนวนบิล" value={`${data.paymentCount.toLocaleString('th-TH')} บิล`} />
+            )}
             <StatusRow
               label="เฉลี่ยต่อบิล"
               value={perBill === null ? '–' : formatBaht(Math.round(perBill))}
             />
+            {singleDay && (
+              <StatusRow
+                label="ชั่วโมงที่ขายดีที่สุด"
+                value={
+                  bestHour === undefined
+                    ? '–'
+                    : `${pad(bestHour)}:00–${pad(bestHour)}:59 · ${formatBaht(bestHourRevenue)}`
+                }
+              />
+            )}
+            {singleDay && <StatusRow label="รายจ่าย" value={formatBaht(data.expenseTotal)} />}
             {days > 1 && (
               <StatusRow
                 label="วันที่ขายดีที่สุด"

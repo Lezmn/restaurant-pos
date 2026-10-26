@@ -6,28 +6,36 @@ const TICKS = 4
 const OPEN_HOUR = 10
 const CLOSE_HOUR = 21
 
-/**
- * รายรับรายชั่วโมงของวันนี้ แบบแท่ง — ทำจากเวลารับเงินของแต่ละบิล ไม่ต้องเรียก API เพิ่ม
- * ชั่วโมงปัจจุบันเป็นแท่งเข้มและมีป้าย "ตอนนี้"
- */
-export function HourlyChart({
-  payments,
-  now,
-}: Readonly<{
-  payments: { amount: number; paidAt: string }[]
-  /** เวลาปัจจุบัน (ms) — ใช้หาชั่วโมงปัจจุบัน */
-  now: number
-}>) {
+/** รวมยอดรับเงินเป็นรายชั่วโมง (ชั่วโมง 0–23 ตามเวลาเครื่อง) */
+export function revenueByHour(payments: { amount: number; paidAt: string }[]) {
   const byHour = new Map<number, number>()
   for (const p of payments) {
     const hour = new Date(p.paidAt).getHours()
     byHour.set(hour, (byHour.get(hour) ?? 0) + p.amount)
   }
+  return byHour
+}
 
-  const nowHour = new Date(now).getHours()
+/**
+ * รายรับรายชั่วโมงของวันเดียว แบบแท่ง — ทำจากเวลารับเงินของแต่ละบิล ไม่ต้องเรียก API เพิ่ม
+ * ส่ง now มา (ดูวันนี้) = ชั่วโมงปัจจุบันเป็นแท่งเข้มและมีป้าย "ตอนนี้" · วันที่ผ่านไปแล้วไม่ต้องส่ง
+ */
+export function HourlyChart({
+  payments,
+  now,
+  emptyText = 'ยังไม่มีรายรับวันนี้',
+}: Readonly<{
+  payments: { amount: number; paidAt: string }[]
+  /** เวลาปัจจุบัน (ms) — ใช้หาชั่วโมงปัจจุบัน */
+  now?: number
+  emptyText?: string
+}>) {
+  const byHour = revenueByHour(payments)
+
+  const nowHour = now === undefined ? undefined : new Date(now).getHours()
   const saleHours = [...byHour.keys()]
   const start = Math.min(OPEN_HOUR, ...saleHours)
-  const end = Math.max(CLOSE_HOUR, nowHour, ...saleHours)
+  const end = Math.max(CLOSE_HOUR, nowHour ?? 0, ...saleHours)
   const hours = Array.from({ length: end - start + 1 }, (_, i) => start + i)
 
   const peak = Math.max(0, ...byHour.values())
@@ -93,7 +101,7 @@ export function HourlyChart({
 
           {peak === 0 && (
             <p className="absolute inset-0 flex items-center justify-center text-sm text-gray-600">
-              ยังไม่มีรายรับวันนี้
+              {emptyText}
             </p>
           )}
         </div>
@@ -103,7 +111,7 @@ export function HourlyChart({
       <div aria-hidden className="ml-14 flex h-5 gap-0.5 sm:gap-1">
         {hours.map((h, i) => {
           const current = h === nowHour
-          const show = current || (i % labelEvery === 0 && Math.abs(h - nowHour) > 1)
+          const show = current || (i % labelEvery === 0 && (nowHour === undefined || Math.abs(h - nowHour) > 1))
           return (
             <span
               key={h}
@@ -118,7 +126,7 @@ export function HourlyChart({
       </div>
 
       <figcaption className="sr-only">
-        รายรับวันนี้แยกตามชั่วโมง
+        รายรับแยกตามชั่วโมง
         <ul>
           {hours
             .filter((h) => (byHour.get(h) ?? 0) > 0)
