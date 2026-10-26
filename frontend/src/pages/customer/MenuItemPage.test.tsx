@@ -67,12 +67,14 @@ describe('CustomerMenuItemPage', () => {
     await user.click(screen.getByRole('button', { name: 'เพิ่มจำนวน' }))
     const add = screen.getByRole('button', { name: /เพิ่มรายการ/ })
     expect(add.textContent?.replace(/\s/g, '')).toContain('฿180') // (60+20+10)×2
-    await user.type(screen.getByPlaceholderText(/ไม่เผ็ด/), '  ไม่เผ็ด  ')
+    // พิมพ์เอง + กดปุ่มลัด รวมกันเป็นโน้ตเดียว
+    await user.type(screen.getByLabelText('หมายเหตุเพิ่มเติม'), '  ข้าวน้อย  ')
+    await user.click(screen.getByRole('button', { name: 'ไม่เผ็ด' }))
     await user.click(add)
 
     expect(await screen.findByText('หน้าตะกร้า')).toBeInTheDocument()
     const [line] = useCart.getState().lines
-    expect(line).toMatchObject({ menuItemId: 'm1', quantity: 2, note: 'ไม่เผ็ด', basePrice: 60 })
+    expect(line).toMatchObject({ menuItemId: 'm1', quantity: 2, note: 'ข้าวน้อย, ไม่เผ็ด', basePrice: 60 })
     expect(line.options.map((o) => o.id).sort()).toEqual(['egg', 'shrimp'])
   })
 

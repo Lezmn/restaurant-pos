@@ -140,7 +140,7 @@ describe('OrdersService ออเดอร์ที่จ่ายก่อน�
     await service.updateStatus('o1', OrderStatus.SERVED);
     expect(prisma.order.updateMany).toHaveBeenCalledWith({
       where: { id: 'o1', status: OrderStatus.PREPARING, paymentId: 'pay-1' },
-      data: { status: OrderStatus.SERVED },
+      data: { status: OrderStatus.SERVED, servedAt: expect.any(Date) },
     });
   });
 

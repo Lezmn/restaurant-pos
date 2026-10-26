@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ErrorNote } from '@/components/ui/ErrorNote'
 import { LoadError } from '@/components/ui/LoadError'
 import { installAudioUnlock, playAlert, unlockAudio, useAlertSound } from '@/lib/alert-sound'
+import { isAllergyNote } from '@/lib/item-note'
 import { LIVE_POLL_MS } from '@/lib/live'
 import { useNewArrivals } from '@/lib/use-new-arrivals'
 import { useWakeLock } from '@/lib/use-wake-lock'
@@ -77,12 +78,24 @@ function KitchenItemRow({
         )}
       </label>
 
-      {item.note && columnKey !== 'done' && (
-        <p className="mt-1 flex items-center gap-1.5 text-base font-bold text-status-queue-ink">
-          <span className="h-2 w-2 shrink-0 rounded-full bg-status-queue" />
-          {item.note}
-        </p>
-      )}
+      {/* แพ้อาหาร = พื้นแดงตัวขาว + ไอคอน (ไม่ได้บอกด้วยสีอย่างเดียว) — ทำพลาดแล้วลูกค้าอันตราย
+          โน้ตทั่วไป (ไม่เผ็ด ฯลฯ) คงแบบเดิม */}
+      {item.note &&
+        columnKey !== 'done' &&
+        (isAllergyNote(item.note) ? (
+          <p className="mt-1.5 flex items-start gap-1.5 rounded-md bg-danger-ink px-2 py-1 text-base font-bold text-white">
+            <AlertIcon />
+            <span>
+              <span className="sr-only">ระวัง แพ้อาหาร: </span>
+              {item.note}
+            </span>
+          </p>
+        ) : (
+          <p className="mt-1 flex items-center gap-1.5 text-base font-bold text-status-queue-ink">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-status-queue" />
+            {item.note}
+          </p>
+        ))}
     </li>
   )
 }
@@ -502,6 +515,12 @@ function KitchenTicket({
             {fresh && (
               <span className="rounded-full bg-status-queue-ink px-2 py-0.5 text-xs font-bold text-white">
                 ใหม่
+              </span>
+            )}
+            {/* เห็นตั้งแต่หัวตั๋ว ก่อนไล่อ่านทีละจาน */}
+            {!done && order.items.some((item) => isAllergyNote(item.note)) && (
+              <span className="rounded-full bg-danger-ink px-2 py-0.5 text-xs font-bold text-white">
+                แพ้อาหาร
               </span>
             )}
           </p>

@@ -67,6 +67,9 @@ services:
       # รูปเมนูที่อัปโหลดจากหน้าจัดการเมนู — อยู่บนเครื่อง (~/app/uploads) ไม่หายตอน deploy เวอร์ชันใหม่
       # user deploy กับ node ใน container เป็น uid 1000 ทั้งคู่ จึงเขียนได้
       - ./uploads:/app/uploads
+      # หน้า "สถานะระบบ" ของเจ้าของร้านอ่านเวลาสำรองล่าสุดจากที่นี่ — อ่านอย่างเดียว api ลบ/แก้ไฟล์สำรองไม่ได้
+      - ./backups:/backups:ro
+      - ./backup-status:/backup-status:ro
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -117,6 +120,7 @@ services:
     volumes:
       - ./offsite.sh:/offsite.sh:ro
       - ./backups:/backups:ro
+      - ./backup-status:/backup-status
       - ./rclone:/config/rclone
 
 volumes:

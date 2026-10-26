@@ -142,6 +142,8 @@ export async function getSales(month: string): Promise<SalesData> {
     })),
     unsoldItems: report.unsoldItems,
     byHour: report.byHour,
+    byWeekdayHour: report.byWeekdayHour,
+    kitchen: report.kitchen,
   }
 }
 

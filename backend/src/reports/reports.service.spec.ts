@@ -170,5 +170,39 @@ describe('ReportsService', () => {
       const r: any = await service.getSales({ month: '2026-09' });
       expect(r.unsoldItems).toEqual([{ menuItemId: 'm3', name: 'ต้มยำ', categoryName: 'กับข้าว' }]);
     });
+
+    it('heatmap วัน × ชั่วโมง (3 ก.ย. 2026 = วันพฤหัส)', async () => {
+      const r: any = await service.getSales({ month: '2026-09' });
+      expect(r.byWeekdayHour).toHaveLength(7);
+      expect(r.byWeekdayHour[4][12]).toBe(2);
+      expect(r.byWeekdayHour[5][18]).toBe(1);
+      expect(r.byWeekdayHour.flat().reduce((a: number, b: number) => a + b, 0)).toBe(3);
+    });
+
+    it('ความเร็วครัว: เฉลี่ยรอคิว/ปรุง นับเฉพาะออเดอร์ที่มีเวลาครบ', async () => {
+      const at = (h: number, m: number) => new Date(2026, 8, 3, h, m);
+      const timed = (start: number, cook: number, menu: string) => ({
+        createdAt: at(12, 0),
+        startedAt: at(12, start),
+        servedAt: at(12, start + cook),
+        items: [line(menu, 1, 60)],
+      });
+      prisma.order.findMany.mockResolvedValue([
+        timed(2, 8, 'm1'), // รวม 10
+        timed(4, 12, 'm1'), // รวม 16 → ช้า
+        timed(0, 10, 'm1'),
+        timed(3, 3, 'm2'),
+        { createdAt: at(13, 0), startedAt: null, servedAt: null, items: [line('m2', 1, 25)] },
+      ]);
+      const { kitchen }: any = await service.getSales({ month: '2026-09' });
+      expect(kitchen.timedOrderCount).toBe(4);
+      expect(kitchen.avgWaitMinutes).toBe(2.3); // (2+4+0+3)/4 = 2.25
+      expect(kitchen.avgCookMinutes).toBe(8.3); // (8+12+10+3)/4 = 8.25
+      expect(kitchen.lateOrderCount).toBe(1);
+      // ชาเย็นสั่งแค่ 1 ออเดอร์ ไม่ถึงเกณฑ์ขึ้นอันดับ
+      expect(kitchen.slowestMenus).toEqual([
+        { menuItemId: 'm1', name: 'กะเพรา', orderCount: 3, avgCookMinutes: 10 },
+      ]);
+    });
   });
 });

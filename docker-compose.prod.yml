@@ -75,6 +75,9 @@ services:
     volumes:
       # รูปเมนูที่อัปโหลด — ห้ามลบ volume นี้ (รูปไม่ได้อยู่ในไฟล์สำรอง DB)
       - uploads:/app/uploads
+      # หน้า "สถานะระบบ" ของเจ้าของร้านอ่านเวลาสำรองล่าสุดจากที่นี่ — อ่านอย่างเดียว api ลบ/แก้ไฟล์สำรองไม่ได้
+      - ./backups:/backups:ro
+      - ./backup-status:/backup-status:ro
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -147,6 +150,8 @@ services:
       - ./deploy/offsite.sh:/offsite.sh:ro
       # อ่านอย่างเดียว — ฝั่ง offsite ไม่มีทางลบ/แก้ไฟล์สำรองในเครื่อง
       - ./backups:/backups:ro
+      # offsite.sh เขียนเวลาที่ส่งสำเร็จล่าสุดไว้ที่นี่ ให้หน้า "สถานะระบบ" แสดง
+      - ./backup-status:/backup-status
       # rclone.conf มี token ของบัญชี cloud — อยู่นอก git (.gitignore)
       - ./deploy/rclone:/config/rclone
 

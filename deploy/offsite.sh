@@ -21,6 +21,8 @@ sync_once() {
     && rclone delete "$REMOTE" --include "*.dump" --min-age "${KEEP_DAYS}d"; then
     count=$(rclone lsf "$REMOTE" --include "*.dump" | wc -l)
     echo "[offsite] $(date '+%F %T') ok — ปลายทางมี $count ไฟล์"
+    # ให้หน้า "สถานะระบบ" รู้ว่าส่งออกนอกเครื่องล่าสุดเมื่อไร (ไม่มีโฟลเดอร์ = compose เก่า ข้ามได้)
+    [ -d /backup-status ] && date -u '+%Y-%m-%dT%H:%M:%SZ' > /backup-status/offsite-last-ok
     ping ""
   else
     echo "[offsite] $(date '+%F %T') FAILED" >&2

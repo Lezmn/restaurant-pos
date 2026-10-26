@@ -1,5 +1,6 @@
 import { ErrorNote } from '@/components/ui/ErrorNote'
 import { Modal } from '@/components/ui/Modal'
+import { NoteChips } from '@/components/ui/NoteChips'
 import { QuantityStepper } from '@/components/ui/QuantityStepper'
 import { useMenuItems } from '@/features/menu/hooks'
 import type { CustomOrderLine } from '@/features/orders/api'
@@ -299,6 +300,13 @@ export function TakeOrderDialog({
                   </div>
                 ))}
 
+                <div className="mt-2">
+                  <NoteChips
+                    size="sm"
+                    value={line.note}
+                    onChange={(note) => updateLine(line.key, { note })}
+                  />
+                </div>
                 <input
                   value={line.note}
                   onChange={(e) => updateLine(line.key, { note: e.target.value })}

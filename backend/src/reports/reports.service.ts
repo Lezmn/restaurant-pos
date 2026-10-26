@@ -18,6 +18,16 @@ import { ReportRangeQueryDto } from './dto/report-range-query.dto';
 
 const TREND_DAYS = 7;
 
+/** ออเดอร์ที่ใช้เวลาตั้งแต่สั่งถึงเสร็จเกินนี้ (นาที) = "ช้า" — ตรงกับเกณฑ์ขึ้นแดงบนจอครัว */
+export const KITCHEN_LATE_MINUTES = 15;
+/** เมนูต้องถูกสั่งอย่างน้อยเท่านี้ออเดอร์ถึงจะขึ้นอันดับ "ทำนานสุด" — กันเมนูที่สั่งครั้งเดียวแล้วบังเอิญช้า */
+const SLOW_MENU_MIN_ORDERS = 3;
+const SLOW_MENU_TOP = 5;
+
+const minutesBetween = (from: Date, to: Date) => (to.getTime() - from.getTime()) / 60_000;
+const average = (values: number[]) =>
+  values.length === 0 ? null : Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10;
+
 @Injectable()
 export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -189,6 +199,8 @@ export class ReportsService {
         },
         select: {
           createdAt: true,
+          startedAt: true,
+          servedAt: true,
           items: {
             select: {
               quantity: true,
@@ -218,9 +230,13 @@ export class ReportsService {
       revenue: new Prisma.Decimal(0),
     }));
 
+    // วัน (0 = อาทิตย์ ตาม getDay) × ชั่วโมง — ไว้วาง heatmap ว่าวันไหนชั่วโมงไหนยุ่ง
+    const byWeekdayHour = Array.from({ length: 7 }, () => Array<number>(24).fill(0));
+
     for (const order of orders) {
       const slot = byHour[order.createdAt.getHours()];
       slot.orderCount += 1;
+      byWeekdayHour[order.createdAt.getDay()][order.createdAt.getHours()] += 1;
       for (const item of order.items) {
         const each = item.selectedOptions.reduce(
           (total, option) => total.plus(option.price),
@@ -269,6 +285,67 @@ export class ReportsService {
         .filter((item) => item.quantity === 0 && item.isAvailable)
         .map(({ menuItemId, name, categoryName }) => ({ menuItemId, name, categoryName })),
       byHour,
+      byWeekdayHour,
+      kitchen: this.kitchenStats(orders, menuItems),
+    };
+  }
+
+  /**
+   * ความเร็วครัว: รอคิว (สั่ง → เริ่มปรุง) และปรุง (เริ่มปรุง → เสร็จ)
+   * ใช้เฉพาะออเดอร์ที่มีเวลาครบ — ออเดอร์ก่อนมีคอลัมน์ startedAt/servedAt ไม่ถูกนับ
+   * เวลาปรุงเป็นของทั้งออเดอร์ (ครัวกดเสร็จทีละใบ ไม่ใช่ทีละจาน) — "เมนูที่ทำนาน" จึงเป็นค่าเฉลี่ยของออเดอร์ที่มีเมนูนั้น
+   */
+  private kitchenStats(
+    orders: {
+      createdAt: Date;
+      startedAt: Date | null;
+      servedAt: Date | null;
+      items: { menuItemId: string | null }[];
+    }[],
+    menuItems: { id: string; name: string }[],
+  ) {
+    const waits: number[] = [];
+    const cooks: number[] = [];
+    const totals: number[] = [];
+    const cookByMenu = new Map<string, number[]>();
+
+    for (const order of orders) {
+      if (!order.startedAt || !order.servedAt) continue;
+      const wait = minutesBetween(order.createdAt, order.startedAt);
+      const cook = minutesBetween(order.startedAt, order.servedAt);
+      // เวลาติดลบ = นาฬิกาเพี้ยน/ข้อมูลแปลก ไม่เอามาเฉลี่ย
+      if (wait < 0 || cook < 0) continue;
+      waits.push(wait);
+      cooks.push(cook);
+      totals.push(wait + cook);
+      const menuIds = new Set(order.items.map((i) => i.menuItemId).filter((id): id is string => !!id));
+      for (const id of menuIds) {
+        const list = cookByMenu.get(id) ?? [];
+        list.push(cook);
+        cookByMenu.set(id, list);
+      }
+    }
+
+    const names = new Map(menuItems.map((m) => [m.id, m.name]));
+    const slowestMenus = [...cookByMenu.entries()]
+      .filter(([id, list]) => list.length >= SLOW_MENU_MIN_ORDERS && names.has(id))
+      .map(([id, list]) => ({
+        menuItemId: id,
+        name: names.get(id)!,
+        orderCount: list.length,
+        avgCookMinutes: average(list)!,
+      }))
+      .sort((a, b) => b.avgCookMinutes - a.avgCookMinutes)
+      .slice(0, SLOW_MENU_TOP);
+
+    return {
+      timedOrderCount: totals.length,
+      avgWaitMinutes: average(waits),
+      avgCookMinutes: average(cooks),
+      avgTotalMinutes: average(totals),
+      lateMinutes: KITCHEN_LATE_MINUTES,
+      lateOrderCount: totals.filter((t) => t >= KITCHEN_LATE_MINUTES).length,
+      slowestMenus,
     };
   }
 
