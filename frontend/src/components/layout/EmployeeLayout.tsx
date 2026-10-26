@@ -102,8 +102,8 @@ interface Tab {
 
 const tabs: Tab[] = [
   { to: '/employee/order', label: 'Order', icon: <IconChef />, roles: pageRoles.order },
-  { to: '/employee/check', label: 'Check', icon: <IconReceipt />, roles: pageRoles.check },
   { to: '/employee/manage', label: 'Manage', icon: <IconFolder />, roles: pageRoles.manage },
+  { to: '/employee/check', label: 'Check', icon: <IconReceipt />, roles: pageRoles.check },
   { to: '/employee/tables', label: 'Table', icon: <IconTable />, roles: pageRoles.tables },
   { to: '/employee/takeaway', label: 'Takeaway', icon: <IconBag />, roles: pageRoles.takeaway },
 ]
@@ -180,7 +180,7 @@ export function EmployeeLayout() {
       {user && pageRoles.requests.includes(user.role) && <CallStaffAlert />}
       <Toaster />
 
-      {/* แถบล่างตามดีไซน์ (Order · Check · Manage · Table) + Takeaway — active เป็นบล็อกส้มเต็ม */}
+      {/* แถบล่าง: Order · Manage · Check · Table · Takeaway — active เป็นบล็อกส้มเต็ม */}
       <nav className="fixed inset-x-0 bottom-0 z-20 flex bg-white shadow-[0_-4px_16px_rgba(0,0,0,0.08)] pb-[env(safe-area-inset-bottom)]">
         {tabs.map((tab) => {
           const iconClass =
