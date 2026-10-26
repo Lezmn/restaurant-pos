@@ -142,10 +142,3 @@ export function describeAudit(log: AuditLog): { summary: string; reason: string 
       return { summary: String(log.action), reason: null }
   }
 }
-
-/** ชื่อเครื่องสำหรับแสดง — เครื่องที่ยังไม่ตั้งชื่อ โชว์ 4 ตัวท้ายของ id ไว้แยกกัน */
-export function deviceLabel(deviceName: string | null, deviceId: string | null) {
-  if (deviceName) return deviceName
-  if (deviceId) return `เครื่องไม่มีชื่อ (${deviceId.slice(-4)})`
-  return 'ไม่ทราบเครื่อง'
-}

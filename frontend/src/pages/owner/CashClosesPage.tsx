@@ -1,6 +1,7 @@
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { StatCard } from '@/components/ui/StatCard'
 import {
+  useCashClosePreview,
   useCashCloses,
   useDeleteCashClose,
 } from '@/features/cash-closes/hooks'
@@ -8,6 +9,8 @@ import { currentMonth } from '@/features/reports/api'
 import { formatBaht, formatTime } from '@/lib/format'
 import type { ApiCashClose } from '@/types/api'
 import { useState } from 'react'
+import { button } from '@/components/ui/styles'
+import { CashCloseDialog } from './CashCloseDialog'
 
 const thaiDate = (ymd: string) =>
   new Date(`${ymd}T00:00:00`).toLocaleDateString('th-TH', {
@@ -27,7 +30,7 @@ const differenceLabel = (value: number) => {
 }
 
 /**
- * ประวัติการปิดยอดเงินสดรายวัน — เจ้าของดูว่าเงินขาด/เกินวันไหน
+ * ปิดยอดเงินสดรายวัน — ปุ่ม "ปิดยอดวันนี้" อยู่หน้านี้ (ย้ายมาจากหน้า Check) + ประวัติว่าเงินขาด/เกินวันไหน
  * ลบได้เพื่อให้แคชเชียร์นับใหม่ (เช่น กรอกยอดผิด หรือยกเลิกบิลหลังปิดยอด)
  */
 export function CashClosesPage() {
@@ -35,6 +38,9 @@ export function CashClosesPage() {
   const { data, isPending, isError, error } = useCashCloses(month)
   const deleteCashClose = useDeleteCashClose()
   const [deleting, setDeleting] = useState<ApiCashClose | null>(null)
+  const today = useCashClosePreview()
+  const [closingToday, setClosingToday] = useState(false)
+  const closedToday = today.data?.alreadyClosed
 
   const closes = data ?? []
   const totalDifference = closes.reduce((sum, c) => sum + c.difference, 0)
@@ -44,6 +50,25 @@ export function CashClosesPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-black">ปิดยอดเงินสด</h1>
+        <div className="flex flex-wrap items-center gap-3">
+        {closedToday ? (
+          <span className="rounded-lg bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700">
+            ปิดยอดวันนี้แล้ว {formatTime(closedToday.closedAt)}
+          </span>
+        ) : (
+          <button
+            type="button"
+            disabled={!today.data}
+            onClick={() => {
+              // จำนวนโต๊ะค้างจ่ายไม่ได้อัปเดตแบบ live — ดึงใหม่ก่อนเปิดให้เตือนตรง
+              today.refetch()
+              setClosingToday(true)
+            }}
+            className={button('primary')}
+          >
+            ปิดยอดวันนี้
+          </button>
+        )}
         <label className="text-sm">
           <span className="sr-only">เดือน</span>
           <input
@@ -54,7 +79,12 @@ export function CashClosesPage() {
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-800 outline-none focus:border-brand-300"
           />
         </label>
+        </div>
       </div>
+
+      {closingToday && today.data && (
+        <CashCloseDialog preview={today.data} onClose={() => setClosingToday(false)} />
+      )}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="วันที่ปิดยอด" value={`${closes.length} วัน`} tone="brand" />

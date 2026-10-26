@@ -36,17 +36,10 @@ export interface AuditLog {
   createdAt: string
 }
 
-export interface AuditDevice {
-  deviceId: string
-  deviceName: string | null
-  lastSeenAt: string
-}
-
 export interface AuditLogFilter {
   from: Date
   to: Date
   action?: AuditAction
-  deviceId?: string
 }
 
 /** GET /audit-logs @Roles(ADMIN) — ล่าสุดก่อน ทีละ 100 แถว ส่ง before เพื่อโหลดหน้าถัดไป */
@@ -57,10 +50,6 @@ export function getAuditLogs(filter: AuditLogFilter, before?: string) {
     limit: '100',
   })
   if (filter.action) params.set('action', filter.action)
-  if (filter.deviceId) params.set('deviceId', filter.deviceId)
   if (before) params.set('before', before)
   return apiClient<{ items: AuditLog[]; hasMore: boolean }>(`/audit-logs?${params}`)
 }
-
-/** GET /audit-logs/devices — เครื่องที่เคยมีประวัติ ไว้ทำตัวกรอง */
-export const getAuditDevices = () => apiClient<AuditDevice[]>('/audit-logs/devices')

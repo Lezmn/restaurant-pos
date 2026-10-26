@@ -2,13 +2,10 @@ import { ErrorNote } from '@/components/ui/ErrorNote'
 import { LoadError } from '@/components/ui/LoadError'
 import { Modal } from '@/components/ui/Modal'
 import { button, field, fieldLabel } from '@/components/ui/styles'
-import {
-  useCashClosePreview,
-  useCreateCashClose,
-} from '@/features/cash-closes/hooks'
+import { useCashClosePreview } from '@/features/cash-closes/hooks'
 import { useAddDrawerExpense } from '@/features/expenses/hooks'
 import { formatBaht, formatTime } from '@/lib/format'
-import type { ApiCashClose, ApiCashClosePreview } from '@/types/api'
+import type { ApiCashClose } from '@/types/api'
 import { ExpenseCategory } from '@/types/enums'
 import { useState, type ReactNode } from 'react'
 
@@ -26,7 +23,7 @@ const thaiDay = (ymd: string) =>
   })
 
 /** ผลต่างตอนปิดยอด: 0 = ตรง, บวก = เกิน, ลบ = ขาด */
-function DifferenceText({ value }: Readonly<{ value: number }>) {
+export function DifferenceText({ value }: Readonly<{ value: number }>) {
   if (value === 0) return <span className="font-bold text-black">ตรงพอดี</span>
   return value > 0 ? (
     <span className="font-bold text-brand-500">เงินเกิน {formatBaht(value)}</span>
@@ -64,11 +61,11 @@ function LedgerRow({
 /**
  * สมุด "ลิ้นชักวันนี้" ข้างตารางโต๊ะในหน้า Check — แคชเชียร์อยู่หน้านี้ทั้งวัน
  * - หยิบเงินออก: บันทึกทันทีตอนหยิบ (น้ำแข็ง ผักขาด ฯลฯ) ไม่งั้นตอนปิดยอดเงินจะขาดโดยไม่รู้สาเหตุ
- * - ปิดยอดวันนี้: นับเงินในลิ้นชักเทียบกับยอดที่ระบบคาดไว้ วันละครั้ง
+ * - ปิดยอดวันนี้ย้ายไปหน้า "ปิดยอดเงินสด" ของเจ้าของร้านแล้ว — ที่นี่แค่โชว์ว่าปิดแล้วหรือยัง
  */
 export function CashDrawerBar() {
   const { data: preview, isPending, isError, error, refetch } = useCashClosePreview()
-  const [dialog, setDialog] = useState<'expense' | 'close' | null>(null)
+  const [expenseOpen, setExpenseOpen] = useState(false)
 
   if (isPending) {
     return <div aria-hidden className="h-64 animate-pulse rounded-xl bg-gray-100" />
@@ -197,29 +194,13 @@ export function CashDrawerBar() {
 
       {closed && <ClosedSummary cashClose={closed} />}
 
-      <div className={`grid gap-2 p-4 ${closed ? '' : 'grid-cols-2'}`}>
-        <button type="button" onClick={() => setDialog('expense')} className={button('secondary')}>
+      <div className="p-4">
+        <button type="button" onClick={() => setExpenseOpen(true)} className={`${button('secondary')} w-full`}>
           หยิบเงินออก
         </button>
-        {!closed && (
-          <button
-            type="button"
-            onClick={() => {
-              // จำนวนโต๊ะค้างจ่ายไม่ได้อัปเดตตามออเดอร์แบบ live — ดึงใหม่ก่อนเปิดให้เตือนตรง
-              refetch()
-              setDialog('close')
-            }}
-            className={button('primary')}
-          >
-            ปิดยอดวันนี้
-          </button>
-        )}
       </div>
 
-      {dialog === 'expense' && <DrawerExpenseDialog onClose={() => setDialog(null)} />}
-      {dialog === 'close' && (
-        <CashCloseDialog preview={preview} onClose={() => setDialog(null)} />
-      )}
+      {expenseOpen && <DrawerExpenseDialog onClose={() => setExpenseOpen(false)} />}
     </section>
   )
 }
@@ -320,137 +301,6 @@ function DrawerExpenseDialog({ onClose }: Readonly<{ onClose: () => void }>) {
             className={button('primary', 'lg')}
           >
             {addDrawerExpense.isPending ? 'กำลังบันทึก...' : 'บันทึก'}
-          </button>
-        </div>
-      </form>
-    </Modal>
-  )
-}
-
-function CashCloseDialog({
-  preview,
-  onClose,
-}: Readonly<{
-  preview: ApiCashClosePreview
-  onClose: () => void
-}>) {
-  const createCashClose = useCreateCashClose()
-  const [openingFloat, setOpeningFloat] = useState(
-    preview.suggestedOpeningFloat === null ? '' : String(preview.suggestedOpeningFloat),
-  )
-  const [counted, setCounted] = useState('')
-  const [note, setNote] = useState('')
-
-  const floatNum = Number(openingFloat)
-  const countedNum = Number(counted)
-  const floatValid = openingFloat.trim() !== '' && Number.isFinite(floatNum) && floatNum >= 0
-  const countedValid = counted.trim() !== '' && Number.isFinite(countedNum) && countedNum >= 0
-
-  // ต้องคิดแบบเดียวกับ backend (cash-closes.service) — ตัวเลขที่บันทึกจริงมาจาก backend
-  const expected = (floatValid ? floatNum : 0) + preview.cashSales - preview.drawerExpenses
-  const difference = Math.round((countedNum - expected) * 100) / 100
-
-  return (
-    <Modal title="ปิดยอดวันนี้" onClose={onClose}>
-      <ErrorNote error={createCashClose.error} />
-
-      {preview.unpaidTableCount > 0 && (
-        <p className="mb-3 rounded-lg bg-brand-50 px-3 py-2 text-sm text-gray-700">
-          ยังมี <span className="font-bold">{preview.unpaidTableCount} โต๊ะ</span>{' '}
-          ที่ยังไม่จ่าย — ถ้าปิดยอดตอนนี้ เงินที่เก็บทีหลังจะไม่อยู่ในยอดที่นับวันนี้
-        </p>
-      )}
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (!floatValid || !countedValid) return
-          createCashClose.mutate(
-            { openingFloat: floatNum, countedCash: countedNum, note },
-            { onSuccess: onClose },
-          )
-        }}
-      >
-        <label className="block">
-          <span className={fieldLabel}>เงินทอนตั้งต้น (ใส่ลิ้นชักไว้ตอนเปิดร้าน)</span>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={openingFloat}
-            onChange={(e) => setOpeningFloat(e.target.value)}
-            className={field}
-          />
-        </label>
-
-        <dl className="mt-3 space-y-1 rounded-lg bg-gray-100 px-4 py-3 text-sm">
-          <div className="flex justify-between">
-            <dt className="text-gray-600">เงินทอนตั้งต้น</dt>
-            <dd className="tabular-nums">{formatBaht(floatValid ? floatNum : 0)}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-gray-600">+ รับเงินสด</dt>
-            <dd className="tabular-nums">{formatBaht(preview.cashSales)}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-gray-600">− หยิบออกจากลิ้นชัก</dt>
-            <dd className="text-danger-ink tabular-nums">{formatBaht(preview.drawerExpenses)}</dd>
-          </div>
-          <div className="flex justify-between border-t border-gray-200 pt-1 font-bold">
-            <dt>ควรมีในลิ้นชัก</dt>
-            <dd className="tabular-nums">{floatValid ? formatBaht(expected) : '-'}</dd>
-          </div>
-        </dl>
-
-        <label className="mt-3 block">
-          <span className={fieldLabel}>เงินที่นับได้จริง</span>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={counted}
-            onChange={(e) => setCounted(e.target.value)}
-            className={`${field} border-2 border-brand-400 text-lg font-bold tabular-nums`}
-          />
-        </label>
-
-        {countedValid && floatValid && (
-          <p className="mt-2 text-right text-base">
-            <DifferenceText value={difference} />
-          </p>
-        )}
-
-        <p className="mt-2 text-sm text-gray-600">
-          PromptPay วันนี้ {formatBaht(preview.promptpaySales)} — ไม่ได้อยู่ในลิ้นชัก
-          ให้เทียบกับยอดเข้าในแอปธนาคาร
-        </p>
-
-        <label className="mt-3 block">
-          <span className={fieldLabel}>หมายเหตุ</span>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-            maxLength={500}
-            placeholder={difference !== 0 && countedValid ? 'เงินไม่ตรง — รู้สาเหตุไหม' : 'ไม่กรอกก็ได้'}
-            className={`${field} resize-none`}
-          />
-        </label>
-
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className={button('secondary', 'lg')}
-          >
-            ย้อนกลับ
-          </button>
-          <button
-            type="submit"
-            disabled={createCashClose.isPending || !floatValid || !countedValid}
-            className={button('primary', 'lg')}
-          >
-            {createCashClose.isPending ? 'กำลังบันทึก...' : 'ยืนยันปิดยอด'}
           </button>
         </div>
       </form>
