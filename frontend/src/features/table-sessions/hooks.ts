@@ -3,8 +3,6 @@ import { LIVE_STALE_TIME, useLivePollInterval } from '@/lib/live'
 import {
   closeSession,
   getSessions,
-  mergeSession,
-  moveSession,
   openSession,
 } from './api'
 
@@ -38,5 +36,3 @@ function useSessionMutation<TVars, TData>(fn: (vars: TVars) => Promise<TData>) {
 
 export const useOpenSession = () => useSessionMutation(openSession)
 export const useCloseSession = () => useSessionMutation(closeSession)
-export const useMoveSession = () => useSessionMutation(moveSession)
-export const useMergeSession = () => useSessionMutation(mergeSession)

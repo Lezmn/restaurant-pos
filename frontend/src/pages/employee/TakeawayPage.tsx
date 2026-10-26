@@ -13,7 +13,6 @@ import { OrderStatus, PaymentMethod } from '@/types/enums'
 import type { Id, MenuItem, MenuOptionGroup, Order } from '@/types/models'
 import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CustomItemDialog } from './CustomItemDialog'
 import { isOrderable, orderableGroups } from './orderable'
 
 /** หนึ่งบรรทัดในตะกร้า — เมนูเดียวกันคนละตัวเลือก/หมายเหตุ แยกบรรทัดกัน */
@@ -63,8 +62,8 @@ function CheckIcon() {
 
 /**
  * หน้า POS สั่งกลับบ้าน — กดเมนูลงตะกร้า แล้วส่งเข้าครัว
- * - "จ่ายเงินสด" / "จ่าย PromptPay": ส่งเข้าครัว แล้วไปหน้ารับเงินของบิลนั้นทันที เลือกวิธีจ่ายไว้ให้แล้ว
- * - "จ่ายตอนรับของ": ส่งเข้าครัวอย่างเดียว บิลรออยู่หน้า Check
+ * - "เงินสด" / "PromptPay": ส่งเข้าครัว แล้วไปหน้ารับเงินของบิลนั้นทันที เลือกวิธีจ่ายไว้ให้แล้ว
+ *   (เลิกมี "จ่ายตอนรับของ" — กลับบ้านจ่ายก่อนเสมอ)
  * แต่ละครั้งได้บิลใหม่พร้อมเลขคิวของวัน ("กลับบ้าน #3") ไว้เรียกลูกค้า
  */
 export function TakeawayPage() {
@@ -81,9 +80,6 @@ export function TakeawayPage() {
   const [nextKey, setNextKey] = useState(1)
   const [customerName, setCustomerName] = useState('')
   const [picking, setPicking] = useState<MenuItem | null>(null)
-  const [addingCustom, setAddingCustom] = useState(false)
-  /** บิลล่าสุดที่ส่งแบบจ่ายตอนรับของ — โชว์เลขคิวให้บอกลูกค้า */
-  const [lastQueue, setLastQueue] = useState<string | null>(null)
   /** รูปเมนูที่โหลดไม่ขึ้น (ลิงก์เสีย) — แสดงไอคอนจานแทนไอคอนรูปแตกของเบราว์เซอร์ */
   const [brokenImages, setBrokenImages] = useState<ReadonlySet<Id>>(() => new Set())
   /** ประกาศให้โปรแกรมอ่านหน้าจอรู้ว่าเพิ่มอะไรลงตะกร้า (การ์ดไม่เปลี่ยนหน้า) */
@@ -110,7 +106,6 @@ export function TakeawayPage() {
     .sort((a, b) => Number(isOrderable(b)) - Number(isOrderable(a)))
 
   const addLine = (line: Omit<CartLine, 'key'>) => {
-    setLastQueue(null)
     const name = line.customName ?? itemById.get(line.menuItemId)?.name ?? ''
     setAnnouncement(`เพิ่ม ${name} ${line.quantity} ลงตะกร้าแล้ว`)
     setLines((prev) => {
@@ -175,8 +170,8 @@ export function TakeawayPage() {
     return l.optionIds.some((id) => !ok.has(id))
   })
 
-  /** payNow = วิธีจ่ายที่จะรับเงินทันที / null = จ่ายตอนรับของ */
-  const submit = (payNow: PaymentMethod | null) => {
+  /** ส่งเข้าครัว แล้วไปรับเงินทันทีด้วยวิธีจ่ายที่กด */
+  const submit = (payNow: PaymentMethod) => {
     if (sending.current || lines.length === 0) return
     sending.current = true
     createTakeaway.mutate(
@@ -203,12 +198,7 @@ export function TakeawayPage() {
         onSuccess: (order) => {
           setLines([])
           setCustomerName('')
-          if (payNow) {
-            navigate(`/employee/check?pay=${order.tableSessionId}&method=${payNow}`)
-            return
-          }
-          setLastQueue(order.placeLabel)
-          toast(`ส่ง ${order.placeLabel} เข้าครัวแล้ว`)
+          navigate(`/employee/check?pay=${order.tableSessionId}&method=${payNow}`)
         },
         onSettled: () => {
           sending.current = false
@@ -373,14 +363,7 @@ export function TakeawayPage() {
               )}
             </div>
 
-            {lastQueue && lines.length === 0 && (
-              <div className="mt-3 rounded-lg bg-brand-50 px-4 py-3 text-center" role="status">
-                <p className="text-sm text-gray-700">ส่งเข้าครัวแล้ว · บอกลูกค้า</p>
-                <p className="text-2xl font-bold text-brand-500">{lastQueue}</p>
-              </div>
-            )}
-
-            {lines.length === 0 && !lastQueue && (
+            {lines.length === 0 && (
               <p className="py-8 text-center text-sm text-gray-500">ยังไม่มีรายการ — กดเมนูเพื่อเพิ่ม</p>
             )}
 
@@ -445,14 +428,6 @@ export function TakeawayPage() {
               </ul>
             )}
 
-            <button
-              type="button"
-              onClick={() => setAddingCustom(true)}
-              className={`${button('secondary')} mt-3 w-full`}
-            >
-              + รายการพิเศษ (ราคาเปิด)
-            </button>
-
             <label className="mt-4 block">
               <span className="text-sm font-semibold text-gray-700">ชื่อ/เบอร์ลูกค้า (ไม่บังคับ)</span>
               <input
@@ -506,14 +481,6 @@ export function TakeawayPage() {
                   )}
                 </button>
               </div>
-              <button
-                type="button"
-                disabled={count === 0 || unavailable.length > 0 || createTakeaway.isPending}
-                onClick={() => submit(null)}
-                className={button('secondary', 'lg')}
-              >
-                ส่งเข้าครัว · จ่ายตอนรับของ
-              </button>
             </div>
           </section>
 
@@ -530,24 +497,6 @@ export function TakeawayPage() {
           <span>ตะกร้า {count} รายการ</span>
           <span className="tabular-nums">{formatBaht(total)}</span>
         </a>
-      )}
-
-      {addingCustom && (
-        <CustomItemDialog
-          onClose={() => setAddingCustom(false)}
-          onAdd={(custom) => {
-            addLine({
-              menuItemId: '',
-              customName: custom.name,
-              quantity: custom.quantity,
-              note: custom.note,
-              optionIds: [],
-              optionNames: [],
-              unitPrice: custom.price,
-            })
-            setAddingCustom(false)
-          }}
-        />
       )}
 
       {picking && (

@@ -17,9 +17,7 @@ export async function createPayment(vars: {
   expectedTotal: number
   /** ส่วนลดเป็น % (จำนวนเต็ม 1-100) — ไม่ส่ง = ไม่ลด backend คิดยอดส่วนลดเอง */
   discountPercent?: number
-  /** แยกบิลตามรายการ: จ่ายเฉพาะรายการ/จำนวนที่เลือก */
-  items?: { orderItemId: Id; quantity: number }[]
-  /** หารเท่ากัน N คน — เรียกครั้งละคน backend คิดส่วนของคนถัดไปเอง */
+  /** รับเงินคนถัดไปของบิลที่หารค้างไว้ (เลิกเริ่มหารใหม่แล้ว) */
   splitParts?: number
   /** POST /payments ไม่ได้ส่ง tableSession กลับมา จึงต้องส่งชื่อโต๊ะมาเติมในใบเสร็จเอง */
   tableName: string
@@ -39,7 +37,6 @@ export async function createPayment(vars: {
       method: vars.method,
       expectedTotal: vars.expectedTotal,
       ...(vars.discountPercent ? { discountPercent: vars.discountPercent } : {}),
-      ...(vars.items?.length ? { items: vars.items } : {}),
       ...(vars.splitParts ? { splitParts: vars.splitParts } : {}),
       ...(vars.note ? { note: vars.note } : {}),
       ...(vars.slipPayload ? { slipPayload: vars.slipPayload } : {}),
