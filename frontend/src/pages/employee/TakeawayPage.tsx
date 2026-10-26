@@ -651,9 +651,10 @@ function TakeawayQueue() {
   return (
     <section aria-labelledby="queue-heading" className="rounded-xl border-2 border-gray-200 bg-white p-4">
       <h2 id="queue-heading" className="text-lg font-bold text-black">
-        คิวกลับบ้าน
+        คิวกลับบ้าน <span className="text-sm font-semibold text-gray-600">({queue.length})</span>
       </h2>
-      <ul className="mt-2 divide-y divide-gray-100">
+      {/* เห็น 3 คิว (แถวละ ~70px) ที่เหลือเลื่อนดูในกล่อง — หน้าไม่ยาวตามคิว */}
+      <ul className="mt-2 max-h-[13.5rem] divide-y divide-gray-100 overflow-y-auto overscroll-contain pr-1">
         {queue.map((q) => {
           const status = queueStatus(q.orders)
           return (
