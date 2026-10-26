@@ -336,3 +336,22 @@ export interface ApiCashClosePreview {
   suggestedOpeningFloat: number | null
   alreadyClosed: ApiCashClose | null
 }
+
+/** GET /reports/sales — นับเฉพาะออเดอร์ที่จ่ายแล้ว ยอดเป็นราคาเมนู + ตัวเลือก ก่อนส่วนลดท้ายบิล */
+export interface ApiSalesReport {
+  range: { from: string | null; to: string | null }
+  orderCount: number
+  totalQuantity: number
+  totalRevenue: number
+  topItems: {
+    menuItemId: string
+    name: string
+    categoryName: string
+    isAvailable: boolean
+    quantity: number
+    revenue: number
+  }[]
+  unsoldItems: { menuItemId: string; name: string; categoryName: string }[]
+  /** ครบ 24 ช่อง (0–23) ตามเวลาที่ลูกค้าสั่ง */
+  byHour: { hour: number; orderCount: number; quantity: number; revenue: number }[]
+}

@@ -14,6 +14,15 @@ function IconDashboard() {
   )
 }
 
+/** กราฟแท่ง — รายงานเมนูขายดี */
+function IconChart() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+      <path d="M4 20h16M7 16v-5M12 16V6M17 16v-8" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 function IconMoney() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
@@ -70,6 +79,7 @@ function IconLogout() {
 const navItems = [
   { to: '/owner/dashboard', label: 'Dashboard', icon: <IconDashboard /> },
   { to: '/owner/finance', label: 'รายรับ-รายจ่าย', icon: <IconMoney /> },
+  { to: '/owner/sales', label: 'เมนูขายดี', icon: <IconChart /> },
   { to: '/owner/cash-closes', label: 'ปิดยอดเงินสด', icon: <IconDrawer /> },
   { to: '/owner/audit', label: 'ประวัติการทำรายการ', icon: <IconHistory /> },
   { to: '/owner/users', label: 'บัญชีผู้ใช้', icon: <IconUsers /> },

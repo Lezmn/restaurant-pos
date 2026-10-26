@@ -27,4 +27,13 @@ export class ReportsController {
   getIncomeExpense(@Query() query: ReportRangeQueryDto) {
     return this.reportsService.getIncomeExpense(query);
   }
+
+  @Get('sales')
+  @ApiOperation({
+    summary:
+      'เมนูขายดี (จำนวน/ยอดตามราคาเมนู) + จำนวนออเดอร์รายชั่วโมง + เมนูที่ไม่มีคนสั่ง — นับเฉพาะออเดอร์ที่จ่ายแล้ว (ไม่ระบุ = เดือนปัจจุบัน)',
+  })
+  getSales(@Query() query: ReportRangeQueryDto) {
+    return this.reportsService.getSales(query);
+  }
 }

@@ -1,6 +1,6 @@
 import { getPayments } from '@/features/payments/api'
 import { apiClient } from '@/lib/api-client'
-import type { ApiDashboardReport, ApiIncomeExpenseReport } from '@/types/api'
+import type { ApiDashboardReport, ApiIncomeExpenseReport, ApiSalesReport } from '@/types/api'
 import { PaymentMethod, PaymentStatus, TableStatus } from '@/types/enums'
 import type { Payment } from '@/types/models'
 import type {
@@ -10,6 +10,7 @@ import type {
   Notification,
   PeriodData,
   RevenuePoint,
+  SalesData,
 } from '@/types/reports'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -122,6 +123,27 @@ export async function getFinance(month: string): Promise<FinanceData> {
   }
 }
 
+/** GET /reports/sales?month=YYYY-MM @Roles(ADMIN) — เมนูขายดี + ช่วงเวลาขายดี */
+export async function getSales(month: string): Promise<SalesData> {
+  const report = await apiClient<ApiSalesReport>(
+    `/reports/sales?month=${encodeURIComponent(month)}`,
+  )
+  return {
+    month,
+    orderCount: report.orderCount,
+    totalQuantity: report.totalQuantity,
+    totalRevenue: report.totalRevenue,
+    topItems: report.topItems.map(({ menuItemId, name, categoryName, quantity, revenue }) => ({
+      menuItemId,
+      name,
+      categoryName,
+      quantity,
+      revenue,
+    })),
+    unsoldItems: report.unsoldItems,
+    byHour: report.byHour,
+  }
+}
 
 const pad2 = (n: number) => String(n).padStart(2, '0')
 /** Date → "YYYY-MM-DD" ตามเวลาเครื่อง (backend อ่านวันล้วนเป็นวันตามเวลาร้าน และ to = ถึงสิ้นวัน) */

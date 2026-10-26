@@ -75,6 +75,31 @@ export interface FinanceData {
   transactions: Transaction[]
 }
 
+export interface SalesItem {
+  menuItemId: Id
+  name: string
+  categoryName: string
+  quantity: number
+  revenue: number
+}
+
+export interface SalesHour {
+  hour: number
+  orderCount: number
+  quantity: number
+  revenue: number
+}
+
+export interface SalesData {
+  month: string
+  orderCount: number
+  totalQuantity: number
+  totalRevenue: number
+  topItems: SalesItem[]
+  unsoldItems: Pick<SalesItem, 'menuItemId' | 'name' | 'categoryName'>[]
+  byHour: SalesHour[]
+}
+
 /** ช่วงที่ดูบน Dashboard นอกจาก "วันนี้" */
 export type DashboardPeriodDays = 7 | 30
 

@@ -106,14 +106,17 @@ const DashboardPage = lazy(() =>
 const FinancePage = lazy(() =>
   import('@/pages/owner/FinancePage').then((m) => ({ default: m.FinancePage })),
 )
+const SalesPage = lazy(() =>
+  import('@/pages/owner/SalesPage').then((m) => ({ default: m.SalesPage })),
+)
 const CashClosesPage = lazy(() =>
   import('@/pages/owner/CashClosesPage').then((m) => ({ default: m.CashClosesPage })),
 )
-const UsersPage = lazy(() =>
-  import('@/pages/owner/UsersPage').then((m) => ({ default: m.UsersPage })),
-)
 const AuditLogPage = lazy(() =>
   import('@/pages/owner/AuditLogPage').then((m) => ({ default: m.AuditLogPage })),
+)
+const UsersPage = lazy(() =>
+  import('@/pages/owner/UsersPage').then((m) => ({ default: m.UsersPage })),
 )
 
 /** ครอบ Suspense ให้ทุก element ที่โหลดแบบ lazy กันจอว่างระหว่างดึงไฟล์ */
@@ -214,12 +217,13 @@ export const router = createBrowserRouter([
           { index: true, element: <Navigate to="/owner/dashboard" replace /> },
           { path: 'dashboard', element: s(<DashboardPage />) },
           { path: 'finance', element: s(<FinancePage />) },
+          { path: 'sales', element: s(<SalesPage />) },
           { path: 'cash-closes', element: s(<CashClosesPage />) },
+          { path: 'audit', element: s(<AuditLogPage />) },
           {
             element: <ProtectedRoute roles={pageRoles.users} fallbackPath="/owner" />,
             children: [{ path: 'users', element: s(<UsersPage />) }],
           },
-          { path: 'audit', element: s(<AuditLogPage />) },
         ],
       },
     ],
