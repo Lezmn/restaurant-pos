@@ -121,6 +121,8 @@ export function EmployeeLayout() {
 
   // ดีไซน์โชว์ปุ่มครบทุกอัน — ปุ่มที่ role นี้ไม่มีสิทธิ์จะแสดงแบบจาง ๆ และกดไม่ได้
   const canOpen = (tab: Tab) => Boolean(user && tab.roles.includes(user.role))
+  // ปุ่มที่ role นี้กดได้อยู่ชิดซ้าย ปุ่มที่กดไม่ได้ (จาง) ไปอยู่ขวา — ลำดับภายในกลุ่มคงเดิม
+  const orderedTabs = [...tabs.filter(canOpen), ...tabs.filter((tab) => !canOpen(tab))]
 
   return (
     <div className="flex min-h-dvh flex-col bg-white">
@@ -182,7 +184,7 @@ export function EmployeeLayout() {
 
       {/* แถบล่าง: Order · Manage · Check · Table · Takeaway — active เป็นบล็อกส้มเต็ม */}
       <nav className="fixed inset-x-0 bottom-0 z-20 flex bg-white shadow-[0_-4px_16px_rgba(0,0,0,0.08)] pb-[env(safe-area-inset-bottom)]">
-        {tabs.map((tab) => {
+        {orderedTabs.map((tab) => {
           const iconClass =
             '[&>svg]:h-6 [&>svg]:w-6 sm:[&>svg]:h-8 sm:[&>svg]:w-8'
           const base =
