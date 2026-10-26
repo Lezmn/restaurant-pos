@@ -12,7 +12,6 @@ import { useServiceRequests } from '@/features/service-requests/hooks'
 import { useCloseSession, useSessions } from '@/features/table-sessions/hooks'
 import { IS_DEMO_PROMPTPAY, PROMPTPAY_ID } from '@/lib/config'
 import { applyDiscountPercent, isValidDiscountPercent } from '@/lib/discount'
-import { splitShare } from '@/lib/split'
 import { formatBaht, formatTime } from '@/lib/format'
 import { LIVE_POLL_MS } from '@/lib/live'
 import { buildPromptPayPayload } from '@/lib/promptpay'
@@ -26,7 +25,6 @@ import {
   TableSessionStatus,
 } from '@/types/enums'
 import type { Id, Order, Payment, SessionSplit, TableSession } from '@/types/models'
-import { BillScopePicker, type BillScope, type PayLine } from './BillScopePicker'
 import { CashDrawerBar } from './CashDrawerBar'
 import { PaidBills } from './PaidBills'
 import { ReceiptDialog } from './ReceiptDialog'
@@ -56,8 +54,6 @@ interface PayTarget {
   amountDue: number
   /** ลูกค้ากดเช็คบิลมาเองพร้อมเลือกวิธีจ่ายแล้วหรือยัง */
   chosenByCustomer: boolean
-  /** รายการที่เสิร์ฟแล้วยังไม่จ่าย — ให้เลือกตอนแยกบิลตามรายการ */
-  lines: PayLine[]
   /** โต๊ะนี้หารเท่ากันค้างอยู่ */
   split: SessionSplit | null
 }
@@ -191,23 +187,6 @@ export function CheckPage() {
     amountDue: row.session.total,
     chosenByCustomer: Boolean(row.customerMethod),
     split: row.session.split,
-    // รายการที่เลือกแยกจ่ายได้ — โต๊ะจริงเฉพาะที่เสิร์ฟแล้ว, กลับบ้านจ่ายก่อนทำได้ (ที่ยังไม่จ่าย)
-    lines: (orders ?? [])
-      .filter(
-        (o) =>
-          o.tableSessionId === row.session.id &&
-          (o.status === OrderStatus.SERVED ||
-            (row.session.isTakeaway && !o.paid && o.status !== OrderStatus.CANCELLED)),
-      )
-      .flatMap((o) =>
-        o.items.map((item) => ({
-          id: item.id,
-          name: item.menuItemName,
-          options: item.optionNames,
-          quantity: item.quantity,
-          each: item.unitPrice + item.optionsTotal,
-        })),
-      ),
   })
   const openPayment = (row: TableRow) => setTarget(toPayTarget(row))
 
@@ -434,7 +413,6 @@ export function CheckPage() {
                 ...(method === PaymentMethod.PROMPTPAY ? slipFields(slip) : {}),
                 // ยอดที่ลูกค้าเห็นบนจอ/QR — ถ้ายอดจริงเปลี่ยนไประหว่างนี้ backend จะไม่ยอมบันทึก
                 expectedTotal: scope.expectedTotal,
-                items: scope.items,
                 splitParts: scope.splitParts,
                 // ส่งแค่ % — backend คิดยอดส่วนลดเองด้วยสูตรเดียวกับหน้าจอ
                 discountPercent,
@@ -602,10 +580,9 @@ function PaymentDialog({
     slip: SlipInput
     /** เงินที่ลูกค้ายื่นมา (เงินสด) — ไว้โชว์เงินทอนบนใบเสร็จ ไม่ได้บันทึก */
     tendered: number | null
-    /** เก็บเงินส่วนไหน + ยอดก่อนส่วนลดที่หน้าจอใช้ (backend ตรวจซ้ำ) */
+    /** ยอดก่อนส่วนลดที่หน้าจอใช้ (backend ตรวจซ้ำ) + รับเงินคนถัดไปของบิลที่หารค้างอยู่ */
     scope: {
       expectedTotal: number
-      items?: { orderItemId: Id; quantity: number }[]
       splitParts?: number
     }
   }) => void
@@ -624,23 +601,10 @@ function PaymentDialog({
   /** ส่วนลดซ่อนไว้หลังปุ่ม "ให้ส่วนลด" — กันกรอกผิดช่องตอนรีบ และใช้ไม่บ่อย */
   const [discountOpen, setDiscountOpen] = useState(false)
   const [discountReason, setDiscountReason] = useState('')
-  // แยกบิล: โต๊ะที่หารค้างอยู่ ล็อกเป็นหารต่อ (จำนวนคน/ส่วนลดตามที่เริ่มไว้)
+  // เลิกแยกบิลแล้ว — เหลือไว้แค่ "รับเงินต่อ" ของบิลที่หารค้างไว้ก่อนหน้า (ไม่งั้นโต๊ะนั้นเก็บเงินไม่ได้)
   const split = target.split
-  const [scope, setScope] = useState<BillScope>(split ? 'even' : 'all')
-  const [picked, setPicked] = useState<Record<Id, number>>({})
-  const [parts, setParts] = useState(split?.parts ?? 2)
-
-  const pickedItems = target.lines
-    .filter((line) => (picked[line.id] ?? 0) > 0)
-    .map((line) => ({ orderItemId: line.id, quantity: picked[line.id] }))
-  // คิดเป็นสตางค์ กันทศนิยม float เพี้ยน
-  const pickedTotal =
-    target.lines.reduce(
-      (sum, line) => sum + Math.round(line.each * 100) * (picked[line.id] ?? 0),
-      0,
-    ) / 100
-  /** ยอดก่อนส่วนลดของส่วนที่กำลังเก็บ (ส่งเป็น expectedTotal) */
-  const base = split ? split.subtotal : scope === 'items' ? pickedTotal : target.amountDue
+  /** ยอดก่อนส่วนลด (ส่งเป็น expectedTotal) */
+  const base = split ? split.subtotal : target.amountDue
 
   const isPromptPay = method === PaymentMethod.PROMPTPAY
   const percentNum = Number(percent)
@@ -649,22 +613,13 @@ function PaymentDialog({
   const hasDiscount = !percentEmpty && isValidDiscountPercent(percentNum)
   const applied = applyDiscountPercent(base, hasDiscount ? percentNum : 0)
   const discount = applied.discount
-  /** ยอดทั้งบิลหลังส่วนลด (หารค้างอยู่ = ยอดที่ล็อกไว้ตอนเริ่มหาร) */
-  const billTotal = split ? split.total : applied.charged
-  const isEven = scope === 'even'
-  /** ยอดที่เก็บครั้งนี้ — หารเท่ากัน = ส่วนของคนนี้ */
-  const chargedNum = split
-    ? split.nextAmount
-    : isEven
-      ? splitShare(billTotal, parts)
-      : billTotal
-  const lastShare = splitShare(billTotal, parts, parts - 1, splitShare(billTotal, parts) * (parts - 1))
+  /** ยอดที่เก็บครั้งนี้ — บิลที่หารค้างไว้ = ส่วนของคนถัดไป */
+  const chargedNum = split ? split.nextAmount : applied.charged
   const receivedNum = Number(received) || 0
   // PromptPay ต้องมีสลิปให้ตรวจ (หรือ ADMIN ยืนยันเอง) — backend ก็บังคับไว้อีกชั้น
   // ลดราคาต้องมีเหตุผลเสมอ เหมือนยกเลิกบิล
   const canSubmit =
     percentValid &&
-    (scope !== 'items' || pickedItems.length > 0) &&
     (!isPromptPay || isSlipReady(slip)) &&
     (!hasDiscount || discountReason.trim() !== '')
   const change = receivedNum - chargedNum
@@ -696,42 +651,24 @@ function PaymentDialog({
             tendered: !isPromptPay && receivedNum > 0 ? receivedNum : null,
             scope: {
               expectedTotal: base,
-              ...(scope === 'items' && !split ? { items: pickedItems } : {}),
-              ...(isEven ? { splitParts: split?.parts ?? parts } : {}),
+              ...(split ? { splitParts: split.parts } : {}),
             },
           })
         }}
       >
         <div className="flex items-baseline justify-between rounded-lg bg-brand-50 px-4 py-3">
           <span className="text-sm font-semibold text-gray-700">
-            {isEven
-              ? `คนที่ ${(split?.paidParts ?? 0) + 1} จาก ${split?.parts ?? parts}`
-              : scope === 'items'
-                ? 'รายการที่เลือก'
-                : 'ยอดที่ต้องจ่าย'}
-            {(isEven || scope === 'items') && (
+            {split ? `คนที่ ${split.paidParts + 1} จาก ${split.parts}` : 'ยอดที่ต้องจ่าย'}
+            {split && (
               <span className="block font-normal text-gray-600 tabular-nums">
-                ทั้งโต๊ะ {formatBaht(isEven ? billTotal : target.amountDue)}
+                ทั้งบิล {formatBaht(split.total)} · ค้าง {formatBaht(split.remaining)}
               </span>
             )}
           </span>
           <span className="text-2xl font-bold text-black tabular-nums">
-            {formatBaht(isEven ? chargedNum : base)}
+            {formatBaht(split ? chargedNum : base)}
           </span>
         </div>
-
-        <BillScopePicker
-          scope={scope}
-          onScope={setScope}
-          lines={target.lines}
-          picked={picked}
-          onPick={(id, quantity) => setPicked((prev) => ({ ...prev, [id]: quantity }))}
-          parts={parts}
-          onParts={setParts}
-          split={split}
-          share={splitShare(billTotal, parts)}
-          lastShare={lastShare}
-        />
 
         {/* เลือกได้เสมอ — ลูกค้าอาจกดเช็คบิลเลือก PromptPay ไว้ แต่มาจ่ายเงินสดจริง
             เดิมซ่อนปุ่มไว้เลยต้องบันทึกผิดวิธี ยอดแยกตามวิธีจ่ายในรายงานก็ผิดตาม */}

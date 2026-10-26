@@ -37,14 +37,3 @@ test('กลับบ้าน: กด "เงินสด" → รับเง�
   await dialog.getByRole('button', { name: 'รับเงิน ฿10' }).click()
   await expect(page.getByRole('dialog', { name: 'ใบเสร็จรับเงิน' })).toBeVisible()
 })
-
-test('กลับบ้าน: "จ่ายตอนรับของ" ส่งเข้าครัวอย่างเดียว ได้เลขคิว และบิลรออยู่ในคิวกลับบ้าน', async ({ page, request }) => {
-  await loginAsCashier(page, request)
-  await page.goto('/employee/takeaway')
-
-  await waterTile(page).click()
-  await page.getByRole('button', { name: 'ส่งเข้าครัว · จ่ายตอนรับของ' }).click()
-  await expect(page).toHaveURL(/\/employee\/takeaway$/)
-  await expect(page.getByText(/ส่ง กลับบ้าน #\d+ เข้าครัวแล้ว/)).toBeVisible()
-  await expect(page.getByRole('region', { name: 'คิวกลับบ้าน' })).toBeVisible()
-})

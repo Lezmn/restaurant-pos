@@ -16,7 +16,6 @@ import type { RestaurantTable, TableSession } from '@/types/models'
 import { RESTAURANT_NAME } from '@/lib/config'
 import { QRCodeSVG } from 'qrcode.react'
 import { ManageTablesDialog } from './ManageTablesDialog'
-import { MoveTableDialog } from './MoveTableDialog'
 import { TakeOrderDialog } from './TakeOrderDialog'
 import { useState } from 'react'
 
@@ -43,7 +42,6 @@ export function TablesPage() {
   const closeSession = useCloseSession()
   const [qrTarget, setQrTarget] = useState<TableSession | null>(null)
   const [orderTarget, setOrderTarget] = useState<TableSession | null>(null)
-  const [moveTarget, setMoveTarget] = useState<TableSession | null>(null)
   // ปิดโต๊ะย้อนกลับไม่ได้ (QR ใช้ไม่ได้อีก) — ถามก่อนเหมือนหน้า Check
   const [closeTarget, setCloseTarget] = useState<TableSession | null>(null)
 
@@ -120,14 +118,6 @@ export function TablesPage() {
 
                   <button
                     type="button"
-                    onClick={() => setMoveTarget(session)}
-                    className="mt-2 w-full rounded-lg border-2 border-brand-300 py-2 text-sm font-bold text-brand-500 transition hover:bg-brand-50"
-                  >
-                    ย้าย / รวมโต๊ะ
-                  </button>
-
-                  <button
-                    type="button"
                     disabled={closeSession.isPending}
                     onClick={() => setCloseTarget(session)}
                     className="mt-2 w-full rounded-lg border-2 border-danger py-2 text-sm font-bold text-danger transition hover:bg-danger/10 disabled:opacity-60"
@@ -179,15 +169,6 @@ export function TablesPage() {
               onSuccess: () => setCloseTarget(null),
             })
           }
-        />
-      )}
-
-      {moveTarget && tables && (
-        <MoveTableDialog
-          session={moveTarget}
-          tables={tables}
-          openSessions={openTableSessions}
-          onClose={() => setMoveTarget(null)}
         />
       )}
 
