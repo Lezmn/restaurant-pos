@@ -5,7 +5,7 @@ import { PaymentMethod, PaymentStatus, TableStatus } from '@/types/enums'
 import type { Payment } from '@/types/models'
 import type {
   DashboardData,
-  DashboardPeriodDays,
+  DateRange,
   FinanceData,
   Notification,
   PeriodData,
@@ -153,15 +153,33 @@ const toYmd = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(
 /** "2026-10-26" → "26/10" สำหรับแกนกราฟ 30 วัน */
 const dayMonthLabel = (ymd: string) => `${Number(ymd.slice(8, 10))}/${Number(ymd.slice(5, 7))}`
 
+const parseYmd = (ymd: string) => {
+  const [y, m, d] = ymd.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
+/** จำนวนวันในช่วง รวมวันแรกและวันสุดท้าย (นับตามปฏิทิน ไม่สนเวลาออม) */
+export const daysInRange = ({ from, to }: DateRange) =>
+  Math.round((parseYmd(to).getTime() - parseYmd(from).getTime()) / 86_400_000) + 1
+
+/** N วันล่าสุดรวมวันนี้ */
+export const lastDays = (days: number): DateRange => {
+  const today = new Date()
+  return {
+    from: toYmd(new Date(today.getFullYear(), today.getMonth(), today.getDate() - (days - 1))),
+    to: toYmd(today),
+  }
+}
+
+export const todayYmd = () => toYmd(new Date())
+
 /**
- * สรุป N วันล่าสุด (รวมวันนี้) จาก /reports/income-expense?from&to
+ * สรุปช่วงวันที่ (รวมทั้งสองวัน) จาก /reports/income-expense?from&to
  * endpoint นี้ส่งรายการรายรับแต่ละบิลมาด้วย จึงรวมเป็นรายวัน/แยกวิธีจ่ายฝั่งนี้ได้ ไม่ต้องเพิ่ม API
  */
-export async function getDashboardPeriod(days: DashboardPeriodDays): Promise<PeriodData> {
-  const today = new Date()
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (days - 1))
-  const from = toYmd(start)
-  const to = toYmd(today)
+export async function getDashboardPeriod({ from, to }: DateRange): Promise<PeriodData> {
+  const start = parseYmd(from)
+  const days = daysInRange({ from, to })
   const report = await apiClient<ApiIncomeExpenseReport>(
     `/reports/income-expense?from=${from}&to=${to}`,
   )
@@ -177,7 +195,7 @@ export async function getDashboardPeriod(days: DashboardPeriodDays): Promise<Per
     const date = toYmd(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i))
     return {
       date,
-      label: days === 7 ? weekdayLabel(date) : dayMonthLabel(date),
+      label: days <= 7 ? weekdayLabel(date) : dayMonthLabel(date),
       revenue: byDay.get(date) ?? 0,
     }
   })

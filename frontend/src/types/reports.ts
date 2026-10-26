@@ -106,12 +106,16 @@ export interface SalesData {
 
 export type KitchenStats = ApiKitchenStats
 
-/** ช่วงที่ดูบน Dashboard นอกจาก "วันนี้" */
-export type DashboardPeriodDays = 7 | 30
+/** ช่วงวันที่บน Dashboard (YYYY-MM-DD ตามเวลาเครื่อง รวมทั้งสองวัน) — วันเดียว = from เท่ากับ to */
+export interface DateRange {
+  from: string
+  to: string
+}
 
-/** สรุปหลายวันบน Dashboard (7 / 30 วันล่าสุด รวมวันนี้) */
+/** สรุปช่วงวันที่บน Dashboard (7 / 30 วันล่าสุด หรือช่วงที่เลือกเอง) */
 export interface PeriodData {
-  days: DashboardPeriodDays
+  /** จำนวนวันในช่วง (รวมวันแรกและวันสุดท้าย) */
+  days: number
   /** วันแรก / วันสุดท้ายของช่วง (YYYY-MM-DD ตามเวลาเครื่อง) */
   from: string
   to: string
