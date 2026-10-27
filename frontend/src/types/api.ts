@@ -154,7 +154,8 @@ export interface ApiTableSession extends ApiTakeawayFields {
   /** backend คำนวณยอดรวมของ session มาให้แล้ว ไม่ต้องบวกเองฝั่ง frontend */
   total?: number
   billingStatus?: string
-  checkoutRequest?: ApiServiceRequest | null
+  /** /public/sessions ส่งมาแค่ id, paymentMethod, createdAt ของคำขอที่ยังรอ */
+  checkoutRequest?: Pick<ApiServiceRequest, 'id' | 'paymentMethod' | 'createdAt'> | null
   /** หารเท่ากันที่ยังจ่ายไม่ครบ (null = ไม่ได้หาร) */
   split?: ApiSessionSplit | null
 }

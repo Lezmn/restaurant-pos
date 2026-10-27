@@ -84,5 +84,10 @@ export function useCallStaff() {
 }
 
 export function useRequestCheckout() {
-  return useMutation({ mutationFn: requestCheckout })
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: requestCheckout,
+    // session บอกว่าแจ้งไปแล้ว — ปุ่มล็อกต่อแม้รีเฟรชหน้า
+    onSuccess: (_data, vars) => qc.invalidateQueries({ queryKey: publicKeys.session(vars.token) }),
+  })
 }

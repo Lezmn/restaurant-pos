@@ -1,5 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { OrderStatus, Prisma } from '@prisma/client';
+import {
+  OrderStatus,
+  Prisma,
+  ServiceRequestStatus,
+  ServiceRequestType,
+} from '@prisma/client';
 import { OrdersService } from '../orders/orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ServiceRequestsService } from '../service-requests/service-requests.service';
@@ -56,6 +61,16 @@ export class PublicService {
 
   async getSession(token: string) {
     const session = await this.getOpenSession(token);
+    // แจ้งขอชำระเงินที่ยังรอพนักงานอยู่ — หน้าลูกค้าใช้ล็อกปุ่มไม่ให้กดซ้ำ แม้รีเฟรชหน้า
+    const checkoutRequest = await this.prisma.serviceRequest.findFirst({
+      where: {
+        tableSessionId: session.id,
+        type: ServiceRequestType.CHECKOUT,
+        status: ServiceRequestStatus.PENDING,
+      },
+      select: { id: true, paymentMethod: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
 
     return {
       id: session.id,
@@ -68,6 +83,7 @@ export class PublicService {
         number: session.table.number,
         seats: session.table.seats,
       },
+      checkoutRequest,
     };
   }
 

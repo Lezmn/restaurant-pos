@@ -52,6 +52,7 @@ const openSession = (
   takeawayNo: null,
   customerName: null,
   split: null,
+  checkoutRequested: false,
 })
 
 function renderAt(token: string) {

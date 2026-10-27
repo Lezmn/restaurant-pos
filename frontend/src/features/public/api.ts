@@ -28,9 +28,13 @@ export async function getPublicCategories() {
   }))
 }
 
-export async function getSessionByToken(token: string): Promise<TableSession> {
+/** session ฝั่งลูกค้า — checkoutRequested = แจ้งชำระเงินแล้ว พนักงานยังไม่ได้รับเรื่อง */
+export type PublicSession = TableSession & { checkoutRequested: boolean }
+
+export async function getSessionByToken(token: string): Promise<PublicSession> {
   const data = await apiClient<ApiTableSession>(`/public/sessions/${token}`)
   return {
+    checkoutRequested: Boolean(data.checkoutRequest),
     id: data.id,
     tableId: data.tableId ?? data.table?.id ?? '',
     tableName: data.table ? String(data.table.number) : '-',
@@ -86,9 +90,10 @@ export async function callStaff(vars: { token: string }): Promise<void> {
   })
 }
 
+/** แจ้งพนักงานว่าโต๊ะนี้ต้องการชำระเงิน — ไม่ส่ง method = ให้พนักงานถามวิธีจ่ายที่เคาน์เตอร์ */
 export async function requestCheckout(vars: {
   token: string
-  method: PaymentMethod
+  method?: PaymentMethod
 }): Promise<void> {
   await apiClient<unknown>('/public/checkout', {
     method: 'POST',
