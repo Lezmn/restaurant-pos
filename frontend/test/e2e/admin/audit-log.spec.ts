@@ -64,7 +64,8 @@ test('ลด 10% → ยกเลิกบิล → หน้าประวั
   // เจ้าของเปิดดูประวัติ
   await loginAsAdmin(page, request)
   await page.goto('/owner/audit')
-  const list = page.getByRole('listitem')
+  // กรองด้วยเลขโต๊ะของรอบนี้ — DB ที่รันเทสต์ซ้ำมีรายการ "ลด 10%" ของรอบก่อน ๆ ปนอยู่
+  const list = page.getByRole('listitem').filter({ hasText: `โต๊ะ ${tableName}` })
   await expect(list.filter({ hasText: 'ลดราคา' }).filter({ hasText: 'ลด 10%' })).toBeVisible()
   await expect(list.filter({ hasText: 'ยกเลิกบิล' }).filter({ hasText: 'ทดสอบยกเลิก' })).toBeVisible()
   // โชว์แค่ชื่อบัญชี ไม่มีชื่อเครื่อง

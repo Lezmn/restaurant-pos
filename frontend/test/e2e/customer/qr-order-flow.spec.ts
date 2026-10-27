@@ -1,5 +1,5 @@
 import { test, expect, devices, type Browser } from '@playwright/test'
-import { API_URL, loginAsCashier, loginAsKitchen, loginViaApi } from '../helpers'
+import { API_URL, chooseOption, loginAsCashier, loginAsKitchen, loginViaApi } from '../helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data (DB ทดสอบเท่านั้น — เทสต์นี้สร้างโต๊ะ/ออเดอร์จริง)
 // flow ลูกค้าสแกน QR บนมือถือ: เมนู → เลือกตัวเลือก → ตะกร้า → ส่งเข้าครัว → สถานะ → เรียกพนักงาน → ขอบิล
@@ -48,10 +48,10 @@ test('ลูกค้าสั่งผ่าน QR บนมือถือ แ
   // เมนูที่มีตัวเลือก: ต้องเลือกเนื้อสัตว์ก่อนถึงจะเพิ่มได้
   await customer.getByRole('link', { name: /^ข้าวผัด ข้าวผัด/ }).click()
   await expect(customer.getByRole('button', { name: /กรุณาเลือกเนื้อสัตว์/ })).toBeDisabled()
-  await customer.getByRole('radio', { name: /กุ้ง/ }).check()
-  await customer.getByRole('checkbox', { name: /ไข่ดาว/ }).check()
+  await chooseOption(customer, 'radio', /กุ้ง/)
+  await chooseOption(customer, 'checkbox', /ไข่ดาว/)
   await customer.getByRole('button', { name: 'เพิ่มจำนวน' }).click()
-  await customer.getByPlaceholder(/ไม่เผ็ด/).fill('ไม่ใส่ผัก')
+  await customer.getByPlaceholder(/พิมพ์เพิ่มเองได้/).fill('ไม่ใส่ผัก')
   // (50 + 20 + 10) × 2 = 160
   await customer.getByRole('button', { name: /เพิ่มรายการ\s*฿160/ }).click()
 
@@ -124,6 +124,18 @@ test('เรียกพนักงาน/ขอบิลจากมือถ�
   }).toPass({ timeout: 20_000 })
   await alert.getByRole('button', { name: 'รับทราบ' }).click()
   await expect(alert).toHaveCount(0)
+
+  // ลูกค้ามักขอบิลหลังได้ของครบ — ครัวเสิร์ฟน้ำก่อนผ่าน API
+  // (ถ้ายังมีของค้างเสิร์ฟ หน้า Check ให้ "รอเสิร์ฟ" มาก่อน การ์ดจะไม่ขึ้น "ขอเช็คบิล")
+  const kitchen = await loginViaApi(request, 'kitchen', SEED_PASSWORD)
+  const [waterOrder] = await (await request.get(`${API_URL}/public/sessions/${token}/orders`)).json()
+  for (const status of ['PREPARING', 'SERVED']) {
+    const res = await request.patch(`${API_URL}/orders/${waterOrder.id}/status`, {
+      headers: { Authorization: `Bearer ${kitchen.accessToken}` },
+      data: { status },
+    })
+    expect(res.ok()).toBe(true)
+  }
 
   // ลูกค้ากด "แจ้งชำระเงิน" + ยืนยัน → การ์ดโต๊ะที่หน้า Check ขึ้นว่าขอเช็คบิล · ปุ่มหายไป กดซ้ำไม่ได้
   await customer.getByRole('link', { name: 'เช็คบิลอาหาร' }).click()

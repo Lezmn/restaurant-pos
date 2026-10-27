@@ -208,7 +208,7 @@ describe('MenuOptionsEditor — ตัวเลือกของเมนู (�
     expect(within(row).getByRole('button', { name: '+ เพิ่ม' })).toBeDisabled()
 
     const choices = within(within(row).getByLabelText('วัตถุดิบที่ใช้')).getAllByRole('option').map((o) => o.textContent)
-    expect(choices).toEqual(['เลือกวัตถุดิบ', 'ไก่', 'ไข่', 'กุ้ง (ตอนนี้ของหมด)'])
+    expect(choices).toEqual(['เลือกวัตถุดิบ *', 'ไก่', 'ไข่', 'กุ้ง (ตอนนี้ของหมด)'])
 
     await user.selectOptions(within(row).getByLabelText('วัตถุดิบที่ใช้'), 'chicken')
     await user.click(within(row).getByRole('button', { name: '+ เพิ่ม' }))

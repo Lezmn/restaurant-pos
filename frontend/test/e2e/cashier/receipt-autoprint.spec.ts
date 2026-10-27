@@ -8,6 +8,9 @@ import {
   paidBillsTable,
 } from '../helpers'
 
+// ไล่ออเดอร์ผ่านจอครัว (มีรอเลิกทำ 5 วิ) แล้วรับเงินต่อ — รันพร้อมกันหลาย worker เกิน 30 วิได้
+test.describe.configure({ timeout: 60_000 })
+
 // พิมพ์ใบเสร็จทันทีหลังรับเงิน (ค่าของเครื่องนี้ใน localStorage) — docs/PRINTING.md
 // แทน window.print ด้วยตัวนับ (กล่องพิมพ์จริงของเบราว์เซอร์ทดสอบไม่ได้) ก่อนหน้าเว็บโหลด
 
@@ -27,8 +30,8 @@ const prints = (page: Page) => page.evaluate(() => (window as unknown as { __pri
 /** เปิดโต๊ะ + สั่ง + เสิร์ฟ แล้วสลับเป็นแคชเชียร์มารับเงินสดเต็มยอด → คืนชื่อโต๊ะ */
 async function payOneTable(page: Page, request: Parameters<typeof loginAsAdmin>[1]) {
   await loginAsAdmin(page, request)
-  const { tableCardText, orderRef } = await openTableAndPlaceOrder(page, FRIED_RICE)
-  await advanceOrderToServed(page, orderRef)
+  const { tableCardText, orderId } = await openTableAndPlaceOrder(page, FRIED_RICE)
+  await advanceOrderToServed(page, orderId)
   await loginAsCashier(page, request)
   return tableCardText.replace(/^โต๊ะ\s*/, '')
 }

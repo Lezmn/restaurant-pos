@@ -8,6 +8,9 @@ import {
   paidBillsTable,
 } from '../helpers'
 
+// ไล่ออเดอร์ผ่านจอครัว (มีรอเลิกทำ 5 วิ) แล้วรับเงินต่อ — รันพร้อมกันหลาย worker เกิน 30 วิได้
+test.describe.configure({ timeout: 60_000 })
+
 // ⚠️ ต้องรัน backend จริง + seed data ที่ localhost:3000
 // setup ด้วย admin: เปิดโต๊ะ + สั่งอาหาร + ไล่สถานะถึง "เสิร์ฟแล้ว" ก่อน (backend ไม่ให้เก็บเงิน
 // ถ้าออเดอร์ยังไม่ถูกเสิร์ฟ ดู CheckPage.tsx: state 'serving' ไม่มีปุ่มรับเงิน)
@@ -22,8 +25,8 @@ test('cashier เก็บเงินสดสำเร็จ เห็นใ�
   request,
 }) => {
   await loginAsAdmin(page, request)
-  const { tableCardText, orderRef } = await openTableAndPlaceOrder(page, FRIED_RICE)
-  await advanceOrderToServed(page, orderRef)
+  const { tableCardText, orderId } = await openTableAndPlaceOrder(page, FRIED_RICE)
+  await advanceOrderToServed(page, orderId)
 
   await loginAsCashier(page, request)
   await page.goto('/employee/check')
@@ -66,8 +69,8 @@ test('cashier เก็บเงินผ่าน PromptPay (สแกน) ส�
   request,
 }) => {
   await loginAsAdmin(page, request)
-  const { tableCardText, orderRef } = await openTableAndPlaceOrder(page, FRIED_RICE)
-  await advanceOrderToServed(page, orderRef)
+  const { tableCardText, orderId } = await openTableAndPlaceOrder(page, FRIED_RICE)
+  await advanceOrderToServed(page, orderId)
 
   await loginAsCashier(page, request)
   await page.goto('/employee/check')

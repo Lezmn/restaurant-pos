@@ -89,7 +89,7 @@ export async function loginAsKitchen(page: Page, request: APIRequestContext) {
 export async function openTableAndPlaceOrder(
   page: Page,
   menuItemPattern: string | RegExp,
-): Promise<{ tableCardText: string; orderRef: string }> {
+): Promise<{ tableCardText: string; orderRef: string; orderId: string }> {
   await page.goto('/employee/tables')
 
   // หลาย worker สุ่มโต๊ะว่างพร้อมกันอาจได้ตัวเดียวกัน ("มี QR session ที่เปิดอยู่แล้ว") — สุ่มใหม่ได้ 3 รอบ
@@ -136,7 +136,7 @@ export async function openTableAndPlaceOrder(
 
   await expect(orderDialog).not.toBeVisible()
 
-  return { tableCardText, orderRef }
+  return { tableCardText, orderRef, orderId: created.id }
 }
 
 /**
@@ -152,32 +152,25 @@ export async function pickFreeTable(page: Page) {
 }
 
 /**
- * ไล่สถานะออเดอร์จาก "รอคิว" ไปจนถึง "เสิร์ฟแล้ว" (SERVED) ที่หน้า Order
- * ต้อง login เป็น ADMIN หรือ KITCHEN เท่านั้น (pageRoles.order) ถึงจะเข้าหน้านี้ได้
+ * ไล่สถานะออเดอร์จาก "รอคิว" ไปจนถึง "เสิร์ฟแล้ว" (SERVED) — orderId มาจาก openTableAndPlaceOrder
+ * page ต้อง login เป็น ADMIN หรือ KITCHEN อยู่ (สิทธิ์เปลี่ยนสถานะออเดอร์)
  *
  * จำเป็นสำหรับเทสที่เกี่ยวกับการเก็บเงิน เพราะ backend/CheckPage.tsx ไม่ให้กดเก็บเงิน
  * จนกว่าออเดอร์ทุกใบในโต๊ะจะถูกเสิร์ฟก่อน (ดู CheckPage.tsx: notServed.length > 0 = blocked)
  */
-export async function advanceOrderToServed(page: Page, orderRef: string) {
-  await page.goto('/employee/order')
-
-  const cardText = `#${orderRef}`
-  const column = (name: string) => page.getByRole('region', { name, exact: true })
-  const queueColumn = column('รอคิว')
-  const cookingColumn = column('กำลังปรุง')
-
-  await queueColumn
-    .locator('article', { hasText: cardText })
-    .getByRole('button', { name: 'เริ่มปรุง' })
-    .click()
-
-  const inCooking = cookingColumn.locator('article', { hasText: cardText })
-  await expect(inCooking).toBeVisible()
-  await inCooking.getByRole('button', { name: 'ทำเสร็จแล้ว' }).click()
-  // "ทำเสร็จแล้ว" รอ 5 วิให้กดยกเลิกได้ก่อนส่ง SERVED จริง — ปุ่ม "เสิร์ฟแล้ว · เอาออก" ขึ้นเมื่อบันทึกแล้ว
-  await expect(
-    column('เสร็จแล้ว').locator('article', { hasText: cardText }).getByRole('button', { name: 'เสิร์ฟแล้ว · เอาออก' }),
-  ).toBeVisible({ timeout: 15_000 })
+export async function advanceOrderToServed(page: Page, orderId: string) {
+  // ไล่สถานะผ่าน API ด้วย token ของคนที่ login อยู่ (ADMIN) — helper นี้แค่เตรียมสถานะให้เทสต์หน้าแคชเชียร์
+  // เดิมกดผ่านจอครัว: ตั๋วสะสมเยอะ + ป๊อปอัป "เรียกพนักงาน" จากเทสต์อื่นที่รันพร้อมกัน ทำให้หมดเวลาเป็นพัก ๆ
+  // ขั้นตอนบนจอครัวจริงเทสต์แยกที่ test/e2e/kitchen/kitchen-flow.spec.ts
+  const token = await page.evaluate(() => localStorage.getItem('restaurant.token'))
+  expect(token, 'ต้อง login (ADMIN/KITCHEN) ก่อนเรียก advanceOrderToServed').toBeTruthy()
+  for (const status of ['PREPARING', 'SERVED']) {
+    const res = await page.request.patch(`${API_URL}/orders/${orderId}/status`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: { status },
+    })
+    expect(res.ok(), `เปลี่ยนสถานะออเดอร์เป็น ${status} ไม่สำเร็จ (${res.status()})`).toBe(true)
+  }
 }
 
 /**
@@ -198,6 +191,17 @@ export function tablesPageCard(page: Page, tableCardText: string) {
   return page
     .locator('article')
     .filter({ has: page.locator('p.text-xl').getByText(tableCardText, { exact: true }) })
+}
+
+/**
+ * เลือกตัวเลือกเมนูในหน้าลูกค้า (เนื้อสัตว์ = radio, เพิ่มเติม = checkbox)
+ * input จริงซ่อนไว้ (sr-only) แล้ววาดปุ่มเองทับ — .check() จะกดไม่โดนเพราะมีของบังอยู่
+ * จึงกดที่แถว <label> แบบที่ลูกค้ากดจริง แล้วเช็กว่าถูกเลือกแล้ว
+ */
+export async function chooseOption(page: Page, role: 'radio' | 'checkbox', name: string | RegExp) {
+  const input = page.getByRole(role, { name })
+  await page.locator('label').filter({ has: input }).click()
+  await expect(input).toBeChecked()
 }
 
 /** ตาราง "บิลที่เก็บแล้ววันนี้" ในหน้า Check (section มี aria-labelledby จึงเป็น region) */

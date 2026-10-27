@@ -135,7 +135,7 @@ const tile = (tableName: string) =>
 const tileHeadings = () =>
   screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
 
-/** โต๊ะ 1 ยอด 120 เสิร์ฟครบ พร้อมรับเงิน (ลูกค้าเลือกวิธีจ่ายไว้หรือยังก็ได้) */
+/** โต๊ะ 1 ยอด 120 เสิร์ฟครบ พร้อมรับเงิน (ส่ง method มา = ลูกค้ากดเช็คบิลแล้ว) */
 const readyTable = (method: string | null = null) => ({
   sessions: [session('s1', '1', 120)],
   orders: [order('s1', OrderStatus.SERVED)],
@@ -146,6 +146,13 @@ async function openPayment(user: ReturnType<typeof userEvent.setup>, opts: Param
   setup(opts)
   await user.click(screen.getByRole('button', { name: /^รับเงิน โต๊ะ 1/ }))
   return screen.getByRole('dialog', { name: 'รับเงิน โต๊ะ 1' })
+}
+
+/** ลูกค้าไม่ได้เลือกวิธีจ่ายแล้ว — กล่องเริ่มที่เงินสดเสมอ แคชเชียร์กดเปลี่ยนเป็น PromptPay เอง */
+async function openPromptPay(user: ReturnType<typeof userEvent.setup>, opts: Parameters<typeof setup>[0] = readyTable()) {
+  const dialog = await openPayment(user, opts)
+  await user.click(within(dialog).getByRole('button', { name: 'PromptPay' }))
+  return dialog
 }
 
 describe('CheckPage — การ์ดโต๊ะ', () => {
@@ -174,14 +181,14 @@ describe('CheckPage — การ์ดโต๊ะ', () => {
       requests: [checkout('a', PaymentMethod.PROMPTPAY)],
     })
 
-    // ขอเช็คบิล: ลูกค้าเลือกวิธีจ่ายแล้ว รับเงินได้
+    // ขอเช็คบิล: รับเงินได้ — ลูกค้าไม่ได้เลือกวิธีจ่ายแล้ว การ์ดจึงไม่บอกวิธีจ่าย
     expect(tile('1')).toHaveTextContent('ขอเช็คบิล')
-    expect(tile('1')).toHaveTextContent('ลูกค้าเลือกPromptPay')
+    expect(tile('1')).not.toHaveTextContent('ลูกค้าเลือก')
     expect(within(tile('1')).getByRole('button', { name: 'รับเงิน โต๊ะ 1 ฿100' })).toBeEnabled()
 
-    // เสิร์ฟครบแต่ลูกค้ายังไม่กดเช็คบิล
+    // เสิร์ฟครบแต่ลูกค้ายังไม่กดเช็คบิล — ก็รับเงินได้
     expect(tile('2')).toHaveTextContent('เสิร์ฟครบแล้ว')
-    expect(tile('2')).toHaveTextContent('ยังไม่เลือกวิธีจ่าย')
+    expect(tile('2')).not.toHaveTextContent('ยังไม่เลือกวิธีจ่าย')
     expect(within(tile('2')).getByRole('button', { name: /^รับเงิน/ })).toBeInTheDocument()
 
     // ยังเสิร์ฟไม่ครบ — ไม่มีปุ่มรับเงิน (backend ไม่ยอมอยู่แล้ว)
@@ -222,15 +229,17 @@ describe('CheckPage — การ์ดโต๊ะ', () => {
     expect(tileHeadings()).toEqual(['โต๊ะ 30', 'โต๊ะ 9', 'โต๊ะ 10', 'โต๊ะ 2', 'โต๊ะ 1'])
   })
 
-  // ทดสอบ: คำขอเช็คบิลเก่าที่เลือกจ่ายบัตร (ร้านเลิกรับแล้ว) ต้องนับว่ายังไม่เลือก และกล่องรับเงินเริ่มที่เงินสด
-  // วิธี: mock โต๊ะที่ขอเช็คบิลด้วย CARD → เปิดกล่องรับเงิน → เช็กป้าย "ยังไม่เลือกวิธีจ่าย" ปุ่มเงินสดถูกเลือก และไม่มีคำว่า "ลูกค้าเลือก"
-  it('คำขอเช็คบิลเก่าที่เลือก CARD (ร้านเลิกรับแล้ว) → ถือว่ายังไม่เลือก และกล่องรับเงินเริ่มที่เงินสด', async () => {
-    const user = userEvent.setup()
-    const dialog = await openPayment(user, readyTable('CARD'))
-    expect(tile('1')).toHaveTextContent('ยังไม่เลือกวิธีจ่าย')
-    expect(within(dialog).getByRole('button', { name: 'เงินสด' })).toHaveAttribute('aria-pressed', 'true')
-    expect(dialog).not.toHaveTextContent('ลูกค้าเลือก')
-  })
+  // ทดสอบ: คำขอเช็คบิลเก่าที่ยังมีวิธีจ่ายติดมา (ก่อนเลิกให้ลูกค้าเลือก) ต้องไม่มีผล กล่องรับเงินเริ่มที่เงินสดเสมอ
+  // วิธี: mock คำขอเช็คบิลที่มี paymentMethod เป็น PROMPTPAY และ CARD → เปิดกล่องรับเงิน → เช็กว่าปุ่มเงินสดถูกเลือก และไม่มีคำว่า "ลูกค้าเลือก"
+  it.each([PaymentMethod.PROMPTPAY, 'CARD'])(
+    'คำขอเช็คบิลเก่าที่มีวิธีจ่าย %s ติดมา → กล่องรับเงินเริ่มที่เงินสดเสมอ',
+    async (method) => {
+      const user = userEvent.setup()
+      const dialog = await openPayment(user, readyTable(method))
+      expect(within(dialog).getByRole('button', { name: 'เงินสด' })).toHaveAttribute('aria-pressed', 'true')
+      expect(dialog).not.toHaveTextContent('ลูกค้าเลือก')
+    },
+  )
 
   // ทดสอบ: กดปิดโต๊ะแล้ว popup บอกเหตุผลตามสถานะโต๊ะ, กดย้อนกลับต้องปิด popup และล้าง error, กดยืนยันต้องส่ง id ของบิลโต๊ะ
   // วิธี: mock โต๊ะจ่ายครบและโต๊ะที่ยังไม่สั่ง → กดปิดโต๊ะ 5 เช็กข้อความ แล้วกดย้อนกลับ เช็กว่า reset ถูกเรียก → กดปิดโต๊ะ 4 แล้วยืนยัน → เช็กว่า closeSession.mutate ได้ 'paid'
@@ -352,13 +361,15 @@ describe('CheckPage — หัวหน้า, ค้นหา, หน้าว�
 describe('CheckPage — กล่องรับเงิน', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  // ทดสอบ: ลูกค้าเลือก PromptPay ไว้ กล่องรับเงินต้องเริ่มที่ PromptPay บอกว่าลูกค้าเลือก และเปลี่ยนเป็นเงินสดได้
-  // วิธี: เปิดกล่องรับเงินของโต๊ะที่ขอจ่าย PromptPay → เช็กข้อความและปุ่มที่ถูกเลือก → กดเงินสด → เช็กว่า QR หาย และเห็นช่อง "รับเงินมา"
-  it('ลูกค้าเลือก PromptPay ไว้ → กล่องเริ่มที่ PromptPay บอกว่าลูกค้าเลือก และเปลี่ยนเป็นเงินสดได้', async () => {
+  // ทดสอบ: กล่องรับเงินเริ่มที่เงินสด แคชเชียร์สลับเป็น PromptPay (เห็น QR) และกลับเป็นเงินสดได้
+  // วิธี: เปิดกล่อง → เช็กเงินสดถูกเลือก → กด PromptPay เช็ก QR → กดเงินสด → เช็กว่า QR หาย และเห็นช่อง "รับเงินมา"
+  it('กล่องรับเงินเริ่มที่เงินสด สลับเป็น PromptPay แล้วกลับเป็นเงินสดได้', async () => {
     const user = userEvent.setup()
-    const dialog = await openPayment(user, readyTable(PaymentMethod.PROMPTPAY))
-    expect(dialog).toHaveTextContent('ลูกค้าเลือกPromptPayไว้ เปลี่ยนได้ถ้าจ่ายจริงต่างจากนี้')
+    const dialog = await openPayment(user, readyTable(PaymentMethod.CASH))
+    expect(within(dialog).getByRole('button', { name: 'เงินสด' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(within(dialog).getByRole('button', { name: 'PromptPay' }))
     expect(within(dialog).getByRole('button', { name: 'PromptPay' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(dialog).getByText('ให้ลูกค้าสแกนเพื่อจ่าย')).toBeInTheDocument()
 
     await user.click(within(dialog).getByRole('button', { name: 'เงินสด' }))
     expect(within(dialog).getByRole('button', { name: 'เงินสด' })).toHaveAttribute('aria-pressed', 'true')
@@ -495,7 +506,7 @@ describe('CheckPage — กล่องรับเงิน', () => {
   // วิธี: ล็อก config เป็นโหมดเดโมไว้ด้านบนไฟล์ → เปิดกล่อง PromptPay เช็ก QR (svg) และป้ายเดโม → ปุ่มกดไม่ได้ → พิมพ์สลิปแล้ว Enter เช็กว่ายังไม่ส่ง และขึ้น "อ่าน QR ได้แล้ว" → กดบันทึก เช็กว่าส่ง slipPayload ที่ตัดช่องว่างแล้ว
   it('PromptPay: QR พร้อมยอด + คำเตือนโหมดเดโม · ต้องสแกนสลิปก่อน · Enter จากเครื่องสแกนไม่ submit', async () => {
     const user = userEvent.setup()
-    const dialog = await openPayment(user, readyTable(PaymentMethod.PROMPTPAY))
+    const dialog = await openPromptPay(user)
     expect(within(dialog).getByText('ให้ลูกค้าสแกนเพื่อจ่าย')).toBeInTheDocument()
     expect(dialog.querySelector('svg')).not.toBeNull()
     expect(dialog).toHaveTextContent('โหมดเดโม')
@@ -518,7 +529,7 @@ describe('CheckPage — กล่องรับเงิน', () => {
   // วิธี: เปิดกล่อง PromptPay พิมพ์สลิป → กดล้าง → เช็กว่าช่องว่าง และปุ่มรับเงินกดไม่ได้
   it('PromptPay: ปุ่ม "ล้าง" ลบสลิปที่สแกนไว้ แล้วบันทึกไม่ได้อีก', async () => {
     const user = userEvent.setup()
-    const dialog = await openPayment(user, readyTable(PaymentMethod.PROMPTPAY))
+    const dialog = await openPromptPay(user)
     await user.type(within(dialog).getByPlaceholderText(/ยิงเครื่องสแกน/), 'SLIP')
     await user.click(within(dialog).getByRole('button', { name: 'ล้าง' }))
     expect(within(dialog).getByPlaceholderText(/ยิงเครื่องสแกน/)).toHaveValue('')
@@ -529,7 +540,7 @@ describe('CheckPage — กล่องรับเงิน', () => {
   // วิธี: เปิดกล่อง PromptPay เป็น STAFF → เช็กว่าไม่มี checkbox ยืนยันเอง
   it('STAFF ไม่มีตัวเลือกยืนยันรับเงินเองโดยไม่มีสลิป', async () => {
     const user = userEvent.setup()
-    const dialog = await openPayment(user, { ...readyTable(PaymentMethod.PROMPTPAY), role: Role.STAFF })
+    const dialog = await openPromptPay(user, { ...readyTable(), role: Role.STAFF })
     expect(within(dialog).queryByRole('checkbox', { name: /ยืนยันรับเงินเอง/ })).not.toBeInTheDocument()
   })
 
@@ -537,7 +548,7 @@ describe('CheckPage — กล่องรับเงิน', () => {
   // วิธี: เปิดกล่อง PromptPay เป็น ADMIN → ติ๊กยืนยันเอง เช็กว่าช่องสแกนถูกปิด และปุ่มกดไม่ได้ → ใส่เหตุผลแล้วกด → เช็กว่า payload มี slipOverrideReason (ตัดช่องว่างแล้ว) และไม่มี slipPayload
   it('ADMIN ไม่มีสลิป → ติ๊กยืนยันเอง ต้องใส่เหตุผล แล้วส่งเหตุผลแทนสลิป', async () => {
     const user = userEvent.setup()
-    const dialog = await openPayment(user, { ...readyTable(PaymentMethod.PROMPTPAY), role: Role.ADMIN })
+    const dialog = await openPromptPay(user, { ...readyTable(), role: Role.ADMIN })
     await user.click(within(dialog).getByRole('checkbox', { name: /ยืนยันรับเงินเอง \(ADMIN\)/ }))
     expect(within(dialog).getByPlaceholderText(/ยิงเครื่องสแกน/)).toBeDisabled()
 
@@ -568,5 +579,47 @@ describe('CheckPage — กล่องรับเงิน', () => {
     expect(screen.queryByRole('dialog', { name: 'รับเงิน โต๊ะ 1' })).not.toBeInTheDocument()
     expect(createPayment.reset).toHaveBeenCalled()
     expect(createPayment.mutate).not.toHaveBeenCalled()
+  })
+})
+
+describe('CheckPage — บิลที่หารค้างไว้ (ก่อนเลิกฟีเจอร์แยกบิล)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const splitTable = () => ({
+    sessions: [
+      {
+        ...session('s1', '1', 300),
+        split: {
+          id: 'sp1',
+          parts: 3,
+          paidParts: 1,
+          subtotal: 300,
+          discountPercent: null,
+          discount: 0,
+          total: 300,
+          paidAmount: 100,
+          remaining: 200,
+          nextAmount: 100,
+        },
+      },
+    ],
+    orders: [order('s1', OrderStatus.SERVED)],
+    requests: [],
+  })
+
+  // ทดสอบ: โต๊ะที่หารจ่ายค้างไว้ก่อนเลิกฟีเจอร์ ยังรับเงินคนถัดไปได้ (ไม่งั้นโต๊ะนั้นเก็บเงินไม่ได้) และให้ส่วนลดเพิ่มไม่ได้
+  // วิธี: mock session ที่ split 3 คน จ่ายแล้ว 1 → เปิดกล่องรับเงิน → เช็ก "คนที่ 2 จาก 3", ยอดทั้งบิล/ค้าง, ไม่มีปุ่มให้ส่วนลด → กดรับเงิน ฿100 → เช็ก expectedTotal และ splitParts
+  it('รับเงินคนถัดไปของบิลที่หารค้าง: บอกคนที่เท่าไร ยอดค้าง และส่ง splitParts เดิม', async () => {
+    const user = userEvent.setup()
+    const dialog = await openPayment(user, splitTable())
+    expect(dialog).toHaveTextContent('คนที่ 2 จาก 3')
+    expect(dialog).toHaveTextContent('ทั้งบิล ฿300 · ค้าง ฿200')
+    expect(within(dialog).queryByRole('button', { name: 'ให้ส่วนลด' })).not.toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: 'รับเงิน ฿100' }))
+    expect(createPayment.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedTotal: 300, splitParts: 3, discountPercent: undefined }),
+      expect.anything(),
+    )
   })
 })

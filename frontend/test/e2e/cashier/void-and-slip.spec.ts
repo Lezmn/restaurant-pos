@@ -92,7 +92,8 @@ test('ADMIN รับ PromptPay โดยไม่มีสลิป: ติ๊�
   const receiptNo = (await receipt.getByText(/^RCPT-/).innerText()).trim()
   await receipt.getByRole('button', { name: 'ปิด' }).click()
 
-  await expect(checkTableTile(page, tableName)).toHaveCount(0)
+  // การ์ดหายเมื่อรายการโต๊ะโหลดใหม่ — DB ที่มีโต๊ะเปิดค้างเยอะ + รันหลาย worker โหลดช้ากว่า 5 วิได้
+  await expect(checkTableTile(page, tableName)).toHaveCount(0, { timeout: 15_000 })
   await expect(billRow(page, receiptNo)).toContainText('ยืนยันเอง')
 })
 

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { checkTableTile, loginAsCashier, pickFreeTable, tablesPageCard } from '../helpers'
+import { checkTableTile, chooseOption, loginAsCashier, pickFreeTable, tablesPageCard } from '../helpers'
 
 // เขียนจากการกระทำจริงที่ record ไว้ด้วย `npx playwright codegen --channel=chrome`:
 // cashier เปิดโต๊ะ -> เอาลิงก์ QR ไปให้ "ลูกค้า" (จำลองด้วยแท็บใหม่) -> ลูกค้าสั่งข้าวผัด (หมู)
@@ -47,7 +47,7 @@ test('cashier เปิดโต๊ะ ลูกค้าสั่งอาห�
   // ตั้งใจ match ชื่อซ้ำ 2 รอบ ("ข้าวผัด ข้าวผัด ฿...") เพราะ card เป็น <Link> เดียวที่รวม
   // alt รูป + ชื่อเมนู + ราคาไว้ในชื่อที่เข้าถึงได้ตัวเดียว — กันชนกับ "ข้าวผัดกะเพรา" ที่มีอยู่ใน seed ด้วย
   await customerPage.getByRole('link', { name: /^ข้าวผัด ข้าวผัด/ }).click()
-  await customerPage.getByRole('radio', { name: 'หมู' }).check()
+  await chooseOption(customerPage, 'radio', 'หมู')
   await customerPage.getByRole('button', { name: /^เพิ่มรายการ/ }).click()
   await customerPage.getByRole('button', { name: '➤ ส่งรายการเข้าครัว' }).click()
 

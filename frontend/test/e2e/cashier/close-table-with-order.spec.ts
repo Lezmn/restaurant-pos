@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAsAdmin, loginAsCashier, openTableAndPlaceOrder, pickFreeTable, tablesPageCard } from '../helpers'
+import { chooseOption, loginAsAdmin, loginAsCashier, openTableAndPlaceOrder, pickFreeTable, tablesPageCard } from '../helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data ที่ localhost:3000
 // ทดสอบ business rule ฝั่ง backend: ปิดโต๊ะไม่ได้ถ้ายังมีออเดอร์ที่ไม่ใช่ PAID/CANCELLED ค้างอยู่
@@ -33,7 +33,7 @@ test('ปิดโต๊ะที่มีลูกค้าสั่งอา�
   const customerPage = await context.newPage()
   await customerPage.goto(customerUrl)
   await customerPage.getByRole('link', { name: /^ข้าวผัด ข้าวผัด/ }).click()
-  await customerPage.getByRole('radio', { name: 'หมู' }).check()
+  await chooseOption(customerPage, 'radio', 'หมู')
   await customerPage.getByRole('button', { name: /^เพิ่มรายการ/ }).click()
   await customerPage.getByRole('button', { name: '➤ ส่งรายการเข้าครัว' }).click()
   await expect(

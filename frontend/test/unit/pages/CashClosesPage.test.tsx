@@ -1,12 +1,22 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useCashCloses, useDeleteCashClose } from '@/features/cash-closes/hooks'
-import type { ApiCashClose } from '@/types/api'
+import {
+  useCashClosePreview,
+  useCashCloses,
+  useCreateCashClose,
+  useDeleteCashClose,
+} from '@/features/cash-closes/hooks'
+import type { ApiCashClose, ApiCashClosePreview } from '@/types/api'
 import { CashClosesPage } from '@/pages/owner/CashClosesPage'
 
 // ข้อมูลมาจาก hook ทั้งหมด — mock ที่ hook ตรง ๆ คุมได้ทั้งรายการ สถานะโหลด และผลของการลบ
-vi.mock('@/features/cash-closes/hooks', () => ({ useCashCloses: vi.fn(), useDeleteCashClose: vi.fn() }))
+vi.mock('@/features/cash-closes/hooks', () => ({
+  useCashCloses: vi.fn(),
+  useDeleteCashClose: vi.fn(),
+  useCashClosePreview: vi.fn(),
+  useCreateCashClose: vi.fn(),
+}))
 
 // jsdom ยังไม่มี showModal ของ <dialog>
 beforeAll(() => {
@@ -41,14 +51,38 @@ const month = [
   close('c3', '2026-10-23', 25.5, { drawerExpenses: 0 }),
 ]
 
+/** ยอดวันนี้ที่ยังไม่ปิด — ปุ่ม "ปิดยอดวันนี้" ใช้ค่านี้ */
+const todayPreview = (overrides: Partial<ApiCashClosePreview> = {}): ApiCashClosePreview => ({
+  date: '2026-10-24',
+  cashSales: 1250.5,
+  promptpaySales: 830,
+  drawerExpenses: 85.25,
+  paymentCount: 9,
+  drawerExpenseItems: [],
+  unpaidTableCount: 0,
+  suggestedOpeningFloat: 1000,
+  alreadyClosed: null,
+  ...overrides,
+})
+
 type Mutation = { mutate: ReturnType<typeof vi.fn>; reset: ReturnType<typeof vi.fn>; isPending: boolean; error: unknown }
 let deleteCashClose: Mutation
+let createCashClose: Mutation
+let refetchPreview: ReturnType<typeof vi.fn>
 
 function setup(
   /** null = ยังโหลดไม่เสร็จ */
   data: ApiCashClose[] | null = month,
-  { query = {}, deleteError = null }: { query?: Record<string, unknown>; deleteError?: unknown } = {},
+  {
+    query = {},
+    deleteError = null,
+    preview = todayPreview(),
+  }: { query?: Record<string, unknown>; deleteError?: unknown; preview?: ApiCashClosePreview | null } = {},
 ) {
+  refetchPreview = vi.fn()
+  vi.mocked(useCashClosePreview).mockReturnValue({ data: preview ?? undefined, refetch: refetchPreview } as never)
+  createCashClose = { mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null }
+  vi.mocked(useCreateCashClose).mockReturnValue(createCashClose as never)
   vi.mocked(useCashCloses).mockReturnValue({
     data: data ?? undefined,
     isPending: data === null && !query.isError,
@@ -183,5 +217,84 @@ describe('CashClosesPage — ประวัติปิดยอดเงิน
     await user.click(within(bodyRows()[0]).getByRole('button', { name: 'ลบ' }))
     const dialog = screen.getByRole('dialog', { name: 'ลบการปิดยอด' })
     expect(within(dialog).getByRole('alert')).toHaveTextContent('ลบได้เฉพาะ ADMIN')
+  })
+})
+
+describe('CashClosesPage — ปิดยอดวันนี้', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  // ทดสอบ: ยังไม่ปิดยอดวันนี้ ต้องมีปุ่ม "ปิดยอดวันนี้" กดแล้วดึงยอดล่าสุดก่อน และเปิดกล่องปิดยอด
+  // วิธี: mock ยอดวันนี้ที่ยังไม่ปิด → กดปุ่ม → เช็กว่า refetch ถูกเรียก และเห็นกล่อง "ปิดยอดวันนี้"
+  it('ยังไม่ปิดยอด → กด "ปิดยอดวันนี้" ดึงยอดล่าสุดแล้วเปิดกล่องปิดยอด', async () => {
+    const user = userEvent.setup()
+    setup()
+    await user.click(screen.getByRole('button', { name: 'ปิดยอดวันนี้' }))
+    expect(refetchPreview).toHaveBeenCalled()
+    expect(screen.getByRole('dialog', { name: 'ปิดยอดวันนี้' })).toBeInTheDocument()
+  })
+
+  // ทดสอบ: ยอดวันนี้ยังโหลดไม่เสร็จ ปุ่มปิดยอดต้องกดไม่ได้ (ยังไม่รู้ยอดที่ควรมี)
+  // วิธี: mock preview เป็น undefined → เช็กว่าปุ่มปิดยอดวันนี้ disabled
+  it('ยอดวันนี้ยังโหลดไม่เสร็จ → ปุ่มปิดยอดกดไม่ได้', () => {
+    setup(month, { preview: null })
+    expect(screen.getByRole('button', { name: 'ปิดยอดวันนี้' })).toBeDisabled()
+  })
+
+  // ทดสอบ: ปิดยอดวันนี้ไปแล้ว ต้องไม่มีปุ่มปิดซ้ำ และบอกว่าปิดแล้ว
+  // วิธี: mock alreadyClosed → เช็กข้อความ "ปิดยอดวันนี้แล้ว" และไม่มีปุ่ม
+  it('ปิดยอดวันนี้แล้ว → บอกว่าปิดแล้ว ไม่มีปุ่มปิดซ้ำ', () => {
+    setup(month, { preview: todayPreview({ alreadyClosed: close('c9', '2026-10-24', 0) }) })
+    expect(screen.getByText(/ปิดยอดวันนี้แล้ว/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'ปิดยอดวันนี้' })).not.toBeInTheDocument()
+  })
+
+  // ทดสอบ: กล่องปิดยอดคิด "ควรมีในลิ้นชัก" = เงินทอนตั้งต้น + รับเงินสด − หยิบออก, บอกเงินขาด/เกิน และส่งค่าที่กรอก
+  // วิธี: เปิดกล่อง (เงินทอนเติมให้ 1000) → เช็กยอดควรมี ฿2,165.25 → กรอกนับได้ 2125.25 → เช็ก "เงินขาด ฿40" → กรอกหมายเหตุ → ยืนยัน → เช็ก payload → เรียก onSuccess แล้วกล่องปิด
+  it('กล่องปิดยอด: คิดยอดควรมี บอกเงินขาด และส่งเงินทอน ยอดที่นับ และหมายเหตุ', async () => {
+    const user = userEvent.setup()
+    setup()
+    await user.click(screen.getByRole('button', { name: 'ปิดยอดวันนี้' }))
+    const dialog = screen.getByRole('dialog', { name: 'ปิดยอดวันนี้' })
+
+    expect(within(dialog).getByLabelText(/เงินทอนตั้งต้น/)).toHaveValue(1000)
+    expect(within(dialog).getByText('ควรมีในลิ้นชัก').nextElementSibling).toHaveTextContent('฿2,165.25')
+
+    const confirm = within(dialog).getByRole('button', { name: 'ยืนยันปิดยอด' })
+    expect(confirm).toBeDisabled()
+    await user.type(within(dialog).getByLabelText(/เงินที่นับได้จริง/), '2125.25')
+    expect(dialog).toHaveTextContent('เงินขาด ฿40')
+    await user.type(within(dialog).getByLabelText(/หมายเหตุ/), 'แบงก์ร้อยหาย')
+    await user.click(confirm)
+
+    expect(createCashClose.mutate).toHaveBeenCalledWith(
+      { openingFloat: 1000, countedCash: 2125.25, note: 'แบงก์ร้อยหาย' },
+      expect.anything(),
+    )
+    createCashClose.mutate.mock.calls[0][1].onSuccess()
+    expect(await screen.findByRole('heading', { name: 'ปิดยอดเงินสด' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'ปิดยอดวันนี้' })).not.toBeInTheDocument()
+  })
+
+  // ทดสอบ: ยังมีโต๊ะค้างจ่าย ต้องเตือนในกล่องปิดยอดว่าเงินที่เก็บทีหลังจะไม่อยู่ในยอดวันนี้
+  // วิธี: mock unpaidTableCount 2 → เปิดกล่อง → เช็กข้อความเตือน "2 โต๊ะ"
+  it('ยังมีโต๊ะค้างจ่าย → กล่องปิดยอดเตือนจำนวนโต๊ะ', async () => {
+    const user = userEvent.setup()
+    setup(month, { preview: todayPreview({ unpaidTableCount: 2 }) })
+    await user.click(screen.getByRole('button', { name: 'ปิดยอดวันนี้' }))
+    expect(screen.getByRole('dialog', { name: 'ปิดยอดวันนี้' })).toHaveTextContent('ยังมี 2 โต๊ะ ที่ยังไม่จ่าย')
+  })
+
+  // ทดสอบ: ไม่มีเงินทอนครั้งก่อนให้เติม ต้องกรอกเงินทอนก่อนถึงยืนยันได้ และยอดควรมีขึ้น "-"
+  // วิธี: mock suggestedOpeningFloat null → เปิดกล่อง กรอกแค่ยอดนับ → ปุ่มยืนยันยังกดไม่ได้ และยอดควรมีเป็น "-" → กรอกเงินทอน → กดได้
+  it('ไม่มีเงินทอนตั้งต้นให้เติม → ต้องกรอกก่อน ยืนยันถึงจะกดได้', async () => {
+    const user = userEvent.setup()
+    setup(month, { preview: todayPreview({ suggestedOpeningFloat: null }) })
+    await user.click(screen.getByRole('button', { name: 'ปิดยอดวันนี้' }))
+    const dialog = screen.getByRole('dialog', { name: 'ปิดยอดวันนี้' })
+    expect(within(dialog).getByText('ควรมีในลิ้นชัก').nextElementSibling).toHaveTextContent('-')
+    await user.type(within(dialog).getByLabelText(/เงินที่นับได้จริง/), '500')
+    expect(within(dialog).getByRole('button', { name: 'ยืนยันปิดยอด' })).toBeDisabled()
+    await user.type(within(dialog).getByLabelText(/เงินทอนตั้งต้น/), '500')
+    expect(within(dialog).getByRole('button', { name: 'ยืนยันปิดยอด' })).toBeEnabled()
   })
 })

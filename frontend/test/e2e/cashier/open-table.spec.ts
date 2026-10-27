@@ -1,13 +1,27 @@
-import { test, expect } from '@playwright/test'
-import { checkTableTile, loginAsCashier, pickFreeTable } from '../helpers'
+import { test, expect, type Page } from '@playwright/test'
+import { API_URL, checkTableTile, loginAsCashier, pickFreeTable } from '../helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data ที่ localhost:3000
 // เดิมสมมติว่าโต๊ะว่างครบ 6 โต๊ะ แต่ seed มีโต๊ะเปิดค้างไว้เป็นตัวอย่าง (โต๊ะ 2, 4)
 // และเทสอื่นก็เปิดโต๊ะทิ้งไว้ได้ — จึงนับ "ก่อน/หลัง" เทียบกันแทนการ hardcode จำนวน
 // และเปิดโต๊ะว่างตัวแรก (ไม่ fix โต๊ะ 1) เปิดจริงผ่าน UI จึงปิดคืนท้ายเทส
+// ตัวเลข "จำนวนโต๊ะที่ว่าง" เป็นของทั้งร้าน — รันพร้อมเทสอื่นที่เปิด/ปิดโต๊ะ ตัวเลขขยับเองได้
+// จึงเทียบกับจำนวนโต๊ะว่างจริงจาก API ณ ตอนนั้น แทนการเช็ก "ลดลง 1 พอดี"
 
-// ทดสอบ: เปิดโต๊ะแล้ว ป้ายสถานะเปลี่ยนเป็น "มีลูกค้า", จำนวนโต๊ะว่างในหน้า Check ลด 1 และโต๊ะไปโผล่เป็นการ์ดในหน้า Check
-// วิธี: cashier จดจำนวนโต๊ะว่างในหน้า Check → ไปหน้าโต๊ะ สุ่มโต๊ะว่างแล้วกดเปิด → เช็ก QR dialog และป้าย "มีลูกค้า" → กลับหน้า Check เช็กว่าโต๊ะว่างลด 1 และมีการ์ดโต๊ะนั้น → ปิดโต๊ะคืนตอนจบ แล้วเช็กว่าป้ายกลับเป็น "ว่าง"
+/** จำนวนโต๊ะว่างจริงจาก API (นับแบบเดียวกับ EmployeeLayout) ด้วย token ของคนที่ login อยู่ */
+async function availableFromApi(page: Page) {
+  const token = await page.evaluate(() => localStorage.getItem('restaurant.token'))
+  const res = await page.request.get(`${API_URL}/tables`, { headers: { Authorization: `Bearer ${token}` } })
+  expect(res.ok()).toBe(true)
+  const tables = (await res.json()) as { status: string }[]
+  return tables.filter((t) => t.status === 'AVAILABLE').length
+}
+
+const shownAvailable = async (page: Page) =>
+  Number((await page.getByText(/จำนวนโต๊ะที่ว่าง \d+ โต๊ะ/).innerText()).match(/\d+/)![0])
+
+// ทดสอบ: เปิดโต๊ะแล้ว ป้ายสถานะเปลี่ยนเป็น "มีลูกค้า", จำนวนโต๊ะว่างบนหัวหน้าตรงกับของจริง และโต๊ะไปโผล่เป็นการ์ดในหน้า Check
+// วิธี: cashier เปิดหน้า Check → ไปหน้าโต๊ะ สุ่มโต๊ะว่างแล้วกดเปิด → เช็ก QR dialog และป้าย "มีลูกค้า" → กลับหน้า Check เช็กว่าจำนวนโต๊ะว่างตรงกับ API (ไม่นับโต๊ะที่เพิ่งเปิด) และมีการ์ดโต๊ะนั้น → ปิดโต๊ะคืนตอนจบ แล้วเช็กว่าป้ายกลับเป็น "ว่าง"
 test('cashier เปิดโต๊ะที่ 1 แล้วจำนวนโต๊ะว่างและรายการโต๊ะที่เปิดต้องถูกต้อง', async ({
   page,
   request,
@@ -17,10 +31,8 @@ test('cashier เปิดโต๊ะที่ 1 แล้วจำนวนโ
   await page.goto('/employee/check')
   await expect(page).toHaveURL(/\/employee\/check$/)
 
-  // 2. จำจำนวนโต๊ะว่างตอนเริ่มไว้เทียบ
-  const availableText = page.getByText(/จำนวนโต๊ะที่ว่าง \d+ โต๊ะ/)
-  await expect(availableText).toBeVisible()
-  const before = Number((await availableText.innerText()).match(/\d+/)![0])
+  // 2. หัวหน้าบอกจำนวนโต๊ะว่าง
+  await expect(page.getByText(/จำนวนโต๊ะที่ว่าง \d+ โต๊ะ/)).toBeVisible()
 
   // 3. กดแท็บ Table ที่แถบล่าง
   await page.getByRole('link', { name: 'Table' }).click()
@@ -49,9 +61,11 @@ test('cashier เปิดโต๊ะที่ 1 แล้วจำนวนโ
   await checkTab.click({ force: true })
   await checkTab.click()
 
-  // 6. ตรวจสอบว่าจำนวนโต๊ะว่างลดลง 1 และโต๊ะที่เพิ่งเปิดอยู่ในตารางโต๊ะที่เปิด
+  // 6. จำนวนโต๊ะว่างบนหัวหน้าต้องตรงกับของจริง (โต๊ะที่เพิ่งเปิดไม่นับแล้ว) และโต๊ะนั้นอยู่ในการ์ดโต๊ะที่เปิด
   await expect(page).toHaveURL(/\/employee\/check$/)
-  await expect(page.getByText(`จำนวนโต๊ะที่ว่าง ${before - 1} โต๊ะ`)).toBeVisible()
+  await expect
+    .poll(async () => (await shownAvailable(page)) === (await availableFromApi(page)), { timeout: 10_000 })
+    .toBe(true)
 
   // โต๊ะที่เปิดอยู่แสดงเป็นการ์ด (หัวการ์ด "โต๊ะ {name}")
   await expect(checkTableTile(page, tableName)).toHaveCount(1)

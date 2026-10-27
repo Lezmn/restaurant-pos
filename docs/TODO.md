@@ -63,7 +63,7 @@
 
 ## หมายเหตุเทคนิค
 
-- E2E มี project `webkit` (Safari) สำหรับหน้าลูกค้า + ครัว — ติดตั้งครั้งแรก `npx playwright install webkit`
+- E2E มี project `webkit` (Safari) สำหรับหน้าลูกค้าเท่านั้น (มือถือเข้าได้แค่หน้าสั่งอาหาร; จอครัวเป็น desktop จอสัมผัสใช้ Chrome) — ติดตั้งครั้งแรก `npx playwright install webkit`
   ถ้าเครือข่ายทำให้ตัวดาวน์โหลดของ Playwright หมดเวลา (curl โหลดได้แต่ Node ไม่ได้): โหลด zip ด้วย curl จาก
   `https://playwright.download.prss.microsoft.com/dbazure/download/playwright/builds/<ชื่อ>/<เวอร์ชัน>/<ไฟล์>.zip`
   (webkit, ffmpeg, winldd — ชื่อ/เวอร์ชันดูจากข้อความ error) ไว้ในโฟลเดอร์ `builds/...` เดียวกัน แล้วเปิด

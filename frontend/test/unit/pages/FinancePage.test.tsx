@@ -203,11 +203,11 @@ describe('FinancePage — เพิ่ม/แก้/ลบรายจ่าย'
     await user.click(save)
     expect(screen.getByRole('alert')).toHaveTextContent('กรุณากรอกรายละเอียด')
 
-    await user.type(screen.getByLabelText('รายละเอียด'), '   ')
+    await user.type(screen.getByLabelText(/^รายละเอียด/), '   ')
     await user.click(save)
     expect(screen.getByRole('alert')).toHaveTextContent('กรุณากรอกรายละเอียด')
 
-    await user.type(screen.getByLabelText('รายละเอียด'), 'ค่าแก๊ส')
+    await user.type(screen.getByLabelText(/^รายละเอียด/), 'ค่าแก๊ส')
     await user.click(save)
     expect(screen.getByRole('alert')).toHaveTextContent('กรุณากรอกจำนวนเงิน')
 
@@ -225,7 +225,7 @@ describe('FinancePage — เพิ่ม/แก้/ลบรายจ่าย'
     await user.click(screen.getByRole('button', { name: '+ รายจ่าย' }))
     expect(screen.getByRole('combobox')).toHaveValue(ExpenseCategory.INGREDIENTS)
 
-    await user.type(screen.getByLabelText('รายละเอียด'), '  ค่าไฟเดือนนี้  ')
+    await user.type(screen.getByLabelText(/^รายละเอียด/), '  ค่าไฟเดือนนี้  ')
     await user.selectOptions(screen.getByRole('combobox'), ExpenseCategory.UTILITIES)
     await user.type(screen.getByLabelText(/จำนวนเงิน/), '450.75')
     await user.click(screen.getByRole('button', { name: 'บันทึกรายจ่าย' }))
@@ -255,7 +255,7 @@ describe('FinancePage — เพิ่ม/แก้/ลบรายจ่าย'
     setup()
     await user.click(within(row('ซื้อหมูจากตลาด')).getByRole('button', { name: 'แก้ไข' }))
     const dialog = screen.getByRole('dialog', { name: 'แก้ไขรายจ่าย' })
-    expect(within(dialog).getByLabelText('รายละเอียด')).toHaveValue('ซื้อหมูจากตลาด')
+    expect(within(dialog).getByLabelText(/^รายละเอียด/)).toHaveValue('ซื้อหมูจากตลาด')
     expect(within(dialog).getByRole('combobox')).toHaveValue(ExpenseCategory.INGREDIENTS)
     const amount = within(dialog).getByLabelText(/จำนวนเงิน/)
     expect(amount).toHaveValue(1200.5)

@@ -6,7 +6,8 @@ import { useAddDrawerExpense } from '@/features/expenses/hooks'
 import type { ApiCashClose, ApiCashClosePreview } from '@/types/api'
 import { CashDrawerBar } from '@/pages/employee/CashDrawerBar'
 
-// กล่องหยิบเงินออก / ปิดยอด เทสบนหน้าเว็บจริงแล้ว (test/cashier/discount-drawer-dashboard.spec.ts)
+// กล่องหยิบเงินออก เทสบนหน้าเว็บจริงแล้ว (test/e2e/cashier/discount-drawer-dashboard.spec.ts)
+// กล่องปิดยอดย้ายไปหน้าเจ้าของร้านแล้ว — เทสที่ CashClosesPage.test.tsx
 // ที่นี่เทสตัวเลขบนแถบลิ้นชัก สถานะปิดยอดแล้ว และ error
 vi.mock('@/features/cash-closes/hooks', () => ({ useCashClosePreview: vi.fn(), useCreateCashClose: vi.fn() }))
 vi.mock('@/features/expenses/hooks', () => ({ useAddDrawerExpense: vi.fn() }))
@@ -113,14 +114,12 @@ describe('CashDrawerBar — ลิ้นชักวันนี้', () => {
     expect(items[1]).toHaveTextContent('−฿50')
   })
 
-  // ทดสอบ: ยังไม่ปิดยอด ต้องมีปุ่มหยิบเงินออกและปิดยอดวันนี้ และกดปิดยอดแล้วต้องดึงยอดล่าสุดก่อน
-  // วิธี: mock ยอดที่ยังไม่ปิด → เช็กว่ามีปุ่มหยิบเงินออก → กดปิดยอดวันนี้ → เช็กว่า refetch ถูกเรียก
-  it('ยังไม่ปิดยอด → มีปุ่มหยิบเงินออกและปิดยอดวันนี้ (กดปิดยอดแล้วดึงยอดล่าสุดก่อน)', async () => {
-    const user = userEvent.setup()
+  // ทดสอบ: ยังไม่ปิดยอด แถบลิ้นชักมีปุ่มหยิบเงินออก แต่ไม่มีปุ่มปิดยอดวันนี้แล้ว (ย้ายไปหน้า "ปิดยอดเงินสด" ของเจ้าของร้าน)
+  // วิธี: mock ยอดที่ยังไม่ปิด → เช็กว่ามีปุ่มหยิบเงินออก และไม่มีปุ่มปิดยอดวันนี้
+  it('ยังไม่ปิดยอด → มีปุ่มหยิบเงินออก แต่ไม่มีปุ่มปิดยอดวันนี้ (ย้ายไปหน้าเจ้าของร้าน)', () => {
     setup(preview())
     expect(screen.getByRole('button', { name: 'หยิบเงินออก' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'ปิดยอดวันนี้' }))
-    expect(refetch).toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: 'ปิดยอดวันนี้' })).not.toBeInTheDocument()
   })
 
   // ทดสอบ: ปิดยอดแล้ว ต้องสรุปว่าใครปิด และผลต่างเป็น ตรงพอดี / เงินขาด / เงินเกิน ถูก โดยไม่มีปุ่มปิดยอดซ้ำ แต่ยังหยิบเงินออกได้

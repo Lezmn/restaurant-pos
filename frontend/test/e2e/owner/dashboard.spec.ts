@@ -3,7 +3,7 @@ import { call, customerOrder, menuItemByName, ok, openNewSession, serve, tokens 
 import { loginAsAdmin } from '../helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data (DB ทดสอบเท่านั้น — เก็บเงินจริง)
-// ทุกตัวเลขบนหน้า Dashboard ต้องตรงกับ response ที่หน้าเว็บได้จาก /reports/dashboard และ /payments
+// ทุกตัวเลขบนหน้า Dashboard (แท็บ "วันนี้") ต้องตรงกับ response ที่หน้าเว็บได้จาก /reports/dashboard, /payments และ /reports/sales
 // เทียบกับ response ที่ "หน้าเว็บโหลดเอง" (ไม่ยิง API แยก) — เทสอื่นเก็บเงินพร้อมกันได้ ตัวเลขก็ยังเทียบกันตรง
 test.use({ viewport: { width: 1280, height: 900 } })
 
@@ -17,7 +17,9 @@ interface DashboardReport {
   date: string
   revenue: number
   expenses: number
+  netProfit: number
   orderCount: number
+  paymentCount: number
   revenueByMethod: { CASH: number; PROMPTPAY: number }
   tables: { OCCUPIED: number; total: number }
   revenueTrend: { date: string; revenue: number }[]
@@ -30,39 +32,55 @@ interface ApiPayment {
   method: 'CASH' | 'PROMPTPAY'
   status: 'COMPLETED' | 'VOIDED'
   paidAt: string
-  tableSession?: { table?: { number: number } }
+  tableSession?: { table?: { number: number }; isTakeaway?: boolean; takeawayNo?: number | null }
+}
+
+/** ชื่อที่ต้องขึ้นบนรายการบิล — โต๊ะจริง "โต๊ะ 5" / กลับบ้าน "กลับบ้าน #3" (ไม่มีคำว่า "โต๊ะ" นำหน้า) */
+const placeOf = (p: ApiPayment) =>
+  p.tableSession?.isTakeaway
+    ? `กลับบ้าน #${p.tableSession.takeawayNo ?? '-'}`
+    : `โต๊ะ ${p.tableSession?.table?.number ?? '-'}`
+
+interface SalesReport {
+  topItems: { name: string; quantity: number }[]
 }
 
 /** เปิด Dashboard แล้วเก็บ response ที่หน้าเว็บใช้แสดงผล */
 async function openDashboard(page: Page) {
   const reportRes = page.waitForResponse((r) => r.url().includes('/reports/dashboard') && r.ok())
   const paymentsRes = page.waitForResponse((r) => /\/payments\?from=/.test(r.url()) && r.ok())
+  const salesRes = page.waitForResponse((r) => /\/reports\/sales\?from=/.test(r.url()) && r.ok())
   await page.goto('/owner/dashboard')
   const report = (await (await reportRes).json()) as DashboardReport
   const payments = (await (await paymentsRes).json()) as ApiPayment[]
-  await expect(page.getByRole('heading', { name: 'สถานะวันนี้' })).toBeVisible()
+  const sales = (await (await salesRes).json()) as SalesReport
+  await expect(page.getByRole('heading', { name: 'ในร้านตอนนี้' })).toBeVisible()
 
   const dayStart = Date.parse(report.date)
   const today = payments.filter((p) => {
     const t = Date.parse(p.paidAt)
     return p.status === 'COMPLETED' && t >= dayStart && t < dayStart + DAY_MS
   })
-  return { report, today }
+  return { report, today, sales }
 }
 
-/** ตัวเลขบน StatCard (ขอบ 2px) — p ตัวที่ 2 ต่อจากป้าย */
-const statCard = (page: Page, label: string): Locator =>
-  page.locator('div.rounded-xl.border-2').filter({ has: page.getByText(label, { exact: true }) }).locator('> p')
+/** StatCard (ขอบ 2px) — ป้ายอยู่ใน div ด้านใน ส่วน <p> ลูกตรงคือ ตัวเลข แล้วตามด้วยบรรทัดย่อย */
+const statCardOf = (page: Page, label: string): Locator =>
+  page.locator('div.rounded-xl.border-2').filter({ has: page.getByText(label, { exact: true }) })
+const statCard = (page: Page, label: string): Locator => statCardOf(page, label).locator('> p').first()
+const statHint = (page: Page, label: string): Locator => statCardOf(page, label).locator('> p').nth(1)
+
+const sectionOf = (page: Page, heading: string) =>
+  page.locator('section', { has: page.getByRole('heading', { name: heading, exact: true }) })
 
 const statusRow = (page: Page, label: string): Locator =>
-  page.locator('section', { has: page.getByRole('heading', { name: 'สถานะวันนี้' }) }).locator('dt', { hasText: label }).locator('+ dd')
+  sectionOf(page, 'ในร้านตอนนี้').locator('dt', { hasText: label }).locator('+ dd')
 
-const notifications = (page: Page) =>
-  page.locator('section', { has: page.getByRole('heading', { name: 'การแจ้งเตือน' }) })
+const notifications = (page: Page) => sectionOf(page, 'บิลที่รับเงินวันนี้')
 
-// ทดสอบ: ตัวเลขทุกส่วนบน Dashboard (การ์ด 4 ใบ, สถานะวันนี้, กราฟ 7 วัน, การแจ้งเตือน, แบนเนอร์สลิป) ต้องตรงกับข้อมูลที่หน้าเว็บโหลดมาจาก API
-// วิธี: เก็บเงินสดโต๊ะใหม่ 1 บิลผ่าน API → admin เปิด Dashboard พร้อมดักเก็บ response /reports/dashboard และ /payments ที่หน้าเว็บโหลดเอง → เทียบตัวเลขทีละส่วนกับ response นั้น → เช็กว่ามีบิลที่เพิ่งเก็บ และแบนเนอร์สลิปขึ้นหรือไม่ขึ้นตามจำนวนสลิปค้าง (แท็ก @totals-dashboard)
-test('Dashboard: การ์ด, สถานะวันนี้, กราฟ, การแจ้งเตือน และแบนเนอร์สลิป ตรงกับข้อมูลจาก API', { tag: '@totals-dashboard' }, async ({ page, request }) => {
+// ทดสอบ: ตัวเลขทุกส่วนบน Dashboard วันนี้ (การ์ด 4 ใบ, ในร้านตอนนี้, กราฟรายชั่วโมง, บิลที่รับเงินวันนี้, เมนูขายดี, แบนเนอร์สลิป) ต้องตรงกับข้อมูลที่หน้าเว็บโหลดมาจาก API
+// วิธี: เก็บเงินสดโต๊ะใหม่ 1 บิลผ่าน API → admin เปิด Dashboard พร้อมดักเก็บ response /reports/dashboard, /payments และ /reports/sales ที่หน้าเว็บโหลดเอง → เทียบตัวเลขทีละส่วนกับ response นั้น → เช็กว่ามีบิลที่เพิ่งเก็บ และแบนเนอร์สลิปขึ้นหรือไม่ขึ้นตามจำนวนสลิปค้าง (แท็ก @totals-dashboard)
+test('Dashboard: การ์ด, ในร้านตอนนี้, กราฟ, บิลวันนี้, เมนูขายดี และแบนเนอร์สลิป ตรงกับข้อมูลจาก API', { tag: '@totals-dashboard' }, async ({ page, request }) => {
   // มีบิลเงินสดของวันนี้อย่างน้อย 1 ใบ จากโต๊ะที่รู้เลข — เช็คได้ว่าโผล่ในการแจ้งเตือน
   const t = await tokens(request)
   const { table, session } = await openNewSession(request, t)
@@ -74,51 +92,72 @@ test('Dashboard: การ์ด, สถานะวันนี้, กรา�
   )
 
   await loginAsAdmin(page, request)
-  const { report, today } = await openDashboard(page)
+  const { report, today, sales } = await openDashboard(page)
+  const count = (m: ApiPayment['method']) => today.filter((p) => p.method === m).length
 
   await test.step('การ์ด 4 ใบ', async () => {
     await expect(statCard(page, 'รายรับวันนี้')).toHaveText(baht(report.revenue))
-    await expect(statCard(page, 'จ่ายเงินสด')).toHaveText(baht(report.revenueByMethod.CASH))
-    await expect(statCard(page, 'จ่าย PromptPay')).toHaveText(baht(report.revenueByMethod.PROMPTPAY))
-    await expect(statCard(page, 'จำนวนออเดอร์')).toHaveText(report.orderCount.toLocaleString('th-TH'))
+    // trend จบที่วันนี้ — จุดก่อนสุดท้ายคือเมื่อวาน
+    const yesterday = report.revenueTrend.at(-2)
+    await expect(statHint(page, 'รายรับวันนี้')).toHaveText(
+      `${report.paymentCount.toLocaleString('th-TH')} บิล${yesterday ? ` · เมื่อวาน ${baht(yesterday.revenue)}` : ''}`,
+    )
+    await expect(statCard(page, 'เงินสด')).toHaveText(baht(report.revenueByMethod.CASH))
+    await expect(statHint(page, 'เงินสด')).toHaveText(`${count('CASH')} บิล`)
+    await expect(statCard(page, 'PromptPay')).toHaveText(baht(report.revenueByMethod.PROMPTPAY))
+    await expect(statHint(page, 'PromptPay')).toHaveText(`${count('PROMPTPAY')} บิล`)
+    const profitLabel = report.netProfit < 0 ? 'ขาดทุนวันนี้' : 'กำไรสุทธิวันนี้'
+    await expect(statCard(page, profitLabel)).toHaveText(baht(report.netProfit))
+    await expect(statHint(page, profitLabel)).toHaveText(`รายจ่าย ${baht(report.expenses)}`)
   })
 
-  await test.step('สถานะวันนี้', async () => {
-    const count = (m: ApiPayment['method']) => today.filter((p) => p.method === m).length
-    await expect(statusRow(page, 'จ่ายเงินสด')).toHaveText(`${count('CASH')} บิล`)
-    await expect(statusRow(page, 'จ่าย PromptPay')).toHaveText(`${count('PROMPTPAY')} บิล`)
-    await expect(statusRow(page, 'โต๊ะที่ใช้งานอยู่')).toHaveText(`${report.tables.OCCUPIED}/${report.tables.total}`)
+  await test.step('ในร้านตอนนี้', async () => {
+    await expect(statusRow(page, 'โต๊ะที่ใช้งานอยู่')).toHaveText(`${report.tables.OCCUPIED} จาก ${report.tables.total} โต๊ะ`)
+    await expect(statusRow(page, 'ออเดอร์วันนี้')).toHaveText(`${report.orderCount.toLocaleString('th-TH')} ออเดอร์`)
     await expect(statusRow(page, 'รายจ่ายวันนี้')).toHaveText(baht(report.expenses))
   })
 
-  await test.step('กราฟ 7 วัน', async () => {
-    expect(report.revenueTrend).toHaveLength(7)
-    await expect(page.getByRole('img', { name: /แนวโน้มรายรับ 7 วัน/ })).toBeVisible()
+  await test.step('กราฟรายชั่วโมงวันนี้', async () => {
+    await expect(page.getByRole('heading', { name: 'รายรับรายชั่วโมงวันนี้' })).toBeVisible()
   })
 
-  await test.step('การแจ้งเตือน: หน้าแรกเรียงตามบิลล่าสุด และมีบิลที่เพิ่งเก็บ', async () => {
+  await test.step('บิลที่รับเงินวันนี้: หน้าแรกเรียงตามบิลล่าสุด และมีบิลที่เพิ่งเก็บ', async () => {
     const section = notifications(page)
     const items = section.getByRole('listitem')
     const firstPage = today.slice(0, 10)
     await expect(items).toHaveCount(firstPage.length)
     for (const [i, p] of firstPage.entries()) {
-      const method = p.method === 'CASH' ? 'จ่ายเงินสด' : 'จ่าย PromptPay'
-      await expect(items.nth(i)).toContainText(`โต๊ะ ${p.tableSession?.table?.number ?? '-'} ${method}`)
+      const method = p.method === 'CASH' ? 'เงินสด' : 'PromptPay'
+      await expect(items.nth(i)).toContainText(placeOf(p))
+      await expect(items.nth(i)).not.toContainText('โต๊ะ กลับบ้าน')
+      await expect(items.nth(i)).toContainText(`${method} ·`)
       await expect(items.nth(i)).toContainText(baht(p.amount))
-      await expect(items.nth(i)).toContainText('นาทีที่แล้ว')
     }
     expect(today.map((p) => p.id)).toContain(paid.id)
     if (today.findIndex((p) => p.id === paid.id) < 10) {
-      await expect(items.filter({ hasText: `โต๊ะ ${table.number} จ่ายเงินสด` })).toContainText(baht(paid.amount))
+      // เพิ่งเก็บ — ต้องขึ้น "เมื่อสักครู่" หรือ "N นาทีที่แล้ว"
+      const mine = items.filter({ hasText: `โต๊ะ ${table.number}` })
+      await expect(mine).toContainText(baht(paid.amount))
+      await expect(mine).toContainText(/เมื่อสักครู่|นาทีที่แล้ว/)
     }
     if (today.length > 10) {
       await expect(section.getByText(`1–10 จาก ${today.length} บิล`)).toBeVisible()
     }
   })
 
-  await test.step('แบนเนอร์สลิป PromptPay ที่ต้องตาม', async () => {
+  await test.step('เมนูขายดีวันนี้ (5 อันดับ)', async () => {
+    const items = sectionOf(page, 'เมนูขายดี').getByRole('listitem')
+    const top = sales.topItems.slice(0, 5)
+    await expect(items).toHaveCount(top.length)
+    for (const [i, item] of top.entries()) {
+      await expect(items.nth(i)).toContainText(item.name)
+      await expect(items.nth(i)).toContainText(`${item.quantity.toLocaleString('th-TH')} จาน`)
+    }
+  })
+
+  await test.step('แบนเนอร์สลิป PromptPay ที่ยังยืนยันเงินเข้าไม่ได้', async () => {
     const issues = report.slipIssues ?? { pending: 0, failed: 0 }
-    const banner = page.getByRole('link', { name: /สลิป PromptPay ที่ต้องตาม/ })
+    const banner = page.getByRole('link', { name: /สลิป PromptPay ที่ยังยืนยันเงินเข้าไม่ได้/ })
     if (issues.pending + issues.failed > 0) {
       await expect(banner).toContainText(`รอตรวจ ${issues.pending} · ไม่ผ่าน ${issues.failed}`)
       await banner.click()
@@ -129,7 +168,7 @@ test('Dashboard: การ์ด, สถานะวันนี้, กรา�
   })
 })
 
-// ทดสอบ: การแจ้งเตือนบน Dashboard แบ่งหน้าละ 10 บิล กดหน้า 2 แล้วต้องเห็นบิลที่เหลือถูกต้อง
+// ทดสอบ: รายการบิลที่รับเงินวันนี้บน Dashboard แบ่งหน้าละ 10 บิล กดหน้า 2 แล้วต้องเห็นบิลที่เหลือถูกต้อง
 // วิธี: admin เปิด Dashboard พร้อมดักเก็บ /payments (ถ้าวันนี้มีบิลไม่เกิน 10 ใบจะข้าม) → กดหน้า 2 → เทียบจำนวนรายการ ยอดใบแรก และข้อความ "11–n จาก m บิล" (แท็ก @totals-dashboard)
 test('Dashboard: บิลเกิน 10 ใบแบ่งหน้า กดหน้าถัดไปแล้วเห็นบิลที่เหลือ', { tag: '@totals-dashboard' }, async ({ page, request }) => {
   await loginAsAdmin(page, request)
