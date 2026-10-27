@@ -53,8 +53,6 @@ interface PayTarget {
   isTakeaway: boolean
   method: PaymentMethod
   amountDue: number
-  /** ลูกค้ากดเช็คบิลมาเองพร้อมเลือกวิธีจ่ายแล้วหรือยัง */
-  chosenByCustomer: boolean
   /** โต๊ะนี้หารเท่ากันค้างอยู่ */
   split: SessionSplit | null
 }
@@ -87,8 +85,6 @@ interface TableRow {
   notServed: Order[]
   cancelled: Order[]
   neverOrdered: boolean
-  /** วิธีจ่ายที่ลูกค้าเลือกตอนกดเช็คบิล (ถ้าเป็นวิธีที่ร้านยังรับอยู่) */
-  customerMethod: PaymentMethod | undefined
 }
 
 export function CheckPage() {
@@ -143,9 +139,6 @@ export function CheckPage() {
         // ครัวยกเลิกไป = ยอดหายไปจากบิล บอกไว้จะได้ไม่งงว่าทำไมยอดไม่ตรงที่ลูกค้าสั่ง
         const cancelled = mine.filter((o) => o.status === OrderStatus.CANCELLED)
 
-        // คำขอเก่าอาจเป็น CARD ที่ร้านเลิกรับแล้ว (backend ไม่รับ) — ถือว่ายังไม่ได้เลือก
-        const customerMethod = payMethods.find((m) => m === checkout?.paymentMethod)
-
         let state: TileState
         if (unpaid.length === 0) state = 'settled'
         // กลับบ้านจ่ายก่อนทำได้ (backend ยอม) — ไม่ต้องรอครัวเสิร์ฟ
@@ -159,7 +152,6 @@ export function CheckPage() {
           cancelled,
           // เปิดโต๊ะไว้แต่ยังไม่มีออเดอร์เลย (หรือโดนยกเลิกหมด) — คนละเรื่องกับจ่ายครบแล้ว
           neverOrdered: mine.length === cancelled.length,
-          customerMethod,
         }
       })
       .sort(
@@ -184,9 +176,9 @@ export function CheckPage() {
     tableName: row.session.tableName,
     placeLabel: row.session.placeLabel,
     isTakeaway: row.session.isTakeaway,
-    method: row.customerMethod ?? PaymentMethod.CASH,
+    // ลูกค้าไม่ได้เลือกวิธีจ่าย — แคชเชียร์เลือกเองในกล่องรับเงิน
+    method: PaymentMethod.CASH,
     amountDue: row.session.total,
-    chosenByCustomer: Boolean(row.customerMethod),
     split: row.session.split,
   })
   const openPayment = (row: TableRow) => setTarget(toPayTarget(row))
@@ -446,7 +438,7 @@ function TableTile({
   onCharge: () => void
   onClose: () => void
 }>) {
-  const { session, state, notServed, cancelled, neverOrdered, customerMethod } = row
+  const { session, state, notServed, cancelled, neverOrdered } = row
   const badge = stateBadge[state]
   const due = sessionDue(session)
   const split = session.split
@@ -475,10 +467,6 @@ function TableTile({
             {session.isTakeaway ? 'สั่ง' : 'เปิด'} {formatTime(session.openedAt)}
             {session.isTakeaway && state !== 'settled' && notServed.length > 0 &&
               ' · รับเงินก่อนได้'}
-            {!session.isTakeaway && state !== 'settled' &&
-              (customerMethod
-                ? ` · ลูกค้าเลือก${methodLabel[customerMethod]}`
-                : ' · ยังไม่เลือกวิธีจ่าย')}
           </p>
         </div>
         <span
@@ -669,11 +657,6 @@ function PaymentDialog({
             เดิมซ่อนปุ่มไว้เลยต้องบันทึกผิดวิธี ยอดแยกตามวิธีจ่ายในรายงานก็ผิดตาม */}
         <fieldset className="mt-4">
           <legend className={fieldLabel}>วิธีจ่าย</legend>
-          {target.chosenByCustomer && (
-            <p className="mt-0.5 text-sm text-gray-600">
-              ลูกค้าเลือก{methodLabel[target.method] ?? target.method}ไว้ เปลี่ยนได้ถ้าจ่ายจริงต่างจากนี้
-            </p>
-          )}
           <div className="mt-2 grid grid-cols-2 gap-3">
             {payMethods.map((m) => (
               <button

@@ -34,7 +34,7 @@ test('token ไม่มีอยู่จริง → 404 ทุก endpoint',
   expect(order.status()).toBe(404)
   expect((await call(request, 'POST', '/public/call-staff', { data: { sessionToken: bad } })).status()).toBe(404)
   expect(
-    (await call(request, 'POST', '/public/checkout', { data: { sessionToken: bad, paymentMethod: 'CASH' } })).status(),
+    (await call(request, 'POST', '/public/checkout', { data: { sessionToken: bad } })).status(),
   ).toBe(404)
 })
 
@@ -46,7 +46,7 @@ test('โต๊ะที่ปิดบิลแล้ว → สั่ง/เ�
   expect(order.status()).toBe(400)
   expect((await call(request, 'POST', '/public/call-staff', { data: { sessionToken: CLOSED_TOKEN } })).status()).toBe(400)
   expect(
-    (await call(request, 'POST', '/public/checkout', { data: { sessionToken: CLOSED_TOKEN, paymentMethod: 'CASH' } })).status(),
+    (await call(request, 'POST', '/public/checkout', { data: { sessionToken: CLOSED_TOKEN } })).status(),
   ).toBe(400)
 })
 
@@ -115,13 +115,15 @@ test('เรียกพนักงานซ้ำ ๆ = คำขอเดิ�
   const again = await ok(await call(request, 'POST', '/public/call-staff', { data: { sessionToken: session.token } }))
   expect(again.id).toBe(first.id)
 
-  const c1 = await ok(await call(request, 'POST', '/public/checkout', { data: { sessionToken: session.token, paymentMethod: 'CASH' } }))
-  const c2 = await ok(await call(request, 'POST', '/public/checkout', { data: { sessionToken: session.token, paymentMethod: 'PROMPTPAY' } }))
+  // ลูกค้าไม่เลือกวิธีจ่ายแล้ว (แคชเชียร์เลือก) — กดซ้ำได้คำขอเดิม · หน้าเก่าที่ยังส่ง paymentMethod มาก็ไม่ error
+  const c1 = await ok(await call(request, 'POST', '/public/checkout', { data: { sessionToken: session.token } }))
+  const c2 = await ok(
+    await call(request, 'POST', '/public/checkout', { data: { sessionToken: session.token, paymentMethod: 'PROMPTPAY' } }),
+  )
   expect(c2.id).toBe(c1.id)
-  expect(c2.paymentMethod).toBe('PROMPTPAY')
-  expect(
-    (await call(request, 'POST', '/public/checkout', { data: { sessionToken: session.token, paymentMethod: 'CARD' } })).status(),
-  ).toBe(400)
+  expect(c2.paymentMethod).toBeUndefined()
+  const pending = await ok(await call(request, 'GET', `/public/sessions/${session.token}`))
+  expect(pending.checkoutRequest?.id).toBe(c1.id)
 })
 
 test('หลังจ่ายครบ token เดิมสั่งเพิ่มไม่ได้ และคำขอค้างถูกปิดให้', async ({ request }) => {

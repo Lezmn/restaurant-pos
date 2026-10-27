@@ -1,7 +1,6 @@
 import { apiClient } from '@/lib/api-client'
 import { mapMenuItem, mapOrder } from '@/lib/map'
 import type { ApiCategory, ApiOrder, ApiTableSession } from '@/types/api'
-import type { PaymentMethod } from '@/types/enums'
 import type { MenuItem, Order, TableSession } from '@/types/models'
 import type { CartLine } from './cart-store'
 
@@ -90,16 +89,10 @@ export async function callStaff(vars: { token: string }): Promise<void> {
   })
 }
 
-/** แจ้งพนักงานว่าโต๊ะนี้ต้องการชำระเงิน — ไม่ส่ง method = ให้พนักงานถามวิธีจ่ายที่เคาน์เตอร์ */
-export async function requestCheckout(vars: {
-  token: string
-  method?: PaymentMethod
-}): Promise<void> {
+/** แจ้งพนักงานว่าโต๊ะนี้ต้องการชำระเงิน — ไม่มีวิธีจ่าย แคชเชียร์เลือกตอนรับเงิน */
+export async function requestCheckout(vars: { token: string }): Promise<void> {
   await apiClient<unknown>('/public/checkout', {
     method: 'POST',
-    body: JSON.stringify({
-      sessionToken: vars.token,
-      paymentMethod: vars.method,
-    }),
+    body: JSON.stringify({ sessionToken: vars.token }),
   })
 }

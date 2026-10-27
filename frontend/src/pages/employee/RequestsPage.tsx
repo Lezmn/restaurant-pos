@@ -60,7 +60,6 @@ export function RequestsPage() {
               </p>
               <p className="text-xs text-gray-500">
                 {formatTime(req.createdAt)}
-                {req.paymentMethod && ` · ${req.paymentMethod}`}
               </p>
               {req.note && (
                 <p className="mt-1 text-sm text-gray-600">{req.note}</p>
