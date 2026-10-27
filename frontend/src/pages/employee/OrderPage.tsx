@@ -13,7 +13,7 @@ import { useNewArrivals } from '@/lib/use-new-arrivals'
 import { useWakeLock } from '@/lib/use-wake-lock'
 import { OrderStatus } from '@/types/enums'
 import type { Order, OrderItem } from '@/types/models'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { KitchenSoldOutButton } from './KitchenSoldOut'
 
 // socket สั่ง refetch ให้อยู่แล้ว — poll นี้เป็นตัวสำรองตอน socket หลุด
@@ -214,6 +214,90 @@ function BoardSkeleton() {
   )
 }
 
+/** ที่เว้นไว้ใต้บอร์ดให้แถบเมนูล่าง — เท่ากับ pb-28 ของ <main> ใน EmployeeLayout */
+const BOTTOM_NAV_SPACE = 112
+/** บอร์ดเตี้ยกว่านี้ (จอเตี้ยมาก) ให้ทั้งหน้าเลื่อนแทน — คอลัมน์สั้นเกินเลื่อนดูไม่ไหว */
+const MIN_BOARD_HEIGHT = 360
+const TABLET_UP = '(min-width: 768px)'
+
+/**
+ * ความสูงที่ทำให้บอร์ดพอดีจอพอดี (จากขอบบนบอร์ดถึงเหนือแถบเมนูล่าง)
+ * แท็บเล็ต/คอมเท่านั้น — มือถือคอลัมน์เรียงต่อกันเป็นแถวเดียว ให้ทั้งหน้าเลื่อนเหมือนเดิม
+ * วัดใหม่ทุก render เพราะของเหนือบอร์ด (แถบ error, ปุ่มของหมด) โผล่/หายได้ตลอด
+ */
+function useFillScreen<T extends HTMLElement>() {
+  const ref = useRef<T>(null)
+  const [height, setHeight] = useState<number | null>(null)
+
+  const measure = useCallback(() => {
+    const el = ref.current
+    if (!el || !window.matchMedia?.(TABLET_UP).matches) {
+      setHeight(null)
+      return
+    }
+    const top = el.getBoundingClientRect().top + window.scrollY
+    const fit = Math.floor(window.innerHeight - top - BOTTOM_NAV_SPACE)
+    setHeight(fit >= MIN_BOARD_HEIGHT ? fit : null)
+  }, [])
+
+  useLayoutEffect(measure)
+  useEffect(() => {
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [measure])
+
+  return [ref, height] as const
+}
+
+/**
+ * รายการตั๋วในคอลัมน์ — แท็บเล็ต/คอมเลื่อนเฉพาะในคอลัมน์ หัวคอลัมน์ (ชื่อ + จำนวน) ค้างอยู่บน
+ * มีตั๋วต่อด้านล่าง = ขอบล่างจางลง บอกว่ายังเลื่อนลงได้ (ครัวจะได้ไม่พลาดตั๋วที่ตกขอบ)
+ */
+function ColumnScroll({ label, children }: Readonly<{ label: string; children: ReactNode }>) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [more, setMore] = useState(false)
+
+  const check = useCallback(() => {
+    const el = ref.current
+    if (!el) return
+    setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 4)
+  }, [])
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    check()
+    // ตั๋วเข้า/ออก หรือจอหมุน ความสูงเปลี่ยน — เช็คใหม่ว่ายังมีของต่อด้านล่างไหม
+    const observer = new ResizeObserver(check)
+    observer.observe(el)
+    for (const child of el.children) observer.observe(child)
+    return () => observer.disconnect()
+  })
+
+  return (
+    <div className="relative md:min-h-0 md:flex-1">
+      <div
+        ref={ref}
+        onScroll={check}
+        // tabIndex: เลื่อนด้วยคีย์บอร์ดได้ / aria-label: บอกว่ากล่องเลื่อนนี้เป็นของคอลัมน์ไหน
+        tabIndex={0}
+        role="group"
+        aria-label={`ตั๋ว${label}`}
+        // relative: ข้อความ sr-only (absolute) ในตั๋วต้องอยู่ในกล่องเลื่อนนี้ ไม่งั้นหลุดออกไปดันหน้าให้ยาว
+        className="relative space-y-4 md:h-full md:overflow-y-auto md:overscroll-contain md:pr-1 md:pb-4"
+      >
+        {children}
+      </div>
+      {more && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 hidden h-16 bg-gradient-to-t from-white to-transparent md:block"
+        />
+      )}
+    </div>
+  )
+}
+
 export function OrderPage() {
   const ordersQuery = useOrders({ refetchInterval: POLL_MS })
   const { data: orders, isPending } = ordersQuery
@@ -320,6 +404,8 @@ export function OrderPage() {
     },
   )
 
+  const [boardRef, boardHeight] = useFillScreen<HTMLDivElement>()
+
   const toggleItem = (itemId: string, isChecked: boolean) => {
     setChecked((prev) => ({ ...prev, [itemId]: isChecked }))
   }
@@ -358,7 +444,11 @@ export function OrderPage() {
       )}
 
       {!isPending && !unknown && (
-        <div className="grid gap-4 md:grid-cols-3 md:divide-x md:divide-gray-200">
+        <div
+          ref={boardRef}
+          style={boardHeight ? { height: boardHeight } : undefined}
+          className="grid gap-4 md:grid-cols-3 md:divide-x md:divide-gray-200"
+        >
           {columns.map((column) => {
             // ตั๋วที่รอเลิกทำ แสดงเหมือนเสร็จแล้ว ให้ครัวเห็นผลทันทีที่กด
             const list = visible.filter(
@@ -366,7 +456,11 @@ export function OrderPage() {
             )
 
             return (
-              <section key={column.key} aria-label={column.title} className="md:px-3">
+              <section
+                key={column.key}
+                aria-label={column.title}
+                className="md:flex md:min-h-0 md:flex-col md:px-3"
+              >
                 <header className="mb-3 flex items-center justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-2">
                     <span className={`h-3.5 w-3.5 shrink-0 rounded-full ${column.dot}`} />
@@ -383,7 +477,7 @@ export function OrderPage() {
                   </span>
                 </header>
 
-                <div className="space-y-4">
+                <ColumnScroll label={column.title}>
                   {list.length === 0 && (
                     <p className="py-6 text-center text-sm text-gray-500">ไม่มีรายการ</p>
                   )}
@@ -405,7 +499,7 @@ export function OrderPage() {
                       }}
                     />
                   ))}
-                </div>
+                </ColumnScroll>
               </section>
             )
           })}

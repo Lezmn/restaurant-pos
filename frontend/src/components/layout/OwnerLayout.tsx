@@ -114,8 +114,8 @@ export function OwnerLayout() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-white lg:flex-row">
-      {/* จอใหญ่: sidebar ซ้ายตามดีไซน์ / จอเล็ก: แถบบนเลื่อนแนวนอน */}
-      <aside className="flex shrink-0 flex-col border-b border-brand-75 bg-brand-50 lg:min-h-dvh lg:w-56 lg:border-r lg:border-b-0">
+      {/* จอใหญ่: sidebar ซ้ายตามดีไซน์ / จอเล็ก: แถบบนเลื่อนแนวนอน ค้างติดขอบบนตอนเลื่อนหน้า (สลับหน้าได้ตลอด) */}
+      <aside className="sticky top-0 z-20 flex shrink-0 flex-col border-b border-brand-75 bg-brand-50 lg:static lg:min-h-dvh lg:w-56 lg:border-r lg:border-b-0">
         <div className="flex items-center gap-2 px-4 py-4">
           <p className="min-w-0 text-lg leading-tight font-bold text-balance text-brand-500">{RESTAURANT_NAME}</p>
           {/* จอเล็ก: แถบเมนูเลื่อนแนวนอน ปุ่มท้ายแถวจะหลุดจอ — วางปุ่มกลับไว้แถวชื่อร้านให้เห็นตลอด */}
