@@ -34,7 +34,7 @@ npm run dev
 
 ## เทสต์ E2E (Playwright)
 
-อยู่ที่ `frontend/test/` — ยิง API `localhost:3000` และเว็บ `localhost:5173` ตรง ๆ และ **สร้างข้อมูลจริง**
+อยู่ที่ `frontend/test/e2e/` (unit test ของ Vitest อยู่ที่ `frontend/test/unit/`) — ยิง API `localhost:3000` และเว็บ `localhost:5173` ตรง ๆ และ **สร้างข้อมูลจริง**
 (เปิดโต๊ะ/ออเดอร์/บิล) จึงควรรันกับฐานข้อมูลทดสอบที่ seed ใหม่ ไม่ใช่ DB ที่ใช้งานอยู่
 
 - backend ตอนรันเทสต์ตั้ง `LOGIN_THROTTLE_LIMIT=1000` (ทุกเคส login ใหม่), `THROTTLE_IP_LIMIT=100000` (ทั้งชุดยิงจาก IP เดียว) และ `SLIPOK_MOCK=true`

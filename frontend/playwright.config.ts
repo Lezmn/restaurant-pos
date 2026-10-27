@@ -7,7 +7,7 @@ const SLOW_MO = Number(process.env.E2E_SLOWMO ?? 1000)
 const chrome = { ...devices['Desktop Chrome'], channel: 'chrome' }
 
 export default defineConfig({
-  testDir: './test',
+  testDir: './test/e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -30,13 +30,13 @@ export default defineConfig({
     // channel: 'chrome' ใช้ Google Chrome ที่ติดตั้งไว้ในเครื่องอยู่แล้ว
     // แทนที่จะดาวน์โหลด Chromium ของ Playwright เอง (กันปัญหาโดน firewall บล็อก cdn.playwright.dev)
     { name: 'chromium', use: { ...chrome }, grepInvert: /@totals/ },
-    // Safari (WebKit): ลูกค้าสั่งผ่าน iPhone เป็นส่วนใหญ่ + จอครัวอาจเป็น iPad — รันเฉพาะหน้าที่เจอ Safari จริง
-    // (เทสต์ลูกค้าเปิด context ขนาด iPhone เอง) ส่วนคอมแคชเชียร์ใช้ Chrome อยู่แล้ว
+    // Safari (WebKit): มือถือเข้าได้แค่หน้าสั่งอาหารของลูกค้า (iPhone เป็นส่วนใหญ่) — รันเฉพาะหน้าลูกค้า
+    // (เทสต์ลูกค้าเปิด context ขนาด iPhone เอง) ส่วนคอมแคชเชียร์และจอครัว (desktop จอสัมผัส) ใช้ Chrome
     // ติดตั้งครั้งแรก: npx playwright install webkit (โดน firewall บล็อก ดู docs/TODO.md หมายเหตุเทคนิค)
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
-      testMatch: /(customer|kitchen)[/].*\.spec\.ts$/,
+      testMatch: /customer[/].*\.spec\.ts$/,
       grepInvert: /@totals/,
     },
     // เทสที่เทียบ "ยอดขายทั้งวัน" ก่อน/หลัง — ถ้ารันพร้อมเทสอื่นที่รับเงิน ยอดจะปนกัน
