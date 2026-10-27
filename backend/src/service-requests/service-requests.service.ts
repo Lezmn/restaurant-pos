@@ -84,10 +84,11 @@ export class ServiceRequestsService {
     return request;
   }
 
-  async createCheckoutFromSessionToken(
-    sessionToken: string,
-    paymentMethod?: PaymentMethod,
-  ) {
+  /**
+   * ลูกค้าแจ้งว่าต้องการชำระเงิน — ไม่มีวิธีจ่าย (แคชเชียร์เลือกตอนรับเงิน)
+   * มีคำขอค้างอยู่แล้ว = คืนอันเดิม ไม่สร้างซ้ำ ไม่แจ้งเตือนซ้ำ
+   */
+  async createCheckoutFromSessionToken(sessionToken: string) {
     const session =
       await this.tableSessionsService.resolveOpenSessionByToken(sessionToken);
 
@@ -97,24 +98,15 @@ export class ServiceRequestsService {
         type: ServiceRequestType.CHECKOUT,
         status: ServiceRequestStatus.PENDING,
       },
+      include: SERVICE_REQUEST_INCLUDE,
     });
-    if (existingPending) {
-      const updated = await this.prisma.serviceRequest.update({
-        where: { id: existingPending.id },
-        // ไม่ได้ระบุวิธีจ่ายมา = คงค่าเดิมไว้ ไม่ลบทิ้ง
-        data: { paymentMethod: paymentMethod ?? existingPending.paymentMethod },
-        include: SERVICE_REQUEST_INCLUDE,
-      });
-      this.emitRequestEvent('service-request.updated', updated);
-      return updated;
-    }
+    if (existingPending) return existingPending;
 
     const request = await this.prisma.serviceRequest.create({
       data: {
         tableId: session.tableId,
         tableSessionId: session.id,
         type: ServiceRequestType.CHECKOUT,
-        paymentMethod,
       },
       include: SERVICE_REQUEST_INCLUDE,
     });

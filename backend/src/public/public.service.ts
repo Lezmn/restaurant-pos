@@ -68,7 +68,7 @@ export class PublicService {
         type: ServiceRequestType.CHECKOUT,
         status: ServiceRequestStatus.PENDING,
       },
-      select: { id: true, paymentMethod: true, createdAt: true },
+      select: { id: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -139,13 +139,11 @@ export class PublicService {
     const request =
       await this.serviceRequestsService.createCheckoutFromSessionToken(
         dto.sessionToken,
-        dto.paymentMethod,
       );
     return {
       ok: true,
       id: request.id,
       status: request.status,
-      paymentMethod: request.paymentMethod,
       tableNumber: request.table.number,
       createdAt: request.createdAt,
     };
