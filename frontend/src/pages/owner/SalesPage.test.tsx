@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getSales } from '@/features/reports/api'
 import type { SalesData } from '@/types/reports'
@@ -44,7 +45,10 @@ function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <SalesPage />
+      {/* การ์ดอันดับเมนูมีลิงก์ไปหน้าจัดการเมนู — ต้องมี router */}
+      <MemoryRouter>
+        <SalesPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   )
 }
@@ -70,7 +74,14 @@ describe('SalesPage (เมนูขายดี)', () => {
     const card = (await screen.findByText('ช่วงที่ลูกค้าสั่งมากที่สุด')).closest('div.rounded-xl')!
     expect(card).toHaveTextContent('12:00–13:00')
     expect(card).toHaveTextContent('9 ออเดอร์ทั้งเดือน')
-    expect(screen.getByText(/ยำวุ้นเส้น/)).toBeInTheDocument()
+    // ไม่มีใครสั่ง = ท้ายการ์ดอันดับเมนู พร้อมลิงก์ไปแก้เมนู
+    const ranking = screen.getByRole('heading', { name: 'อันดับเมนู' }).closest('section')!
+    const unsold = within(ranking).getByRole('list', { name: 'เมนูที่ไม่มีใครสั่ง' })
+    expect(unsold).toHaveTextContent('ยำวุ้นเส้น')
+    expect(within(ranking).getByRole('link', { name: /ไปหน้าจัดการเมนู/ })).toHaveAttribute(
+      'href',
+      '/employee/manage',
+    )
   })
 
   it('แสดง heatmap วันที่ยุ่งสุด และความเร็วครัว', async () => {

@@ -3,11 +3,12 @@ import { StatCard } from '@/components/ui/StatCard'
 import { currentMonth } from '@/features/reports/api'
 import { useSales } from '@/features/reports/hooks'
 import { formatBaht } from '@/lib/format'
-import type { KitchenStats, SalesHour, SalesItem } from '@/types/reports'
+import type { KitchenStats, SalesData, SalesHour, SalesItem } from '@/types/reports'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 
 /** แสดงอันดับแรก ๆ ก่อน ที่เหลือกดดูเพิ่ม — เมนูทั้งร้านมีหลายสิบรายการ */
-const TOP_N = 10
+const TOP_N = 5
 
 type SortKey = 'quantity' | 'revenue'
 
@@ -86,32 +87,12 @@ export function SalesPage() {
 
           {/* items-start: การ์ดกราฟไม่ยืดตามความสูงรายการอันดับจนมีที่ว่างโล่งท้ายการ์ด */}
           <div className="grid items-start gap-5 lg:grid-cols-2">
-            <TopItems items={data.topItems} />
+            <TopItems items={data.topItems} unsold={data.unsoldItems} />
             <HourChart hours={data.byHour} peakHour={peak?.hour ?? null} />
           </div>
 
           <WeekHeatmap grid={data.byWeekdayHour} />
           <KitchenSpeed stats={data.kitchen} />
-
-          {data.unsoldItems.length > 0 && (
-            <section className="rounded-xl border-2 border-gray-200 p-4">
-              <h2 className="text-base font-bold text-black">
-                เปิดขายอยู่แต่ไม่มีใครสั่งเลย ({data.unsoldItems.length})
-              </h2>
-              <p className="text-sm text-gray-600">ลองปรับราคา รูป หรือพิจารณาเอาออกจากเมนู</p>
-              <ul className="mt-3 flex flex-wrap gap-2">
-                {data.unsoldItems.map((item) => (
-                  <li
-                    key={item.menuItemId}
-                    className="rounded-full border border-gray-300 px-3 py-1 text-sm text-gray-800"
-                  >
-                    {item.name}
-                    <span className="text-gray-500"> · {item.categoryName}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
         </>
       )}
     </div>
@@ -135,7 +116,14 @@ function SalesSkeleton() {
 }
 
 /** อันดับเมนู — แท่งแนวนอนยาวตามค่าที่เลือก ตัวเลขอยู่ท้ายแถวเสมอ ไม่ต้องอ่านจากแท่ง */
-function TopItems({ items }: Readonly<{ items: SalesItem[] }>) {
+/**
+ * อันดับเมนู + ท้ายการ์ดคือเมนูที่เปิดขายแต่ไม่มีใครสั่ง (= อันดับท้ายสุด 0 ออเดอร์)
+ * อยู่การ์ดเดียวกัน ตัดสินใจเรื่องเมนูได้ในที่เดียว
+ */
+function TopItems({
+  items,
+  unsold,
+}: Readonly<{ items: SalesItem[]; unsold: SalesData['unsoldItems'] }>) {
   const [sortBy, setSortBy] = useState<SortKey>('quantity')
   const [showAll, setShowAll] = useState(false)
 
@@ -218,6 +206,29 @@ function TopItems({ items }: Readonly<{ items: SalesItem[] }>) {
         >
           {showAll ? `แสดงแค่ ${TOP_N} อันดับแรก` : `ดูทั้งหมด ${sorted.length} เมนู`}
         </button>
+      )}
+
+      {unsold.length > 0 && (
+        <div className="mt-4 border-t border-gray-200 pt-4">
+          <h3 className="text-sm font-bold text-black">ไม่มีใครสั่งเลย ({unsold.length})</h3>
+          <ul aria-label="เมนูที่ไม่มีใครสั่ง" className="mt-2 flex flex-wrap gap-2">
+            {unsold.map((item) => (
+              <li
+                key={item.menuItemId}
+                className="rounded-full border border-gray-300 px-3 py-1 text-sm text-gray-800"
+              >
+                {item.name}
+                <span className="text-gray-500"> · {item.categoryName}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-sm text-gray-600">
+            เปิดขายอยู่แต่ไม่มีออเดอร์ — ลองปรับราคา รูป หรือเอาออกจากเมนู{' '}
+            <Link to="/employee/manage" className="font-semibold text-brand-500 underline">
+              ไปหน้าจัดการเมนู →
+            </Link>
+          </p>
+        </div>
       )}
     </section>
   )
@@ -363,6 +374,12 @@ function WeekHeatmap({ grid }: Readonly<{ grid: number[][] }>) {
   const hours = Array.from({ length: lastActive - firstActive + 1 }, (_, i) => firstActive + i)
   const max = Math.max(...grid.flat(), 1)
 
+  // ยอดรวมขอบตาราง — เจ้าของร้านมักถามแยกกัน "วันไหนยุ่ง" กับ "ชั่วโมงไหนยุ่ง"
+  const dayTotals = grid.map((day) => day.reduce((n, c) => n + c, 0))
+  const topDay = Math.max(...dayTotals)
+  const topHour = Math.max(...hourTotals)
+  const grandTotal = dayTotals.reduce((n, c) => n + c, 0)
+
   let busiest = { day: 0, hour: 0, count: 0 }
   for (const day of WEEK_ORDER) {
     for (const hour of hours) {
@@ -384,20 +401,27 @@ function WeekHeatmap({ grid }: Readonly<{ grid: number[][] }>) {
         </p>
       </div>
 
-      {/* ตารางกว้างเกินจอมือถือได้ — เลื่อนเฉพาะในกรอบ หน้าไม่เลื่อนข้าง */}
+      {/* เต็มความกว้างกรอบ — จอแคบเกิน (มือถือ) เลื่อนเฉพาะในกรอบ หน้าไม่เลื่อนข้าง */}
       <div className="mt-4 overflow-x-auto">
-        <table className="border-separate border-spacing-0.5 text-xs">
-          <caption className="sr-only">จำนวนออเดอร์แยกตามวันและชั่วโมง</caption>
+        <table className="w-full border-separate border-spacing-0.5 text-xs md:text-sm">
+          <caption className="sr-only">จำนวนออเดอร์แยกตามวันและชั่วโมง พร้อมยอดรวมรายวันและรายชั่วโมง</caption>
           <thead>
             <tr>
-              <th scope="col" className="w-9">
+              <th scope="col" className="w-10">
                 <span className="sr-only">วัน</span>
               </th>
               {hours.map((hour) => (
-                <th key={hour} scope="col" className="min-w-7 font-normal text-gray-500 tabular-nums">
-                  {hour}
+                <th
+                  key={hour}
+                  scope="col"
+                  className="min-w-11 pb-1 font-normal whitespace-nowrap text-gray-600 tabular-nums"
+                >
+                  {String(hour).padStart(2, '0')}:00
                 </th>
               ))}
+              <th scope="col" className="pb-1 pl-2 font-semibold text-gray-700">
+                รวม
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -414,7 +438,7 @@ function WeekHeatmap({ grid }: Readonly<{ grid: number[][] }>) {
                     <td
                       key={hour}
                       title={`${DAY_FULL[day]} ${hourRange(hour)} · ${count} ออเดอร์`}
-                      className={`h-7 min-w-7 rounded text-center tabular-nums ${heatClass(count, max)} ${
+                      className={`h-8 min-w-11 rounded text-center tabular-nums md:h-9 ${heatClass(count, max)} ${
                         count / max > 0.5 ? 'font-semibold text-white' : 'text-gray-700'
                       }`}
                     >
@@ -422,12 +446,58 @@ function WeekHeatmap({ grid }: Readonly<{ grid: number[][] }>) {
                     </td>
                   )
                 })}
+                <TotalCell value={dayTotals[day]} top={dayTotals[day] === topDay} />
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row" className="pt-1 pr-1 text-left font-semibold text-gray-700">
+                รวม
+              </th>
+              {hours.map((hour) => (
+                <TotalCell key={hour} value={hourTotals[hour]} top={hourTotals[hour] === topHour} footer />
+              ))}
+              <td className="pt-1 pl-2 text-center font-bold text-black tabular-nums">
+                {grandTotal.toLocaleString('th-TH')}
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
+
+      {/* บอกว่าสี/ตัวเลขหมายถึงอะไร — ไม่งั้นต้องเดาเอง */}
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-600 md:text-sm">
+        <span className="flex items-center gap-1.5">
+          น้อย
+          {HEAT_STEPS.map((step) => (
+            <span key={step} aria-hidden className={`h-4 w-4 rounded ${step}`} />
+          ))}
+          มาก
+        </span>
+        <span>ตัวเลขในช่อง = จำนวนออเดอร์</span>
+        <span>
+          <b className="text-black">ตัวหนา</b> ในแถว/คอลัมน์ “รวม” = วันหรือชั่วโมงที่ยุ่งสุด
+        </span>
+      </div>
     </section>
+  )
+}
+
+/** ช่องยอดรวมของ heatmap — ไม่ลงสี (แยกจากข้อมูลรายช่อง) ตัวที่มากสุดเป็นตัวหนา */
+function TotalCell({
+  value,
+  top,
+  footer = false,
+}: Readonly<{ value: number; top: boolean; footer?: boolean }>) {
+  return (
+    <td
+      className={`text-center tabular-nums ${footer ? 'pt-1' : 'pl-2'} ${
+        top && value > 0 ? 'font-bold text-black' : 'text-gray-600'
+      }`}
+    >
+      {value > 0 ? value.toLocaleString('th-TH') : '–'}
+    </td>
   )
 }
 
