@@ -129,6 +129,22 @@ export interface PeriodData {
   paymentCount: number
   /** รายรับรายวัน ครบทุกวันในช่วง (วันที่ไม่มีบิล = 0) */
   trend: RevenuePoint[]
-  /** บิลที่รับเงินในช่วง — ใช้ทำกราฟรายชั่วโมงตอนดูวันเดียว */
-  payments: { amount: number; paidAt: string }[]
+  /** บิลที่รับเงินในช่วง ล่าสุดก่อน — ใช้ทำกราฟรายชั่วโมงและรายการบิลตอนดูวันเดียว */
+  payments: PeriodPayment[]
+}
+
+export interface PeriodPayment {
+  id: Id
+  /** "ใบเสร็จ R-0001" / "รับชำระเงิน" */
+  title: string
+  method: PaymentMethod
+  amount: number
+  paidAt: string
+}
+
+/** เมนูขายดีของช่วงบน Dashboard */
+export interface TopItems {
+  items: SalesItem[]
+  /** จำนวนจานรวมทั้งช่วง — ใช้คิดสัดส่วน */
+  totalQuantity: number
 }

@@ -31,7 +31,7 @@ export function StatCard({
   tone?: StatTone
   icon?: ReactNode
   /** บรรทัดเล็กใต้ตัวเลข เช่น "8 บิล" */
-  hint?: string
+  hint?: ReactNode
   size?: 'md' | 'lg'
   /** ใช้วางในกริด เช่น col-span */
   className?: string

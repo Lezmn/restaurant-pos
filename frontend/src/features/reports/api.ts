@@ -11,6 +11,7 @@ import type {
   PeriodData,
   RevenuePoint,
   SalesData,
+  TopItems,
 } from '@/types/reports'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -184,7 +185,8 @@ export async function getDashboardPeriod({ from, to }: DateRange): Promise<Perio
     `/reports/income-expense?from=${from}&to=${to}`,
   )
 
-  const incomes = report.transactions.filter((t) => t.type === 'INCOME')
+  type Income = Extract<ApiIncomeExpenseReport['transactions'][number], { type: 'INCOME' }>
+  const incomes = report.transactions.filter((t): t is Income => t.type === 'INCOME')
   const byDay = new Map<string, number>()
   for (const t of incomes) {
     const key = toYmd(new Date(t.date))
@@ -216,6 +218,40 @@ export async function getDashboardPeriod({ from, to }: DateRange): Promise<Perio
     promptPayCount: countByMethod(PaymentMethod.PROMPTPAY),
     paymentCount: incomes.length,
     trend,
-    payments: incomes.map((t) => ({ amount: t.amount, paidAt: t.date })),
+    payments: incomes.map((t) => ({
+      id: t.id,
+      title: t.title,
+      method: t.category,
+      amount: t.amount,
+      paidAt: t.date,
+    })),
+  }
+}
+
+/** ช่วงก่อนหน้าที่ยาวเท่ากัน ติดกันพอดี — 20–26 ต.ค. → 13–19 ต.ค. · วันเดียว → วันก่อนหน้า */
+export const previousRange = (range: DateRange): DateRange => {
+  const days = daysInRange(range)
+  const start = parseYmd(range.from)
+  const at = (offset: number) =>
+    toYmd(new Date(start.getFullYear(), start.getMonth(), start.getDate() + offset))
+  return { from: at(-days), to: at(-1) }
+}
+
+const TOP_ITEMS = 5
+
+/** เมนูขายดี 5 อันดับของช่วง จาก /reports/sales?from&to (นับเฉพาะออเดอร์ที่จ่ายแล้ว) */
+export async function getTopItems({ from, to }: DateRange): Promise<TopItems> {
+  const report = await apiClient<ApiSalesReport>(`/reports/sales?from=${from}&to=${to}`)
+  return {
+    items: report.topItems
+      .slice(0, TOP_ITEMS)
+      .map(({ menuItemId, name, categoryName, quantity, revenue }) => ({
+        menuItemId,
+        name,
+        categoryName,
+        quantity,
+        revenue,
+      })),
+    totalQuantity: report.totalQuantity,
   }
 }

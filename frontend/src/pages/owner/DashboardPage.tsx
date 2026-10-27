@@ -1,15 +1,15 @@
 import { LoadError } from '@/components/ui/LoadError'
 import { PageLoading } from '@/components/ui/PageLoading'
-import { HourlyChart, revenueByHour } from '@/components/ui/HourlyChart'
 import { Pagination } from '@/components/ui/Pagination'
+import { HourlyChart, revenueByHour } from '@/components/ui/HourlyChart'
 import { StatCard } from '@/components/ui/StatCard'
 import { TrendChart } from '@/components/ui/TrendChart'
-import { daysInRange, lastDays, todayYmd } from '@/features/reports/api'
-import { useDashboard, useDashboardPeriod } from '@/features/reports/hooks'
+import { daysInRange, lastDays, previousRange, todayYmd } from '@/features/reports/api'
+import { useDashboard, useDashboardPeriod, useTopItems } from '@/features/reports/hooks'
 import { formatBaht, formatTime } from '@/lib/format'
 import { usePagination } from '@/lib/use-pagination'
 import { PaymentMethod } from '@/types/enums'
-import type { DateRange, PeriodData } from '@/types/reports'
+import type { DateRange, PeriodData, PeriodPayment } from '@/types/reports'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
@@ -104,6 +104,8 @@ export function DashboardPage() {
 
   const { data, isPending, isError, error, refetch } = useDashboard()
   const periodQuery = useDashboardPeriod(range)
+  // ช่วงก่อนหน้าที่ยาวเท่ากัน — ไว้บอกบนการ์ดว่าขึ้นหรือลง
+  const previousQuery = useDashboardPeriod(range ? previousRange(range) : null)
   // ต้องเรียก hook ก่อน early return เสมอ (กฎของ hooks) จึงอ่านจาก data?. ตรงนี้
   const pagedNotifications = usePagination(data?.notifications ?? [])
   const now = useNow()
@@ -122,7 +124,8 @@ export function DashboardPage() {
   const periodData = periodQuery.data
   const days = range ? daysInRange(range) : 1
   /** ป้ายสั้นต่อท้ายการ์ด ("รายรับ 7 วัน" / "รายรับวันนั้น") */
-  const periodLabel = days === 1 ? 'วันนั้น' : `${days} วัน`
+  // เว้นวรรคหน้าตัวเลข ("รายรับ 7 วัน") แต่ "รายรับวันนั้น" ติดกัน
+  const periodLabel = days === 1 ? 'วันนั้น' : ` ${days} วัน`
   let title = 'สรุปวันนี้'
   let description: string | undefined
   if (preset === 7 || preset === 30) {
@@ -251,6 +254,7 @@ export function DashboardPage() {
           error={periodQuery.error}
           onRetry={() => void periodQuery.refetch()}
           now={now}
+          previous={previousQuery.data}
         />
       ) : (
         <>
@@ -320,58 +324,45 @@ export function DashboardPage() {
             </section>
           </div>
 
-          <section className="rounded-xl border border-gray-200 p-4">
-            <h2 className="mb-1 text-lg font-bold text-black">บิลที่รับเงินวันนี้</h2>
+          <div className="grid items-start gap-4 lg:grid-cols-3">
+            <section className="rounded-xl border border-gray-200 p-4 lg:col-span-2">
+              <h2 className="mb-1 text-lg font-bold text-black">บิลที่รับเงินวันนี้</h2>
 
-            {notifications.length === 0 ? (
-              <p className="py-6 text-center text-sm text-gray-600">
-                วันนี้ยังไม่มีบิลที่รับเงิน — บิลจะขึ้นที่นี่ทันทีที่หน้าร้านรับเงิน
-              </p>
-            ) : (
-              <ul className="divide-y divide-gray-200">
-                {pagedNotifications.pageItems.map((note) => {
-                  const hint = relativeHint(note.createdAt, now)
-                  return (
-                    <li key={note.id} className="flex items-center gap-3 py-3">
-                      <span
-                        aria-hidden
-                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                          note.method === PaymentMethod.PROMPTPAY
-                            ? 'bg-promptpay/10 text-promptpay'
-                            : 'bg-brand-50 text-brand-500'
-                        }`}
-                      >
-                        {note.method === PaymentMethod.PROMPTPAY ? <IconPhone /> : <IconCash />}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-black">
-                          โต๊ะ {note.tableName}
-                        </p>
-                        <p className="text-xs text-gray-600">
-                          {methodLabel[note.method]} ·{' '}
-                          <span className="tabular-nums">{formatTime(note.createdAt)}</span>
-                          {hint && ` (${hint})`}
-                        </p>
-                      </div>
-                      <p className="shrink-0 text-sm font-bold text-black tabular-nums">
-                        {formatBaht(note.amount)}
-                      </p>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
+              {notifications.length === 0 ? (
+                <p className="py-6 text-center text-sm text-gray-600">
+                  วันนี้ยังไม่มีบิลที่รับเงิน — บิลจะขึ้นที่นี่ทันทีที่หน้าร้านรับเงิน
+                </p>
+              ) : (
+                <ul className="divide-y divide-gray-200">
+                  {pagedNotifications.pageItems.map((note) => {
+                    const hint = relativeHint(note.createdAt, now)
+                    return (
+                      <BillRow
+                        key={note.id}
+                        title={`โต๊ะ ${note.tableName}`}
+                        method={note.method}
+                        paidAt={note.createdAt}
+                        hint={hint}
+                        amount={note.amount}
+                      />
+                    )
+                  })}
+                </ul>
+              )}
 
-            <Pagination
-              page={pagedNotifications.page}
-              totalPages={pagedNotifications.totalPages}
-              from={pagedNotifications.from}
-              to={pagedNotifications.to}
-              total={pagedNotifications.total}
-              onChange={pagedNotifications.setPage}
-              unit="บิล"
-            />
-          </section>
+              <Pagination
+                page={pagedNotifications.page}
+                totalPages={pagedNotifications.totalPages}
+                from={pagedNotifications.from}
+                to={pagedNotifications.to}
+                total={pagedNotifications.total}
+                onChange={pagedNotifications.setPage}
+                unit="บิล"
+              />
+            </section>
+
+            <TopItemsSection range={shown} />
+          </div>
         </>
       )}
     </div>
@@ -387,6 +378,7 @@ function PeriodView({
   error,
   onRetry,
   now,
+  previous,
 }: Readonly<{
   /** "7 วัน" / "วันนั้น" — ต่อท้ายชื่อการ์ด */
   label: string
@@ -397,6 +389,8 @@ function PeriodView({
   onRetry: () => void
   /** เวลาปัจจุบัน — ดูวันเดียวที่เป็นวันนี้ กราฟรายชั่วโมงจะบอก "ตอนนี้" */
   now: number
+  /** ช่วงก่อนหน้าที่ยาวเท่ากัน — ยังโหลดไม่เสร็จ = ไม่โชว์ส่วนเทียบ */
+  previous: PeriodData | undefined
 }>) {
   if (isPending) return <PageLoading />
   if (!data) return <LoadError what={`สรุป${label}`} error={error} onRetry={onRetry} />
@@ -414,6 +408,9 @@ function PeriodView({
   const perBill = data.paymentCount > 0 ? data.revenue / data.paymentCount : null
   const best = data.trend.reduce((a, b) => (b.revenue > a.revenue ? b : a), data.trend[0])
   const emptyDays = data.trend.filter((p) => p.revenue === 0).length
+  const against = singleDay ? 'วันก่อนหน้า' : ` ${days} วันก่อนหน้า`
+  // previous ต้องเป็นช่วงที่ติดกับช่วงนี้จริง (ตอนเปลี่ยนช่วง ข้อมูลเก่าอาจค้างอยู่ชั่วครู่)
+  const prev = previous && previous.to < data.from && previous.days === days ? previous : undefined
 
   return (
     <>
@@ -425,7 +422,24 @@ function PeriodView({
         <StatCard
           label={`รายรับ${label}`}
           value={formatBaht(data.revenue)}
-          hint={`${data.paymentCount.toLocaleString('th-TH')} บิล`}
+          hint={
+            <>
+              {data.paymentCount.toLocaleString('th-TH')} บิล
+              {prev && (
+                <Change
+                  diff={data.revenue - prev.revenue}
+                  // ก่อนหน้าเป็น 0 คิด % ไม่ได้ — บอกเป็นบาทแทน
+                  text={
+                    prev.revenue > 0
+                      ? `${Math.round((Math.abs(data.revenue - prev.revenue) / prev.revenue) * 100)}%`
+                      : formatBaht(Math.abs(data.revenue - prev.revenue))
+                  }
+                  against={against}
+                  previousText={formatBaht(prev.revenue)}
+                />
+              )}
+            </>
+          }
           tone="brand"
           size="lg"
           className="col-span-2 xl:col-span-1"
@@ -445,7 +459,20 @@ function PeriodView({
         <StatCard
           label={netNegative ? `ขาดทุน${label}` : `กำไรสุทธิ${label}`}
           value={formatBaht(data.netProfit)}
-          hint={`รายจ่าย ${formatBaht(data.expenseTotal)}`}
+          hint={
+            <>
+              รายจ่าย {formatBaht(data.expenseTotal)}
+              {prev && (
+                <Change
+                  diff={data.netProfit - prev.netProfit}
+                  // กำไรติดลบได้ % จะหลอกตา — บอกเป็นบาท
+                  text={formatBaht(Math.abs(data.netProfit - prev.netProfit))}
+                  against={against}
+                  previousText={formatBaht(prev.netProfit)}
+                />
+              )}
+            </>
+          }
           tone={netNegative ? 'red' : 'green'}
           className="col-span-2 xl:col-span-1"
         />
@@ -509,7 +536,147 @@ function PeriodView({
           </Link>
         </section>
       </div>
+
+      <div className="grid items-start gap-4 lg:grid-cols-3">
+        {singleDay && <DayBills payments={data.payments} isToday={isToday} />}
+        <TopItemsSection range={{ from: data.from, to: data.to }} className={singleDay ? '' : 'lg:col-span-3'} />
+      </div>
     </>
+  )
+}
+
+/** "▲ 12% จาก 7 วันก่อนหน้า" — ขึ้นสีเขียว ลงสีแดง */
+function Change({
+  diff,
+  text,
+  against,
+  previousText,
+}: Readonly<{ diff: number; text: string; against: string; previousText: string }>) {
+  return (
+    <span className="mt-0.5 block" title={`${against.trim()}: ${previousText}`}>
+      {diff === 0 ? (
+        <>เท่ากับ{against}</>
+      ) : (
+        <>
+          <span className={`font-semibold ${diff > 0 ? 'text-success-ink' : 'text-danger-ink'}`}>
+            <span aria-hidden>{diff > 0 ? '▲' : '▼'} </span>
+            <span className="sr-only">{diff > 0 ? 'เพิ่มขึ้น ' : 'ลดลง '}</span>
+            {text}
+          </span>{' '}
+          จาก{against}
+        </>
+      )}
+    </span>
+  )
+}
+
+/** บิลหนึ่งใบในรายการบิล — ไอคอนตามวิธีจ่าย ชื่อ เวลา ยอด */
+function BillRow({
+  title,
+  method,
+  paidAt,
+  hint,
+  amount,
+}: Readonly<{ title: string; method: PaymentMethod; paidAt: string; hint?: string | null; amount: number }>) {
+  return (
+    <li className="flex items-center gap-3 py-3">
+      <span
+        aria-hidden
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+          method === PaymentMethod.PROMPTPAY ? 'bg-promptpay/10 text-promptpay' : 'bg-brand-50 text-brand-500'
+        }`}
+      >
+        {method === PaymentMethod.PROMPTPAY ? <IconPhone /> : <IconCash />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-black">{title}</p>
+        <p className="text-xs text-gray-600">
+          {methodLabel[method]} · <span className="tabular-nums">{formatTime(paidAt)}</span>
+          {hint && ` (${hint})`}
+        </p>
+      </div>
+      <p className="shrink-0 text-sm font-bold text-black tabular-nums">{formatBaht(amount)}</p>
+    </li>
+  )
+}
+
+/** รายการบิลของวันที่เลือก (ดูวันเดียว) ล่าสุดก่อน */
+function DayBills({ payments, isToday }: Readonly<{ payments: PeriodPayment[]; isToday: boolean }>) {
+  const paged = usePagination(payments)
+  return (
+    <section className="rounded-xl border border-gray-200 p-4 lg:col-span-2">
+      <h2 className="mb-1 text-lg font-bold text-black">{isToday ? 'บิลที่รับเงินวันนี้' : 'บิลที่รับเงินวันนั้น'}</h2>
+      {payments.length === 0 ? (
+        <p className="py-6 text-center text-sm text-gray-600">
+          {isToday ? 'วันนี้ยังไม่มีบิลที่รับเงิน' : 'วันนั้นไม่มีบิลที่รับเงิน'}
+        </p>
+      ) : (
+        <ul className="divide-y divide-gray-200">
+          {paged.pageItems.map((p) => (
+            <BillRow key={p.id} title={p.title} method={p.method} paidAt={p.paidAt} amount={p.amount} />
+          ))}
+        </ul>
+      )}
+      <Pagination
+        page={paged.page}
+        totalPages={paged.totalPages}
+        from={paged.from}
+        to={paged.to}
+        total={paged.total}
+        onChange={paged.setPage}
+        unit="บิล"
+      />
+    </section>
+  )
+}
+
+/** เมนูขายดี 5 อันดับของช่วง — นับเฉพาะออเดอร์ที่จ่ายแล้ว แท่งเทียบกับอันดับ 1 */
+function TopItemsSection({ range, className = '' }: Readonly<{ range: DateRange; className?: string }>) {
+  const { data, isPending, isError, error, refetch } = useTopItems(range)
+  const top = data?.items[0]?.quantity ?? 0
+
+  return (
+    <section className={`flex flex-col rounded-xl border border-gray-200 p-4 ${className}`}>
+      <h2 className="mb-1 text-lg font-bold text-black">เมนูขายดี</h2>
+      {isPending ? (
+        <p className="py-6 text-center text-sm text-gray-600">กำลังโหลด…</p>
+      ) : !data ? (
+        <LoadError what="เมนูขายดี" error={isError ? error : null} onRetry={() => void refetch()} />
+      ) : data.items.length === 0 ? (
+        <p className="py-6 text-center text-sm text-gray-600">ยังไม่มีเมนูที่ขายได้ในช่วงนี้</p>
+      ) : (
+        <ol className="divide-y divide-gray-200">
+          {data.items.map((item, i) => (
+            <li key={item.menuItemId} className="flex items-center gap-3 py-3">
+              <span className="w-5 shrink-0 text-center text-sm font-bold text-gray-500 tabular-nums">{i + 1}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="truncate text-sm font-semibold text-black">{item.name}</p>
+                  <p className="shrink-0 text-sm font-bold text-black tabular-nums">
+                    {item.quantity.toLocaleString('th-TH')} จาน
+                  </p>
+                </div>
+                <div aria-hidden className="mt-1.5 h-1.5 rounded-full bg-gray-100">
+                  <div
+                    className="h-full rounded-full bg-brand-400"
+                    style={{ width: `${top > 0 ? (item.quantity / top) * 100 : 0}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-600">
+                  {item.categoryName} · <span className="tabular-nums">{formatBaht(item.revenue)}</span>
+                </p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+      <Link
+        to="/owner/sales"
+        className="mt-auto inline-flex min-h-11 items-center pt-3 text-sm font-bold text-brand-500 hover:underline"
+      >
+        ดูทั้งหมดในหน้าเมนูขายดี →
+      </Link>
+    </section>
   )
 }
 

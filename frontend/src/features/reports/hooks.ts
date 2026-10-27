@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type { DateRange } from '@/types/reports'
-import { getDashboard, getDashboardPeriod, getFinance, getSales } from './api'
+import { getDashboard, getDashboardPeriod, getFinance, getSales, getTopItems } from './api'
 
 // ขึ้นต้นด้วย 'reports' ทั้งหมด — features/live invalidate ['reports'] ตอนมีบิลใหม่/ยกเลิกบิล
 export const reportKeys = {
@@ -9,7 +9,14 @@ export const reportKeys = {
   dashboardPeriod: (range: DateRange) => ['reports', 'dashboard-period', range.from, range.to] as const,
   finance: (month: string) => ['reports', 'finance', month] as const,
   sales: (month: string) => ['reports', 'sales', month] as const,
+  topItems: (range: DateRange) => ['reports', 'top-items', range.from, range.to] as const,
 }
+
+export const useTopItems = (range: DateRange) =>
+  useQuery({
+    queryKey: reportKeys.topItems(range),
+    queryFn: () => getTopItems(range),
+  })
 
 export const useDashboard = () =>
   useQuery({ queryKey: reportKeys.dashboard, queryFn: getDashboard })
