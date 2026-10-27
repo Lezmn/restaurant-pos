@@ -38,10 +38,11 @@ export class PublicService {
           },
           include: {
             options: {
-              // ตัวเลือกที่ผูกวัตถุดิบไว้ ต้องมีวัตถุดิบพร้อมด้วยถึงจะโชว์ให้ลูกค้าสั่ง
-              where: {
-                isAvailable: true,
-                OR: [{ ingredientId: null }, { ingredient: { isAvailable: true } }],
+              // ตัวเลือกที่วัตถุดิบหมดยังส่งมา — หน้าลูกค้าโชว์เป็น "หมด" กดเลือกไม่ได้
+              // (ตอนสั่ง orders.service ตรวจซ้ำอยู่แล้ว)
+              where: { isAvailable: true },
+              include: {
+                ingredient: { select: { id: true, name: true, isAvailable: true } },
               },
               orderBy: [{ group: 'asc' }, { name: 'asc' }],
             },

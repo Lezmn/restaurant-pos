@@ -88,6 +88,34 @@ describe('CustomerMenuItemPage', () => {
     ).toContain('฿60')
   })
 
+  it('ตัวเลือกที่วัตถุดิบหมด โชว์ป้าย "หมด" และเลือกไม่ได้', async () => {
+    const soldOut = structuredClone(menu)
+    const opts = soldOut[0].menuItems[0].options as Record<string, unknown>[]
+    opts[1].ingredient = { id: 'i-shrimp', name: 'กุ้ง', isAvailable: false }
+    opts[2].ingredient = { id: 'i-egg', name: 'ไข่', isAvailable: false }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify(soldOut), { status: 200 })),
+    )
+    renderPage()
+    expect(await screen.findAllByText('หมด')).toHaveLength(2)
+    expect(screen.queryByLabelText(/กุ้ง/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/ไข่ดาว/)).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/หมู/)).toBeInTheDocument()
+  })
+
+  it('เนื้อสัตว์หมดทุกตัว → ไม่บังคับเลือก สั่งได้', async () => {
+    const soldOut = structuredClone(menu)
+    const opts = soldOut[0].menuItems[0].options as Record<string, unknown>[]
+    for (const o of opts.slice(0, 2)) o.ingredient = { id: 'x', name: 'x', isAvailable: false }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify(soldOut), { status: 200 })),
+    )
+    renderPage()
+    expect(await screen.findByRole('button', { name: /เพิ่มรายการ/ })).toBeEnabled()
+  })
+
   it('เมนูไม่มีแล้ว (ถูกปิด/ลบ) → แสดง "ไม่พบเมนูนี้"', async () => {
     vi.stubGlobal(
       'fetch',

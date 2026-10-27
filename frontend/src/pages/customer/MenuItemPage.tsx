@@ -4,9 +4,12 @@ import { QuantityStepper } from '@/components/ui/QuantityStepper'
 import { usePublicMenuItem } from '@/features/public/hooks'
 import { useCart, type CartOption } from '@/features/public/cart-store'
 import { formatBaht } from '@/lib/format'
-import type { MenuOptionGroup } from '@/types/models'
+import type { MenuOption, MenuOptionGroup } from '@/types/models'
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+
+/** ตัวเลือกที่วัตถุดิบหมด — backend ยังส่งมาให้โชว์ "หมด" แต่สั่งไม่ได้ */
+const isSoldOut = (o: MenuOption) => !o.isAvailable || o.ingredientOutOfStock
 
 export function CustomerMenuItemPage() {
   const { token, menuItemId } = useParams()
@@ -28,7 +31,7 @@ export function CustomerMenuItemPage() {
           group.selectType === 'single'
             ? singleChoice[group.id] === option.id
             : Boolean(multiChoice[option.id])
-        if (isPicked) {
+        if (isPicked && !isSoldOut(option)) {
           picked.push({ id: option.id, name: option.name, price: option.price })
         }
       }
@@ -36,8 +39,13 @@ export function CustomerMenuItemPage() {
     return picked
   }, [item, singleChoice, multiChoice])
 
+  // เนื้อสัตว์หมดทุกตัว = ไม่บังคับเลือก (กติกาเดียวกับ backend) ไม่งั้นลูกค้ากดสั่งไม่ได้เลย
   const missingRequired = (item?.optionGroups ?? []).filter(
-    (g) => g.required && g.selectType === 'single' && !singleChoice[g.id],
+    (g) =>
+      g.required &&
+      g.selectType === 'single' &&
+      !singleChoice[g.id] &&
+      g.options.some((o) => !isSoldOut(o)),
   )
 
   const unitPrice =
@@ -170,42 +178,78 @@ function OptionGroupBlock({
 
       <div className="mt-2 space-y-2">
         {group.options.map((option) => {
+          const single = group.selectType === 'single'
+          const soldOut = isSoldOut(option)
           const checked =
-            group.selectType === 'single'
-              ? singleValue === option.id
-              : Boolean(multiValue[option.id])
+            !soldOut && (single ? singleValue === option.id : Boolean(multiValue[option.id]))
+
+          // เนื้อสัตว์: การ์ดขาวขอบส้ม / เพิ่มเติม: พื้นส้มอ่อนไม่มีขอบ — หมด: กดไม่ได้ + ป้าย "หมด"
+          let tone: string
+          if (soldOut) {
+            tone = single
+              ? 'cursor-not-allowed border border-brand-200 bg-gray-100'
+              : 'cursor-not-allowed bg-brand-50'
+          } else if (single) {
+            tone = `cursor-pointer border bg-white ${
+              checked ? 'border-brand-300 ring-1 ring-brand-300' : 'border-brand-200'
+            }`
+          } else {
+            tone = `cursor-pointer bg-brand-50 ${checked ? 'ring-2 ring-brand-300' : ''}`
+          }
 
           return (
             <label
               key={option.id}
-              className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 transition ${
-                checked
-                  ? 'border-brand-300 bg-brand-50'
-                  : 'border-brand-75 bg-white hover:border-brand-100'
-              }`}
+              className={`flex items-center justify-between gap-3 rounded-xl px-4 py-3 shadow-sm transition ${tone}`}
             >
-              <span className="text-sm md:text-base text-gray-900">
+              <span className="text-sm font-semibold text-text md:text-base">
                 {option.name}
                 {option.price > 0 && (
-                  <span className="block text-xs md:text-sm text-gray-500">
+                  <span className="block text-xs font-semibold text-gray-600 md:text-sm">
                     +{option.price}
                   </span>
                 )}
               </span>
 
-              <input
-                type={group.selectType === 'single' ? 'radio' : 'checkbox'}
-                name={group.id}
-                checked={checked}
-                onChange={(e) =>
-                  group.selectType === 'single'
-                    ? onSingle(option.id)
-                    : onMulti(option.id, e.target.checked)
-                }
-                className={`h-5 w-5 shrink-0 accent-brand-300 ${
-                  group.selectType === 'single' ? 'rounded-full' : 'rounded'
-                }`}
-              />
+              {soldOut ? (
+                <span className="shrink-0 rounded bg-red-100 px-2 py-0.5 text-xs font-bold text-danger-ink">
+                  หมด
+                </span>
+              ) : (
+                <>
+                  <input
+                    type={single ? 'radio' : 'checkbox'}
+                    name={group.id}
+                    checked={checked}
+                    onChange={(e) =>
+                      single ? onSingle(option.id) : onMulti(option.id, e.target.checked)
+                    }
+                    className="peer sr-only"
+                  />
+                  {/* วาดปุ่มเองให้ตรงดีไซน์ — input จริงซ่อนไว้ (sr-only) ยังกด/โฟกัสด้วยคีย์บอร์ดได้ */}
+                  <span
+                    aria-hidden
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center border-2 peer-focus-visible:ring-2 peer-focus-visible:ring-brand-300 peer-focus-visible:ring-offset-2 ${
+                      single
+                        ? 'rounded-full border-brand-300 bg-white'
+                        : `rounded-sm ${checked ? 'border-brand-300 bg-brand-300' : 'border-gray-500 bg-white'}`
+                    }`}
+                  >
+                    {single && checked && <span className="h-3 w-3 rounded-full bg-brand-300" />}
+                    {!single && checked && (
+                      <svg
+                        viewBox="0 0 16 16"
+                        className="h-4 w-4 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                      >
+                        <path d="M3 8.5l3 3 7-7" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </span>
+                </>
+              )}
             </label>
           )
         })}
