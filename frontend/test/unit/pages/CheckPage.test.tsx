@@ -55,11 +55,16 @@ const session = (id: string, tableName: string, total: number, status: TableSess
   id,
   tableId: `t-${id}`,
   tableName,
+  placeLabel: `โต๊ะ ${tableName}`,
+  isTakeaway: false,
+  takeawayNo: null,
+  customerName: null,
   token: `tok-${id}`,
   status,
   openedAt: '2026-10-24T05:30:00.000Z',
   closedAt: null,
   total,
+  split: null,
 })
 
 const order = (sessionId: string, status: OrderStatus, id = `${sessionId}-${status}`): Order => ({
@@ -67,6 +72,9 @@ const order = (sessionId: string, status: OrderStatus, id = `${sessionId}-${stat
   orderRef: id.slice(0, 6).toUpperCase(),
   tableSessionId: sessionId,
   tableName: '',
+  placeLabel: '',
+  isTakeaway: false,
+  paid: status === OrderStatus.PAID,
   status,
   createdAt: '2026-10-24T05:40:00.000Z',
   clearedAt: null,
@@ -372,7 +380,15 @@ describe('CheckPage — กล่องรับเงิน', () => {
 
     await user.click(within(dialog).getByRole('button', { name: 'รับเงิน ฿120' }))
     expect(createPayment.mutate).toHaveBeenCalledWith(
-      { tableSessionId: 's1', method: PaymentMethod.CASH, tableName: '1', note: '', expectedTotal: 120, amount: undefined },
+      expect.objectContaining({
+        tableSessionId: 's1',
+        method: PaymentMethod.CASH,
+        tableName: '1',
+        isTakeaway: false,
+        note: '',
+        expectedTotal: 120,
+        discountPercent: undefined,
+      }),
       expect.anything(),
     )
     // ยอดรับมาไม่ได้ส่งไป backend แต่ต้องไปโผล่บนใบเสร็จ (เงินทอน)
@@ -403,18 +419,17 @@ describe('CheckPage — กล่องรับเงิน', () => {
     expect(within(dialog).getByRole('button', { name: 'รับเงิน ฿120' })).toBeEnabled()
   })
 
-  // ทดสอบ: ให้ส่วนลดต้องใส่เหตุผลก่อนบันทึก และเหตุผลถูกรวมกับหมายเหตุลงบิล (ตัดช่องว่างหัวท้าย)
-  // วิธี: กดให้ส่วนลด กรอกราคา 100 → เช็กว่า "ลด ฿20" และปุ่มกดไม่ได้ → ใส่เหตุผลและหมายเหตุ → กดรับเงิน → เช็ก note = 'ส่วนลด ฿20: ลูกค้าประจำ · แยกถุง', amount 100
-  it('ส่วนลด: ต้องใส่เหตุผลก่อนบันทึก และเหตุผลถูกรวมกับหมายเหตุลงบิล', async () => {
+  // ทดสอบ: ส่วนลดเป็น % — คิดยอดลดและยอดเก็บจริงถูก ต้องใส่เหตุผลก่อนบันทึก และเหตุผลถูกรวมกับหมายเหตุลงบิล (ตัดช่องว่างหัวท้าย)
+  // วิธี: กดให้ส่วนลด กรอก 20% ในโต๊ะยอด 120 → เช็ก "ลด ฿24" / "เก็บจริง ฿96" และปุ่มกดไม่ได้ → ใส่เหตุผลและหมายเหตุ → กดรับเงิน → เช็ก note, discountPercent 20 และ expectedTotal เป็นยอดก่อนลด
+  it('ส่วนลด %: คิดยอดลดถูก ต้องใส่เหตุผลก่อนบันทึก และเหตุผลถูกรวมกับหมายเหตุลงบิล', async () => {
     const user = userEvent.setup()
     const dialog = await openPayment(user)
     await user.click(within(dialog).getByRole('button', { name: 'ให้ส่วนลด' }))
-    const charged = within(dialog).getByLabelText(/ราคาที่เก็บจริง/)
-    await user.clear(charged)
-    await user.type(charged, '100')
+    await user.type(within(dialog).getByLabelText(/ลดกี่ %/), '20')
 
-    expect(dialog).toHaveTextContent('ลด ฿20')
-    const submit = within(dialog).getByRole('button', { name: 'รับเงิน ฿100' })
+    expect(dialog).toHaveTextContent('ลด ฿24')
+    expect(dialog).toHaveTextContent('เก็บจริง ฿96')
+    const submit = within(dialog).getByRole('button', { name: 'รับเงิน ฿96' })
     expect(submit).toBeDisabled()
     expect(dialog).toHaveTextContent('ใส่เหตุผลที่ลดก่อนรับเงิน')
 
@@ -423,40 +438,57 @@ describe('CheckPage — กล่องรับเงิน', () => {
     expect(submit).toBeEnabled()
     await user.click(submit)
     expect(createPayment.mutate).toHaveBeenCalledWith(
-      expect.objectContaining({ note: 'ส่วนลด ฿20: ลูกค้าประจำ · แยกถุง', amount: 100, expectedTotal: 120 }),
+      expect.objectContaining({
+        note: 'ส่วนลด 20% (฿24): ลูกค้าประจำ · แยกถุง',
+        discountPercent: 20,
+        expectedTotal: 120,
+      }),
       expect.anything(),
     )
   })
 
-  // ทดสอบ: กรอกราคาที่เก็บจริงเกินยอดบิลต้องเตือน และบันทึกไม่ได้
-  // วิธี: กดให้ส่วนลด กรอก 130 ในโต๊ะยอด 120 → เช็กข้อความเตือน, aria-invalid และปุ่มรับเงินกดไม่ได้
-  it('กรอกราคาเกินยอดบิล → เตือน และบันทึกไม่ได้', async () => {
+  // ทดสอบ: ปุ่ม % ที่ใช้บ่อย กดทีเดียวได้ส่วนลดเลย และปุ่มที่เลือกอยู่ถูกกดค้าง
+  // วิธี: กดให้ส่วนลด → กด "10%" → เช็กช่อง % เป็น 10, ปุ่ม aria-pressed และ "ลด ฿12"
+  it('ปุ่ม % ด่วน: กด 10% แล้วได้ส่วนลด 10% ทันที', async () => {
     const user = userEvent.setup()
     const dialog = await openPayment(user)
     await user.click(within(dialog).getByRole('button', { name: 'ให้ส่วนลด' }))
-    const charged = within(dialog).getByLabelText(/ราคาที่เก็บจริง/)
-    await user.clear(charged)
-    await user.type(charged, '130')
-    expect(dialog).toHaveTextContent('เก็บเกินยอดบิลไม่ได้ สูงสุด ฿120')
-    expect(charged).toHaveAttribute('aria-invalid', 'true')
+    await user.click(within(dialog).getByRole('button', { name: '10%' }))
+    expect(within(dialog).getByLabelText(/ลดกี่ %/)).toHaveValue(10)
+    expect(within(dialog).getByRole('button', { name: '10%' })).toHaveAttribute('aria-pressed', 'true')
+    expect(dialog).toHaveTextContent('ลด ฿12')
+    expect(within(dialog).getByRole('button', { name: 'รับเงิน ฿108' })).toBeDisabled()
+  })
+
+  // ทดสอบ: กรอก % ที่ไม่ใช่จำนวนเต็ม 1-100 ต้องเตือน และบันทึกไม่ได้
+  // วิธี: กดให้ส่วนลด กรอก 150 → เช็กข้อความเตือน, aria-invalid และปุ่มรับเงินกดไม่ได้
+  it('กรอก % เกิน 100 → เตือน และบันทึกไม่ได้', async () => {
+    const user = userEvent.setup()
+    const dialog = await openPayment(user)
+    await user.click(within(dialog).getByRole('button', { name: 'ให้ส่วนลด' }))
+    const percent = within(dialog).getByLabelText(/ลดกี่ %/)
+    await user.type(percent, '150')
+    expect(dialog).toHaveTextContent('ใส่เป็นจำนวนเต็ม 1-100')
+    expect(percent).toHaveAttribute('aria-invalid', 'true')
     expect(within(dialog).getByRole('button', { name: /^รับเงิน ฿/ })).toBeDisabled()
   })
 
-  // ทดสอบ: กด "ไม่ลดแล้ว" ราคาต้องกลับเป็นยอดเต็ม เหตุผลหาย และปิดส่วนลด
-  // วิธี: กดให้ส่วนลด กรอก 90 และเหตุผล → กดไม่ลดแล้ว → เช็กว่าช่องราคาหาย → กดรับเงิน ฿120 → เช็กว่า note ว่าง และ amount เป็น undefined
-  it('"ไม่ลดแล้ว" → ราคากลับเป็นยอดเต็ม เหตุผลหาย และปิดส่วนลด', async () => {
+  // ทดสอบ: กด "ไม่ลดแล้ว" ยอดต้องกลับเป็นยอดเต็ม เหตุผลหาย และปิดส่วนลด
+  // วิธี: กดให้ส่วนลด กรอก 10% และเหตุผล → กดไม่ลดแล้ว → เช็กว่าช่อง % หาย → กดรับเงิน ฿120 → เช็กว่า note ว่าง และ discountPercent เป็น undefined
+  it('"ไม่ลดแล้ว" → ยอดกลับเป็นยอดเต็ม เหตุผลหาย และปิดส่วนลด', async () => {
     const user = userEvent.setup()
     const dialog = await openPayment(user)
     await user.click(within(dialog).getByRole('button', { name: 'ให้ส่วนลด' }))
-    const charged = within(dialog).getByLabelText(/ราคาที่เก็บจริง/)
-    await user.clear(charged)
-    await user.type(charged, '90')
+    await user.type(within(dialog).getByLabelText(/ลดกี่ %/), '10')
     await user.type(within(dialog).getByLabelText(/เหตุผลที่ลด/), 'x')
     await user.click(within(dialog).getByRole('button', { name: 'ไม่ลดแล้ว' }))
 
-    expect(within(dialog).queryByLabelText(/ราคาที่เก็บจริง/)).not.toBeInTheDocument()
+    expect(within(dialog).queryByLabelText(/ลดกี่ %/)).not.toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'รับเงิน ฿120' }))
-    expect(createPayment.mutate).toHaveBeenCalledWith(expect.objectContaining({ note: '', amount: undefined }), expect.anything())
+    expect(createPayment.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ note: '', discountPercent: undefined }),
+      expect.anything(),
+    )
   })
 
   // ทดสอบ: PromptPay: แสดง QR พร้อมยอดและป้ายโหมดเดโม, ต้องสแกนสลิปก่อนถึงบันทึกได้, และ Enter จากเครื่องสแกนต้องไม่ส่งฟอร์ม

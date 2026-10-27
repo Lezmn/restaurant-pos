@@ -1,8 +1,10 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useAuth } from '@/features/auth/use-auth'
+import { useCashClosePreview } from '@/features/cash-closes/hooks'
 import { usePayment, useTodayPayments, useVoidPayment } from '@/features/payments/hooks'
-import { PaymentMethod, PaymentStatus, SlipStatus } from '@/types/enums'
+import { PaymentMethod, PaymentStatus, Role, SlipStatus } from '@/types/enums'
 import type { Payment } from '@/types/models'
 import { PaidBills } from '@/pages/employee/PaidBills'
 
@@ -11,6 +13,8 @@ vi.mock('@/features/payments/hooks', () => ({
   usePayment: vi.fn(),
   useVoidPayment: vi.fn(),
 }))
+// ปิดยอดวันนี้แล้วหรือยัง — ถ้าปิดแล้วยกเลิกบิลไม่ได้
+vi.mock('@/features/cash-closes/hooks', () => ({ useCashClosePreview: vi.fn() }))
 // ใบเสร็จมีเทสของตัวเอง (ReceiptDialog.test.tsx) — ที่นี่เช็คแค่ว่าเปิดถูกใบ
 vi.mock('@/pages/employee/ReceiptDialog', () => ({
   ReceiptDialog: ({ payment }: { payment: Payment }) => <p>ใบเสร็จของ {payment.id}</p>,
@@ -31,6 +35,8 @@ const bill = (id: string, overrides: Partial<Payment> = {}): Payment => ({
   id,
   tableSessionId: `s-${id}`,
   tableName: id.replace(/\D/g, ''),
+  placeLabel: `โต๊ะ ${id.replace(/\D/g, '')}`,
+  isTakeaway: false,
   method: PaymentMethod.CASH,
   status: PaymentStatus.COMPLETED,
   amount: 100,
@@ -46,8 +52,15 @@ const bill = (id: string, overrides: Partial<Payment> = {}): Payment => ({
 let voidPayment: { mutate: ReturnType<typeof vi.fn>; reset: ReturnType<typeof vi.fn>; isPending: boolean; error: unknown }
 let refetch: ReturnType<typeof vi.fn>
 
-function setup(payments: Payment[] | undefined, extra: Record<string, unknown> = {}, voidError: unknown = null) {
+function setup(
+  payments: Payment[] | undefined,
+  extra: Record<string, unknown> = {},
+  voidError: unknown = null,
+  { role = Role.STAFF, dayClosed = false }: { role?: Role; dayClosed?: boolean } = {},
+) {
   refetch = vi.fn()
+  useAuth.setState({ user: { id: 'u1', email: 'e', name: 'พนักงาน', role } })
+  vi.mocked(useCashClosePreview).mockReturnValue({ data: { alreadyClosed: dayClosed } } as never)
   vi.mocked(useTodayPayments).mockReturnValue({
     data: payments,
     isPending: payments === undefined && !extra.isError,
@@ -197,5 +210,45 @@ describe('PaidBills — บิลที่เก็บแล้ววันน�
     await user.click(screen.getByRole('button', { name: '2' }))
     expect(screen.getByText('RCPT-p110')).toBeInTheDocument()
     expect(screen.queryByText('RCPT-p100')).not.toBeInTheDocument()
+  })
+
+  // ทดสอบ: พนักงาน (STAFF) ยกเลิกบิลได้แค่ภายใน 1 ชม. หลังรับเงิน เกินแล้วต้องให้เจ้าของร้านยกเลิก
+  // วิธี: mock บิลเมื่อ 30 นาทีก่อน กับ 61 นาทีก่อน → บิลแรกกดยกเลิกได้ บิลหลังปุ่มกดไม่ได้และบอกเหตุผล
+  it('STAFF: บิลเกิน 1 ชม. → ปุ่มยกเลิกบิลกดไม่ได้ และบอกให้เจ้าของร้านยกเลิก', () => {
+    setup([bill('p20', { paidAt: minutesAgo(30) }), bill('p21', { paidAt: minutesAgo(61) })])
+    expect(within(row('RCPT-p20')).getByRole('button', { name: 'ยกเลิกบิล' })).toBeEnabled()
+    const late = row('RCPT-p21')
+    const button = within(late).getByRole('button', { name: 'ยกเลิกบิล' })
+    expect(button).toBeDisabled()
+    expect(button).toHaveAccessibleDescription('เกิน 1 ชม. ให้เจ้าของร้านยกเลิก')
+  })
+
+  // ทดสอบ: ADMIN ยกเลิกบิลที่เกิน 1 ชม. ได้ (ไม่มีจำกัดเวลา)
+  // วิธี: login เป็น ADMIN → mock บิลเมื่อ 3 ชม. ก่อน → เช็กว่าปุ่มยกเลิกบิลกดได้
+  it('ADMIN: บิลเกิน 1 ชม. ก็ยังยกเลิกได้', () => {
+    setup([bill('p22', { paidAt: minutesAgo(180) })], {}, null, { role: Role.ADMIN })
+    expect(within(row('RCPT-p22')).getByRole('button', { name: 'ยกเลิกบิล' })).toBeEnabled()
+  })
+
+  // ทดสอบ: ปิดยอดวันนี้แล้ว ยกเลิกบิลไม่ได้ทุก role (ยอดลิ้นชักที่นับไว้จะเพี้ยน) และข้อความบอกต่างกันตาม role
+  // วิธี: mock alreadyClosed = true → STAFF เห็น "ปิดยอดแล้ว ให้เจ้าของร้านยกเลิก" → ADMIN เห็น "ปิดยอดวันนี้แล้ว ลบการปิดยอดก่อน"
+  it('ปิดยอดวันนี้แล้ว → ยกเลิกบิลไม่ได้ทั้ง STAFF และ ADMIN พร้อมบอกเหตุผลตาม role', () => {
+    const { unmount } = setup([bill('p23')], {}, null, { dayClosed: true })
+    let button = within(row('RCPT-p23')).getByRole('button', { name: 'ยกเลิกบิล' })
+    expect(button).toBeDisabled()
+    expect(button).toHaveAccessibleDescription('ปิดยอดแล้ว ให้เจ้าของร้านยกเลิก')
+    unmount()
+
+    setup([bill('p23')], {}, null, { role: Role.ADMIN, dayClosed: true })
+    button = within(row('RCPT-p23')).getByRole('button', { name: 'ยกเลิกบิล' })
+    expect(button).toBeDisabled()
+    expect(button).toHaveAccessibleDescription('ปิดยอดวันนี้แล้ว ลบการปิดยอดก่อน')
+  })
+
+  // ทดสอบ: บิลที่หารจ่าย ต้องบอกว่าหารกี่คนและเป็นส่วนที่เท่าไร
+  // วิธี: mock receipt ที่มี splitParts 3 splitPart 2 → เช็กข้อความ "หาร 3 คน · ส่วนที่ 2"
+  it('บิลหารจ่าย → บอก "หาร N คน · ส่วนที่ M"', () => {
+    setup([bill('p24', { receipt: { number: 'RCPT-p24', splitParts: 3, splitPart: 2 } as Payment['receipt'] })])
+    expect(row('RCPT-p24')).toHaveTextContent('หาร 3 คน · ส่วนที่ 2')
   })
 })

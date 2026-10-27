@@ -48,6 +48,7 @@ const ingredient = (id: string, name: string, isAvailable = true): Ingredient =>
   menuItemCount: 0,
   stockQty: null,
   lowStockAt: null,
+  imageUrl: null,
 })
 const ingredients = [ingredient('rice', 'ข้าว'), ingredient('egg', 'ไข่'), ingredient('pork', 'หมู', false)]
 
@@ -58,6 +59,7 @@ const kaprao: MenuItem = {
   price: 60,
   imageUrl: 'https://img.example/kaprao.jpg',
   isAvailable: true,
+  proteinRequired: true,
   optionGroups: [],
   ingredients: [{ id: 'rice', name: 'ข้าว' } as MenuItem['ingredients'][number]],
   ingredientsOutOfStock: [],
@@ -166,6 +168,11 @@ describe('MenuFormDialog — เพิ่มเมนูใหม่', () => {
     expect(screen.getByRole('button', { name: 'ลบตัวเลือก ไข่ดาว' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'ลบตัวเลือก หมู' })).toBeInTheDocument()
 
+    // ข้าวไข่เจียว: เนื้อสัตว์เป็นของเพิ่ม สั่งเปล่า ๆ ได้ — ค่าเริ่มต้นติ๊กไว้ (ต้องเลือก) จึงเอาออก
+    const protein = screen.getByRole('checkbox', { name: /ลูกค้าต้องเลือกเนื้อสัตว์ก่อนสั่ง/ })
+    expect(protein).toBeChecked()
+    await user.click(protein)
+
     await user.click(screen.getByRole('button', { name: 'บันทึก' }))
     expect(onSubmit).toHaveBeenCalledWith(
       {
@@ -174,6 +181,7 @@ describe('MenuFormDialog — เพิ่มเมนูใหม่', () => {
         imageUrl: 'https://img.example/omelet.jpg',
         categoryId: 'c1',
         isAvailable: false,
+        proteinRequired: false,
         ingredientIds: ['rice', 'egg'],
       },
       [
@@ -321,10 +329,20 @@ describe('MenuFormDialog — แก้ไขเมนู', () => {
     await user.click(screen.getByRole('button', { name: 'ข้าว' }))
     await user.click(screen.getByRole('button', { name: 'บันทึกข้อมูลเมนู' }))
     expect(onSubmit).toHaveBeenCalledWith(
-      { name: 'กะเพรา', price: 65, imageUrl: 'https://img.example/kaprao.jpg', categoryId: 'c1', isAvailable: true, ingredientIds: [] },
+      { name: 'กะเพรา', price: 65, imageUrl: 'https://img.example/kaprao.jpg', categoryId: 'c1', isAvailable: true, proteinRequired: true, ingredientIds: [] },
       [],
     )
     expect(screen.getByText('บันทึกทันทีทุกครั้งที่กด')).toBeInTheDocument()
+  })
+
+  // ทดสอบ: เมนูที่ตั้งไว้ว่าไม่ต้องเลือกเนื้อสัตว์ ต้องเปิดมาไม่ติ๊ก และบันทึกแล้วยังเป็น false
+  // วิธี: เปิดแก้ไขเมนูที่ proteinRequired = false → เช็กว่า checkbox ไม่ติ๊ก → กดบันทึก → เช็ก payload proteinRequired: false
+  it('เมนูที่ไม่บังคับเลือกเนื้อสัตว์ → checkbox ไม่ติ๊ก และบันทึกค่า false', async () => {
+    const user = userEvent.setup()
+    const { onSubmit } = setup({ item: { ...kaprao, name: 'ข้าวไข่เจียว', proteinRequired: false } })
+    expect(screen.getByRole('checkbox', { name: /ลูกค้าต้องเลือกเนื้อสัตว์ก่อนสั่ง/ })).not.toBeChecked()
+    await user.click(screen.getByRole('button', { name: 'บันทึกข้อมูลเมนู' }))
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ proteinRequired: false }), [])
   })
 
   // ทดสอบ: ปุ่มลบเมนูมีเฉพาะโหมดแก้ไข และกดแล้วเรียก onDelete (เปิดกล่องยืนยันต่อ)

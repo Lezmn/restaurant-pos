@@ -22,10 +22,12 @@ beforeAll(() => {
   }
 })
 
-const issue = (id: string, status: SlipStatus, message: string): Payment => ({
+const issue = (id: string, status: SlipStatus, message: string, overrides: Partial<Payment> = {}): Payment => ({
   id,
   tableSessionId: `s-${id}`,
   tableName: id.replace(/\D/g, ''),
+  placeLabel: `โต๊ะ ${id.replace(/\D/g, '')}`,
+  isTakeaway: false,
   method: PaymentMethod.PROMPTPAY,
   status: PaymentStatus.COMPLETED,
   amount: 350,
@@ -35,6 +37,7 @@ const issue = (id: string, status: SlipStatus, message: string): Payment => ({
   note: null,
   receipt: { number: `RCPT-${id}` } as Payment['receipt'],
   slip: { status, transRef: null, message, attempts: 3, overrideReason: null, overrideByName: null },
+  ...overrides,
 })
 
 type Mutation = { mutate: ReturnType<typeof vi.fn>; isPending: boolean; error: unknown; variables?: unknown }
@@ -144,5 +147,12 @@ describe('SlipIssues — สลิป PromptPay ที่ต้องตาม',
     await user.click(within(screen.getByRole('dialog', { name: 'ยืนยันรับเงินเอง' })).getByRole('button', { name: 'กลับ' }))
     expect(confirm.mutate).not.toHaveBeenCalled()
     expect(screen.queryByRole('dialog', { name: 'ยืนยันรับเงินเอง' })).not.toBeInTheDocument()
+  })
+
+  // ทดสอบ: บิลกลับบ้านต้องขึ้นป้าย "กลับบ้าน #N" แทนชื่อโต๊ะ
+  // วิธี: mock บิล takeaway ที่ placeLabel เป็น "กลับบ้าน #3" → เช็กข้อความในรายการ
+  it('บิลกลับบ้าน → แสดง "กลับบ้าน #N" แทนชื่อโต๊ะ', () => {
+    setup([issue('p9', SlipStatus.FAILED, 'ยอดไม่ตรง', { isTakeaway: true, tableName: '', placeLabel: 'กลับบ้าน #3' })])
+    expect(screen.getByText(/^กลับบ้าน #3 ·/).closest('li')).toHaveTextContent('กลับบ้าน #3 · ฿350')
   })
 })

@@ -34,6 +34,7 @@ const ingredient = (id: string, name: string, overrides: Partial<Ingredient> = {
   menuItemCount: 0,
   stockQty: null,
   lowStockAt: null,
+  imageUrl: null,
   ...overrides,
 })
 
@@ -73,6 +74,7 @@ const menuItem = (options: MenuOption[]): MenuItem => ({
   price: 60,
   imageUrl: null,
   isAvailable: true,
+  proteinRequired: true,
   optionGroups: [{ id: 'g', name: 'ทั้งหมด', selectType: 'multiple', required: false, options }],
   ingredients: [],
   ingredientsOutOfStock: [],
