@@ -251,12 +251,6 @@ export function CheckPage() {
             {rows.length > 4 && (
               <label className="relative w-full sm:w-56">
                 <span className="sr-only">ค้นหาเลขโต๊ะ (กด / เพื่อค้นหา)</span>
-                <kbd
-                  aria-hidden
-                  className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 rounded border border-gray-300 px-1.5 text-sm text-gray-600 sm:block"
-                >
-                  /
-                </kbd>
                 <input
                   ref={searchRef}
                   type="search"
@@ -264,7 +258,7 @@ export function CheckPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="ค้นหาเลขโต๊ะ"
-                  className={`${field} mt-0 pr-10`}
+                  className={`${field} mt-0`}
                 />
               </label>
             )}
