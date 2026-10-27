@@ -13,6 +13,7 @@ import {
 import { TableStatus } from '@/types/enums'
 import type { RestaurantTable } from '@/types/models'
 import { useState } from 'react'
+import { RequiredMark } from '@/components/ui/RequiredMark'
 
 /** เลขโต๊ะต้องเป็นจำนวนเต็มบวก — '' = ยังไม่กรอก */
 function tableNumberError(value: string) {
@@ -29,7 +30,7 @@ function TableNumberField({
 }: Readonly<{ idPrefix: string; value: string; onChange: (v: string) => void }>) {
   return (
     <label htmlFor={`${idPrefix}-number`} className="block text-sm">
-      <span className={fieldLabel}>เลขโต๊ะ</span>
+      <span className={fieldLabel}>เลขโต๊ะ<RequiredMark /></span>
       <input
         id={`${idPrefix}-number`}
         type="number"

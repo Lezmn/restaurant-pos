@@ -8,6 +8,7 @@ import { formatBaht, formatTime } from '@/lib/format'
 import type { ApiCashClose } from '@/types/api'
 import { ExpenseCategory } from '@/types/enums'
 import { useState, type ReactNode } from 'react'
+import { RequiredMark } from '@/components/ui/RequiredMark'
 
 /** หมวดที่หยิบเงินจากลิ้นชักไปจ่ายกันจริง ๆ — ค่าเช่า/เงินเดือนไม่จ่ายจากลิ้นชัก */
 const drawerCategories = [
@@ -243,7 +244,7 @@ function DrawerExpenseDialog({ onClose }: Readonly<{ onClose: () => void }>) {
         }}
       >
         <label className="block">
-          <span className={fieldLabel}>จำนวนเงิน (บาท)</span>
+          <span className={fieldLabel}>จำนวนเงิน (บาท)<RequiredMark /></span>
           <input
             type="number"
             min="0"
@@ -255,7 +256,7 @@ function DrawerExpenseDialog({ onClose }: Readonly<{ onClose: () => void }>) {
         </label>
 
         <label className="mt-3 block">
-          <span className={fieldLabel}>เอาไปจ่ายอะไร</span>
+          <span className={fieldLabel}>เอาไปจ่ายอะไร<RequiredMark /></span>
           <input
             value={detail}
             onChange={(e) => setDetail(e.target.value)}

@@ -240,7 +240,7 @@ function IngredientSelect({
       title="ของหมดที่แท็บวัตถุดิบแล้วตัวเลือกนี้จะหายจากทุกเมนูที่ใช้"
       className={`${inputClass} ${required ? 'min-w-0 flex-1' : 'w-36'}`}
     >
-      <option value="">{required ? 'เลือกวัตถุดิบ' : 'ไม่ผูกวัตถุดิบ'}</option>
+      <option value="">{required ? 'เลือกวัตถุดิบ *' : 'ไม่ผูกวัตถุดิบ'}</option>
       {choices.map((ing) => (
         <option key={ing.id} value={ing.id}>
           {ing.name}
@@ -328,7 +328,7 @@ function OptionRow({
             value={name}
             onChange={(e) => setName(e.target.value)}
             className={`${inputClass} min-w-0 flex-1`}
-            placeholder="ชื่อตัวเลือก"
+            placeholder="ชื่อตัวเลือก *"
           />
         )}
         <IngredientSelect value={ingredientId} onChange={setIngredientId} required={isProtein} />
@@ -530,7 +530,7 @@ function NewOptionRow({
             data-option-draft
             aria-label="ชื่อตัวเลือกใหม่"
             className={`${inputClass} min-w-0 flex-1`}
-            placeholder="เช่น ไข่ดาว"
+            placeholder="ชื่อ * เช่น ไข่ดาว"
           />
         )}
         <IngredientSelect

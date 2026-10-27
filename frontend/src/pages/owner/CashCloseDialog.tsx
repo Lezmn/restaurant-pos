@@ -6,6 +6,7 @@ import { formatBaht } from '@/lib/format'
 import type { ApiCashClosePreview } from '@/types/api'
 import { useState } from 'react'
 import { DifferenceText } from '../employee/CashDrawerBar'
+import { RequiredMark } from '@/components/ui/RequiredMark'
 
 /**
  * ปิดยอดวันนี้ — นับเงินในลิ้นชักเทียบกับยอดที่ระบบคาดไว้ วันละครั้ง
@@ -56,7 +57,7 @@ export function CashCloseDialog({
         }}
       >
         <label className="block">
-          <span className={fieldLabel}>เงินทอนตั้งต้น (ใส่ลิ้นชักไว้ตอนเปิดร้าน)</span>
+          <span className={fieldLabel}>เงินทอนตั้งต้น (ใส่ลิ้นชักไว้ตอนเปิดร้าน)<RequiredMark /></span>
           <input
             type="number"
             min="0"
@@ -87,7 +88,7 @@ export function CashCloseDialog({
         </dl>
 
         <label className="mt-3 block">
-          <span className={fieldLabel}>เงินที่นับได้จริง</span>
+          <span className={fieldLabel}>เงินที่นับได้จริง<RequiredMark /></span>
           <input
             type="number"
             min="0"

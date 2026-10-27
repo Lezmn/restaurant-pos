@@ -9,6 +9,7 @@ import { useIngredients } from '@/features/ingredients/hooks'
 import type { Id, MenuItem } from '@/types/models'
 import { useState } from 'react'
 import { MenuOptionsEditor, PendingOptionsEditor } from './MenuOptionsEditor'
+import { RequiredMark } from '@/components/ui/RequiredMark'
 
 function priceError(price: string) {
   if (price.trim() === '') return 'กรอกราคา (ใส่ 0 ได้ถ้าแจกฟรี)'
@@ -149,7 +150,7 @@ export function MenuFormDialog({
         <ErrorNote error={error} />
 
         <label className="block text-sm">
-          <span className={fieldLabel}>ชื่อเมนู</span>
+          <span className={fieldLabel}>ชื่อเมนู<RequiredMark /></span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -164,7 +165,7 @@ export function MenuFormDialog({
 
         <div className="grid grid-cols-2 gap-3">
           <label className="block text-sm">
-            <span className={fieldLabel}>ราคา (บาท)</span>
+            <span className={fieldLabel}>ราคา (บาท)<RequiredMark /></span>
             <input
               type="number"
               min="0"
@@ -181,7 +182,7 @@ export function MenuFormDialog({
           </label>
 
           <label className="block text-sm">
-            <span className={fieldLabel}>หมวดหมู่</span>
+            <span className={fieldLabel}>หมวดหมู่<RequiredMark /></span>
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}

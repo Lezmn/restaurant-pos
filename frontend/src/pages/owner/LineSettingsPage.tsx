@@ -8,6 +8,7 @@ import {
   useTestLineSettings,
 } from '@/features/line-settings/hooks'
 import { useState, type ReactNode } from 'react'
+import { RequiredMark } from '@/components/ui/RequiredMark'
 
 const USER_ID = /^[UCR][0-9a-f]{32}$/
 
@@ -93,7 +94,7 @@ function SettingsForm({ saved }: Readonly<{ saved: LineSettings }>) {
         }}
       >
         <label className="block">
-          <span className={fieldLabel}>Channel access token</span>
+          <span className={fieldLabel}>Channel access token{needsToken && <RequiredMark />}</span>
           <textarea
             value={token}
             onChange={(e) => setToken(e.target.value)}
@@ -113,7 +114,7 @@ function SettingsForm({ saved }: Readonly<{ saved: LineSettings }>) {
         </label>
 
         <label className="block">
-          <span className={fieldLabel}>User ID ของคุณ</span>
+          <span className={fieldLabel}>User ID ของคุณ<RequiredMark /></span>
           <input
             value={to}
             onChange={(e) => setTo(e.target.value)}

@@ -2,6 +2,7 @@ import { field, fieldLabel } from '@/components/ui/styles'
 import { readQrFromImage, SlipImageError } from '@/lib/slip-qr'
 import { useEffect, useRef, useState } from 'react'
 import type { SlipInput } from './slip-input'
+import { RequiredMark } from '@/components/ui/RequiredMark'
 
 /**
  * ช่องสแกนสลิป PromptPay — backend ส่งข้อความ QR ไปตรวจกับ SlipOK ก่อนบันทึก
@@ -72,7 +73,7 @@ export function SlipScanField({
     <div className="mb-4 rounded-xl border-2 border-gray-200 p-3">
       <label className="block">
         <span className={fieldLabel}>
-          สแกนสลิปของลูกค้า<span className="ml-1 text-danger-ink">*</span>
+          สแกนสลิปของลูกค้า<RequiredMark />
         </span>
         <div className="mt-1 flex gap-2">
           <input

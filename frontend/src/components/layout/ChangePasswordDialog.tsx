@@ -4,6 +4,7 @@ import { toast } from '@/components/ui/toast'
 import { button, field, fieldLabel } from '@/components/ui/styles'
 import { useChangePassword } from '@/features/auth/hooks'
 import { useState } from 'react'
+import { RequiredMark } from '@/components/ui/RequiredMark'
 
 /** ตรงกับ @MinLength ของ ChangePasswordDto / CreateUserDto ฝั่ง backend */
 export const MIN_PASSWORD_LENGTH = 8
@@ -120,7 +121,7 @@ export function PasswordField({
 }>) {
   return (
     <label className="block text-sm">
-      <span className={fieldLabel}>{label}</span>
+      <span className={fieldLabel}>{label}<RequiredMark /></span>
       {hint && <span className="ml-1 text-sm text-gray-600">({hint})</span>}
       <input
         type="password"

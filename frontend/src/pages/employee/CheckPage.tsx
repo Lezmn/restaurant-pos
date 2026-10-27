@@ -34,6 +34,7 @@ import { SlipScanField } from './SlipScanField'
 import { QRCodeSVG } from 'qrcode.react'
 import { useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { RequiredMark } from '@/components/ui/RequiredMark'
 
 const POLL_MS = LIVE_POLL_MS
 
@@ -793,7 +794,7 @@ function PaymentDialog({
           <fieldset className="mt-4 rounded-lg border-2 border-gray-200 p-3">
             <legend className={`${fieldLabel} px-1`}>ส่วนลด</legend>
             <label className="block">
-              <span className={fieldLabel}>ลดกี่ %</span>
+              <span className={fieldLabel}>ลดกี่ %<RequiredMark /></span>
               <span className="ml-1 text-sm text-gray-600">(1-100)</span>
               <div className="relative">
                 <input
@@ -840,7 +841,7 @@ function PaymentDialog({
                 </p>
                 <label className="mt-2 block">
                   <span className={fieldLabel}>
-                    เหตุผลที่ลด<span className="ml-1 text-danger-ink">*</span>
+                    เหตุผลที่ลด<RequiredMark />
                   </span>
                   <input
                     value={discountReason}

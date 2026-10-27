@@ -17,6 +17,7 @@ import type { Id, Payment } from '@/types/models'
 import { ReceiptDialog } from './ReceiptDialog'
 import { SlipBadge } from './SlipBadge'
 import { useEffect, useState } from 'react'
+import { RequiredMark } from '@/components/ui/RequiredMark'
 
 const methodLabel: Record<string, string> = {
   [PaymentMethod.CASH]: 'เงินสด',
@@ -308,7 +309,7 @@ function VoidDialog({
 
         <label className="mt-4 block">
           <span className={fieldLabel}>
-            เหตุผล<span className="ml-1 text-danger-ink">*</span>
+            เหตุผล<RequiredMark />
           </span>
           <textarea
             value={reason}

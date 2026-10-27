@@ -14,6 +14,7 @@ import { usePagination } from '@/lib/use-pagination'
 import { ExpenseCategory, PaymentMethod } from '@/types/enums'
 import type { Transaction } from '@/types/reports'
 import { useMemo, useState } from 'react'
+import { RequiredMark } from '@/components/ui/RequiredMark'
 
 /** ป้ายหมวดในตาราง — รายรับใช้วิธีจ่าย รายจ่ายใช้หมวดรายจ่าย */
 const categoryLabel: Record<PaymentMethod | ExpenseCategory, string> = {
@@ -395,7 +396,7 @@ function ExpenseForm({
       className="grid gap-3 rounded-xl border-2 border-danger/40 bg-danger/5 p-4 sm:grid-cols-4"
     >
       <label className="text-sm sm:col-span-2">
-        <span className="font-semibold text-gray-700">รายละเอียด</span>
+        <span className="font-semibold text-gray-700">รายละเอียด<RequiredMark /></span>
         <input
           value={detail}
           onChange={(e) => setDetail(e.target.value)}
@@ -420,7 +421,7 @@ function ExpenseForm({
       </label>
 
       <label className="text-sm">
-        <span className="font-semibold text-gray-700">จำนวนเงิน (บาท)</span>
+        <span className="font-semibold text-gray-700">จำนวนเงิน (บาท)<RequiredMark /></span>
         <input
           type="number"
           min="0"

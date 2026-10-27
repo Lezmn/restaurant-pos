@@ -12,6 +12,7 @@ import { Role, SlipStatus } from '@/types/enums'
 import type { Payment } from '@/types/models'
 import { useState } from 'react'
 import { SlipBadge } from './SlipBadge'
+import { RequiredMark } from '@/components/ui/RequiredMark'
 
 const paidAt = (iso: string) =>
   new Date(iso).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })
@@ -117,7 +118,7 @@ function ConfirmSlipDialog({
         </p>
         <label className="mt-3 block">
           <span className={fieldLabel}>
-            เหตุผล<span className="ml-1 text-danger-ink">*</span>
+            เหตุผล<RequiredMark />
           </span>
           <textarea
             value={reason}

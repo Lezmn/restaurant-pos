@@ -17,6 +17,7 @@ import { useCreateUser, useDeleteUser, useUpdateUser, useUsers } from '@/feature
 import { LOGIN_EMAIL_DOMAIN } from '@/lib/config'
 import { Role } from '@/types/enums'
 import { useState } from 'react'
+import { RequiredMark } from '@/components/ui/RequiredMark'
 
 /** สิทธิ์แต่ละแบบ — บอกเป็นงานที่ทำได้ ไม่ใช่ชื่อ role เฉย ๆ เจ้าของร้านจะได้เลือกถูก */
 const ROLE_INFO: Record<Role, { label: string; detail: string }> = {
@@ -339,7 +340,7 @@ function UserFormDialog({
         <ErrorNote error={create.error ?? update.error} />
 
         <label className="block text-sm">
-          <span className={fieldLabel}>ชื่อบัญชี / ตำแหน่ง</span>
+          <span className={fieldLabel}>ชื่อบัญชี / ตำแหน่ง<RequiredMark /></span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -353,7 +354,7 @@ function UserFormDialog({
 
         {isNew ? (
           <label className="block text-sm">
-            <span className={fieldLabel}>ชื่อผู้ใช้ (ใช้ตอน login)</span>
+            <span className={fieldLabel}>ชื่อผู้ใช้ (ใช้ตอน login)<RequiredMark /></span>
             <input
               value={username}
               onChange={(e) => setUsername(e.target.value)}

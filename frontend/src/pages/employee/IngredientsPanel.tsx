@@ -15,6 +15,7 @@ import { uploadMenuImage } from '@/features/menu/api'
 import { resizeImage } from '@/lib/image-resize'
 import type { Ingredient } from '@/types/models'
 import { useState } from 'react'
+import { RequiredMark } from '@/components/ui/RequiredMark'
 
 /**
  * แท็บวัตถุดิบในหน้า Manage
@@ -82,7 +83,7 @@ export function IngredientsPanel({ canEdit }: Readonly<{ canEdit: boolean }>) {
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="ชื่อวัตถุดิบ เช่น หมู, ไก่, ไข่"
+            placeholder="ชื่อวัตถุดิบ * เช่น หมู, ไก่, ไข่"
             aria-label="ชื่อวัตถุดิบ"
             aria-invalid={Boolean(invalid)}
             className={`${field} mt-0 min-w-0 flex-1`}
@@ -399,7 +400,7 @@ function StockForm({
       </p>
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
-          <span className={fieldLabel}>คงเหลือ</span>
+          <span className={fieldLabel}>คงเหลือ<RequiredMark /></span>
           <input
             type="number"
             inputMode="numeric"
