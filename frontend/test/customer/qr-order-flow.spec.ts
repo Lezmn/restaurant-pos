@@ -121,11 +121,14 @@ test('เรียกพนักงาน/ขอบิลจากมือถ�
   await alert.getByRole('button', { name: 'รับทราบ' }).click()
   await expect(alert).toHaveCount(0)
 
-  // ลูกค้าเลือกจ่ายเงินสด → การ์ดโต๊ะที่หน้า Check ต้องบอกวิธีจ่ายเอง
+  // ลูกค้ากด "แจ้งชำระเงิน" + ยืนยัน → การ์ดโต๊ะที่หน้า Check ขึ้นว่าขอเช็คบิล · ปุ่มหายไป กดซ้ำไม่ได้
   await customer.getByRole('link', { name: 'เช็คบิลอาหาร' }).click()
   await expect(customer.getByText('รวมสุทธิ')).toBeVisible()
-  await customer.getByRole('button', { name: /จ่ายเงินสด/ }).click()
-  await expect(tile.getByText(/เงินสด/)).toBeVisible({ timeout: 10_000 })
+  await customer.getByRole('button', { name: 'แจ้งชำระเงิน' }).click()
+  await customer.getByRole('dialog').getByRole('button', { name: 'ยืนยัน' }).click()
+  await expect(customer.getByText('แจ้งพนักงานแล้วว่าต้องการชำระเงิน')).toBeVisible()
+  await expect(customer.getByRole('button', { name: 'แจ้งชำระเงิน' })).toHaveCount(0)
+  await expect(tile.getByText('ขอเช็คบิล')).toBeVisible({ timeout: 10_000 })
   await expect(tile.getByText('฿10')).toBeVisible()
   await customer.context().close()
 })

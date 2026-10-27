@@ -1,6 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentMethod } from '@prisma/client';
-import { IsIn, IsString } from 'class-validator';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 import { ACCEPTED_PAYMENT_METHODS } from '../../payments/accepted-payment-methods';
 
 export class CheckoutDto {
@@ -8,7 +8,9 @@ export class CheckoutDto {
   @IsString()
   sessionToken: string;
 
-  @ApiProperty({ enum: ACCEPTED_PAYMENT_METHODS, example: PaymentMethod.CASH })
+  /** ไม่ส่ง = ลูกค้าแค่แจ้งว่าจะจ่าย ให้พนักงานถามวิธีจ่ายที่เคาน์เตอร์ */
+  @ApiPropertyOptional({ enum: ACCEPTED_PAYMENT_METHODS, example: PaymentMethod.CASH })
+  @IsOptional()
   @IsIn(ACCEPTED_PAYMENT_METHODS)
-  paymentMethod: PaymentMethod;
+  paymentMethod?: PaymentMethod;
 }

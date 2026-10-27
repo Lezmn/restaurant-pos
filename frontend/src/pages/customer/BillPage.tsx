@@ -3,10 +3,11 @@ import {
   useSession,
   useSessionOrders,
 } from '@/features/public/hooks'
+import { Modal } from '@/components/ui/Modal'
 import { formatBaht } from '@/lib/format'
 import { itemTotal, orderTotal } from '@/features/orders/order-total'
-import { OrderStatus, PaymentMethod } from '@/types/enums'
-import { useState, type ReactNode } from 'react'
+import { OrderStatus } from '@/types/enums'
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 export function CustomerBillPage() {
@@ -14,7 +15,10 @@ export function CustomerBillPage() {
   const { data: session } = useSession(token)
   const { data: orders, isPending } = useSessionOrders(token)
   const checkout = useRequestCheckout()
-  const [chosen, setChosen] = useState<PaymentMethod | null>(null)
+  /** กดปุ่มแล้ว รอยืนยันใน popup */
+  const [confirming, setConfirming] = useState(false)
+  // แจ้งได้รอบเดียว: กดสำเร็จในหน้านี้ หรือ session บอกว่ามีคำขอค้างอยู่ (รีเฟรช/เปิดเครื่องอื่น)
+  const requested = checkout.isSuccess || Boolean(session?.checkoutRequested)
 
   if (isPending) return <p className="text-sm md:text-base text-gray-500">กำลังโหลด...</p>
 
@@ -81,46 +85,54 @@ export function CustomerBillPage() {
         <span className="text-xl md:text-2xl font-bold">{formatBaht(total)}</span>
       </div>
 
-      {checkout.isSuccess ? (
+      {requested ? (
         <div className="mt-6 rounded-2xl border-2 border-success/40 bg-success/10 px-4 py-5 text-center">
-          <p className="font-semibold text-success">
-            แจ้งเช็คบิลเรียบร้อยแล้ว
-          </p>
-          <p className="mt-1 text-sm md:text-base text-gray-600">
-            กรุณาชำระเงินที่เคาน์เตอร์
-            {chosen === PaymentMethod.PROMPTPAY ? ' ด้วย PromptPay' : ' ด้วยเงินสด'}
-          </p>
+          <p className="font-semibold text-success">แจ้งพนักงานแล้วว่าต้องการชำระเงิน</p>
+          <p className="mt-1 text-sm md:text-base text-gray-600">กรุณาชำระเงินที่เคาน์เตอร์</p>
         </div>
       ) : (
-        <>
-          <p className="mt-6 text-sm md:text-base text-gray-600">เลือกวิธีชำระเงิน</p>
-          <div className="mt-2 space-y-3 md:flex md:gap-3 md:space-y-0">
-            <PaymentButton
-              icon={<IconQr />}
-              label="PromptPay (ชำระเงินที่เคาน์เตอร์)"
+        // กดแล้วยังไม่ได้จ่าย — แค่แจ้งพนักงานว่าโต๊ะนี้พร้อมจ่าย วิธีจ่ายค่อยบอกที่เคาน์เตอร์
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          disabled={checkout.isPending}
+          className="mt-6 flex min-h-14 w-full items-center justify-center gap-3 rounded-xl border-2 border-brand-300 bg-white px-4 py-4 shadow-md transition hover:bg-brand-50 disabled:opacity-60"
+        >
+          <span aria-hidden className="text-brand-300">
+            <IconBill />
+          </span>
+          <span className="text-base md:text-lg font-bold text-text">แจ้งชำระเงิน</span>
+        </button>
+      )}
+
+      {/* ยืนยันอีกครั้งกันกดพลาด — แจ้งแล้วกดซ้ำไม่ได้ */}
+      {confirming && !requested && (
+        <Modal title="ยืนยันการแจ้งชำระเงิน" onClose={() => setConfirming(false)}>
+          <p className="text-base text-gray-700">
+            แจ้งพนักงานว่า{session ? `โต๊ะ ${session.tableName} ` : ''}ต้องการชำระเงิน ใช่ไหม?
+          </p>
+          <p className="mt-2 text-2xl font-bold text-amount tabular-nums">{formatBaht(total)}</p>
+          <p className="mt-2 text-sm text-gray-500">แจ้งได้ครั้งเดียว ถ้าจะสั่งเพิ่ม ให้สั่งก่อนกดยืนยัน</p>
+          <div className="mt-5 flex gap-3">
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              className="min-h-12 flex-1 rounded-full border-2 border-gray-300 px-4 text-base font-bold text-gray-700 transition hover:bg-gray-50"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="button"
               disabled={checkout.isPending}
-              onClick={() => {
-                setChosen(PaymentMethod.PROMPTPAY)
-                checkout.mutate({
-                  token: token as string,
-                  method: PaymentMethod.PROMPTPAY,
-                })
-              }}
-            />
-            <PaymentButton
-              icon={<IconCash />}
-              label="จ่ายเงินสด (ชำระเงินที่เคาน์เตอร์)"
-              disabled={checkout.isPending}
-              onClick={() => {
-                setChosen(PaymentMethod.CASH)
-                checkout.mutate({
-                  token: token as string,
-                  method: PaymentMethod.CASH,
-                })
-              }}
-            />
+              onClick={() =>
+                checkout.mutate({ token: token as string }, { onSettled: () => setConfirming(false) })
+              }
+              className="min-h-12 flex-1 rounded-full bg-brand-300 px-4 text-base font-bold text-white transition hover:bg-brand-400 disabled:opacity-60"
+            >
+              {checkout.isPending ? 'กำลังแจ้ง…' : 'ยืนยัน'}
+            </button>
           </div>
-        </>
+        </Modal>
       )}
 
       {checkout.isError && (
@@ -130,49 +142,11 @@ export function CustomerBillPage() {
   )
 }
 
-function PaymentButton({
-  icon,
-  label,
-  disabled,
-  onClick,
-}: Readonly<{
-  icon: ReactNode
-  label: string
-  disabled: boolean
-  onClick: () => void
-}>) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="flex w-full items-center gap-3 rounded-xl bg-white px-4 py-4 text-left shadow-md transition hover:bg-brand-50 disabled:opacity-60"
-    >
-      <span aria-hidden className="text-brand-300">
-        {icon}
-      </span>
-      <span className="text-sm md:text-base font-bold text-text">{label}</span>
-    </button>
-  )
-}
-
-function IconQr() {
+function IconBill() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-6 w-6">
-      <rect x="3" y="3" width="7" height="7" rx="1.5" />
-      <rect x="14" y="3" width="7" height="7" rx="1.5" />
-      <rect x="3" y="14" width="7" height="7" rx="1.5" />
-      <path d="M14 14h3v3h-3zM20 14v3M14 20h6" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function IconCash() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-6 w-6">
-      <rect x="2.5" y="6" width="19" height="12" rx="2" />
-      <circle cx="12" cy="12" r="2.5" />
-      <path d="M6 12h.01M18 12h.01" strokeLinecap="round" />
+      <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" strokeLinejoin="round" />
+      <path d="M9 8h6M9 12h6" strokeLinecap="round" />
     </svg>
   )
 }

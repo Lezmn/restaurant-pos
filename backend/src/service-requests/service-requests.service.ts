@@ -86,7 +86,7 @@ export class ServiceRequestsService {
 
   async createCheckoutFromSessionToken(
     sessionToken: string,
-    paymentMethod: PaymentMethod,
+    paymentMethod?: PaymentMethod,
   ) {
     const session =
       await this.tableSessionsService.resolveOpenSessionByToken(sessionToken);
@@ -101,7 +101,8 @@ export class ServiceRequestsService {
     if (existingPending) {
       const updated = await this.prisma.serviceRequest.update({
         where: { id: existingPending.id },
-        data: { paymentMethod },
+        // ไม่ได้ระบุวิธีจ่ายมา = คงค่าเดิมไว้ ไม่ลบทิ้ง
+        data: { paymentMethod: paymentMethod ?? existingPending.paymentMethod },
         include: SERVICE_REQUEST_INCLUDE,
       });
       this.emitRequestEvent('service-request.updated', updated);
