@@ -80,6 +80,27 @@ describe('SlipIssues — สลิป PromptPay ที่ต้องตาม',
     expect(item('2')).toHaveTextContent('ยอดไม่ตรง')
   })
 
+  // ทดสอบ: ค้างเกิน 2 ใบ → ทุกใบยังอยู่ในรายการ แต่กล่องเลื่อนได้ (แถบข้างแคบ ไม่ให้สูงเกิน) และบอกว่ามีอีกกี่ใบ
+  // วิธี: mock 5 บิล → เช็กว่ามี 5 รายการ กล่องเป็น overflow-y-auto โฟกัสด้วยคีย์บอร์ดได้ และขึ้น "อีก 3 ใบ"
+  // (ความสูงจริงวัดจากแถวที่ 2 — jsdom ไม่มี layout จึงเช็กแค่ว่าเลื่อนได้)
+  it('ค้างเกิน 2 ใบ → กล่องเลื่อนได้ ทุกใบยังอยู่ และบอกว่าเลื่อนดูอีกกี่ใบ', () => {
+    setup(['p1', 'p2', 'p3', 'p4', 'p5'].map((id) => issue(id, SlipStatus.PENDING, 'x')))
+    expect(screen.getByRole('heading', { name: 'สลิป PromptPay ที่ต้องตาม (5)' })).toBeInTheDocument()
+    const list = screen.getByRole('list', { name: 'รายการสลิป 5 ใบ เลื่อนดูเพิ่มได้' })
+    expect(within(list).getAllByRole('listitem')).toHaveLength(5)
+    expect(list).toHaveClass('overflow-y-auto')
+    expect(list).toHaveAttribute('tabindex', '0')
+    expect(screen.getByText('เลื่อนในกล่องเพื่อดูอีก 3 ใบ')).toBeInTheDocument()
+  })
+
+  // ทดสอบ: ไม่เกิน 2 ใบ → ไม่ต้องเลื่อน ไม่มีข้อความบอกให้เลื่อน
+  // วิธี: mock 2 บิล → เช็กว่ากล่องไม่ใช่ overflow-y-auto และไม่มีคำว่า "เลื่อนในกล่อง"
+  it('ไม่เกิน 2 ใบ → ไม่ต้องเลื่อน', () => {
+    setup(['p1', 'p2'].map((id) => issue(id, SlipStatus.PENDING, 'x')))
+    expect(screen.getByRole('list')).not.toHaveClass('overflow-y-auto')
+    expect(screen.queryByText(/เลื่อนในกล่อง/)).not.toBeInTheDocument()
+  })
+
   // ทดสอบ: ปุ่มตรวจอีกครั้งมีเฉพาะบิลที่รอตรวจ และกดแล้วส่ง id ของบิลนั้น
   // วิธี: mock บิลรอตรวจกับบิลไม่ผ่าน → เช็กว่าบิลไม่ผ่านไม่มีปุ่ม → กดของบิลรอตรวจ → เช็กว่า recheck.mutate ได้ 'p1'
   it('"ตรวจอีกครั้ง" มีเฉพาะบิลที่รอตรวจ และกดแล้วส่ง id ของบิลนั้น', async () => {

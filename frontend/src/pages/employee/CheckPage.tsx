@@ -220,7 +220,8 @@ export function CheckPage() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-8">
+      {/* แถวที่ 3 (1fr) รับความสูงส่วนเกินของแถบข้าง — ไม่งั้นเกลี่ยไปแถวการ์ด/ตาราง เกิดช่องว่างคั่น */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:grid-rows-[auto_auto_1fr] lg:items-start lg:gap-x-8">
         <section aria-labelledby="check-heading">
           <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
             <div>
@@ -333,14 +334,17 @@ export function CheckPage() {
           </div>
         </section>
 
-        <aside className="mt-10 space-y-6 lg:sticky lg:top-4 lg:mt-0">
+        {/* แถบข้างคร่อมทุกแถว (การ์ดโต๊ะ + บิลที่เก็บแล้ว) — สูงแค่ไหนก็ไม่ดันตารางบิลลง */}
+        <aside className="mt-10 space-y-6 lg:sticky lg:top-4 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:mt-0">
           <CashDrawerBar />
           {/* บิล PromptPay ที่ยังยืนยันเงินเข้าไม่ได้ (ทุกวัน) — ซ่อนเองถ้าไม่มี */}
           <SlipIssues />
         </aside>
-      </div>
 
-      <PaidBills />
+        <div className="lg:col-start-1">
+          <PaidBills />
+        </div>
+      </div>
 
       {closing && (
         <ConfirmDialog
