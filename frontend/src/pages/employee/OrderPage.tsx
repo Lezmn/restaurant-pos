@@ -53,11 +53,7 @@ function KitchenItemRow({
   onToggle: (checked: boolean) => void
 }>) {
   return (
-    <li
-      className={`rounded-lg border border-gray-200 px-3 py-2 ${
-        columnKey === 'done' ? 'text-gray-500' : 'text-black'
-      }`}
-    >
+    <li className={`py-2 ${columnKey === 'done' ? 'text-gray-500' : 'text-black'}`}>
       {/* คอลัมน์กำลังปรุง: ทั้งแถวเป็น label แตะตรงไหนก็ติ๊กได้
           จอครัวบน iPad มือเปียก/ใส่ถุงมือ เล็ง checkbox 20px ไม่ไหว */}
       <label
@@ -102,7 +98,7 @@ function KitchenItemRow({
           </p>
         ) : (
           // โน้ตทั่วไป (ไม่เผ็ด / ไม่ใส่ผัก) = กล่องเหลืองมีป้าย "หมายเหตุ" — เด่นกว่าตัวเลือก แต่ไม่แรงเท่าแพ้อาหาร
-          <p className="mt-1.5 rounded-md border-l-4 border-amber-500 bg-amber-100 px-2 py-1 text-base font-bold text-amber-900">
+          <p className="mt-1.5 rounded-md bg-amber-100 px-2 py-1 text-base font-bold text-amber-900">
             <span className="mr-1.5 rounded bg-amber-700 px-1.5 py-0.5 text-xs font-bold text-white">หมายเหตุ</span>
             {item.note}
           </p>
@@ -117,6 +113,7 @@ const columns: {
   status: OrderStatus
   dot: string
   border: string
+  band: string
   badge: string
   button: string
   buttonLabel: string
@@ -127,6 +124,8 @@ const columns: {
     status: OrderStatus.PENDING,
     dot: 'bg-status-queue',
     border: 'border-status-queue',
+    // หัวใบสั่ง = พื้นอ่อนของสีสถานะ — ทึบไม่ได้ ป้ายเกินเวลาสีแดงจะกลืนกับหัวรอคิวที่เป็นแดงอิฐ
+    band: 'bg-status-queue/10',
     badge: 'bg-status-queue/15 text-status-queue-ink',
     // พื้นปุ่มตัวขาวใช้ -ink — สีสถานะปกติคอนทราสต์ไม่ถึง 4.5:1
     button: 'bg-status-queue-ink',
@@ -138,6 +137,7 @@ const columns: {
     status: OrderStatus.PREPARING,
     dot: 'bg-status-cooking',
     border: 'border-status-cooking',
+    band: 'bg-status-cooking/10',
     badge: 'bg-status-cooking/15 text-status-cooking-ink',
     button: 'bg-status-cooking-ink',
     buttonLabel: 'ทำเสร็จแล้ว',
@@ -148,6 +148,7 @@ const columns: {
     status: OrderStatus.SERVED,
     dot: 'bg-status-done',
     border: 'border-status-done',
+    band: 'bg-status-done/10',
     badge: 'bg-status-done/15 text-status-done-ink',
     button: 'bg-status-done-ink',
     // กดแล้วตั๋วหายจากบอร์ด — ชื่อปุ่มบอกตรง ๆ ไม่ซ้ำกับ "ทำเสร็จแล้ว" ของคอลัมน์ก่อนหน้า
@@ -601,75 +602,88 @@ function KitchenTicket({
   const busy = sending || awaitingUndo
 
   return (
-    <article aria-busy={busy} className={`rounded-xl border-2 bg-white p-3 ${column.border}`}>
-      {/* ชื่อโต๊ะได้ความกว้างเต็มตั๋ว — เดิมปุ่มยกเลิกอยู่ข้าง ๆ แย่งที่จน "กลับบ้าน #1" ตัด 3 บรรทัด */}
-      <p className="flex flex-wrap items-center gap-2 text-xl font-bold text-black lg:text-2xl">
-        {order.placeLabel}
-        {fresh && (
-          <span className="rounded-full bg-status-queue-ink px-2 py-0.5 text-xs font-bold text-white">
-            ใหม่
-          </span>
-        )}
-        {/* เห็นตั้งแต่หัวตั๋ว ก่อนไล่อ่านทีละจาน */}
-        {!done && order.items.some((item) => isAllergyNote(item.note)) && (
-          <span className="rounded-full bg-danger-ink px-2 py-0.5 text-xs font-bold text-white">
-            แพ้อาหาร
-          </span>
-        )}
-      </p>
-      {/* แค่ "#เลข" — คอลัมน์ iPad แนวตั้งแคบ มีคำว่า "ออเดอร์" นำหน้าแล้วตัดเป็น 2 บรรทัด */}
-      <p className="whitespace-nowrap text-sm font-semibold text-gray-700">
-        <span className="sr-only">ออเดอร์ </span>#{order.orderRef}
-      </p>
-
-      {/* เวลารอ + ยกเลิก ซ่อนในคอลัมน์เสร็จแล้ว — ของออกไปแล้ว ไม่ได้ "รอ" อะไรอีก
-          และจะไม่คิดเงินเป็นเรื่องของแคชเชียร์ */}
-      {!done && (
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-          {/* เกินเวลาบอก 2 ขั้น: ขอบแดง (15 นาที) → แดงทึบ (30 นาที) + ไอคอนเตือน
-              (รูปทรงเปลี่ยน ไม่ได้บอกด้วยสีอย่างเดียว) ข้อความสั้นบรรทัดเดียว */}
-          <p
-            className={`inline-flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-full text-base tabular-nums ${
-              veryLate
-                ? 'bg-danger-ink px-3 py-1 font-bold text-white'
-                : late
-                  ? 'border-2 border-danger px-3 py-0.5 font-bold text-danger-ink'
-                  : 'font-semibold text-gray-700'
-            }`}
-          >
-            {late ? <AlertIcon /> : <ClockIcon />}
-            {/* นาทีแรกขึ้น "เพิ่งสั่ง" — "รอ 0 นาที" อ่านแล้วแปลก */}
-            {waitedLabel(waited)}
-            {late && (
-              <span className="sr-only"> เกินเวลา {veryLate ? VERY_LATE_MINUTES : LATE_MINUTES} นาที</span>
+    // โครงใบสั่ง: หัวใบ (โต๊ะ + เวลารอ) / รายการคั่นเส้นประ / ปุ่มท้ายใบ
+    <article
+      aria-busy={busy}
+      className={`overflow-hidden rounded-xl border-2 bg-white ${column.border}`}
+    >
+      <header className={`px-3 pt-2.5 pb-2 ${column.band}`}>
+        {/* อ่านจากระยะ 1 เมตร: ชื่อโต๊ะกับเวลารอเด่นสุด — คอลัมน์แคบไม่พอบรรทัดเดียว
+            ให้ป้ายเวลาตกลงบรรทัดถัดไปแทนการหักชื่อโต๊ะเป็น 2 บรรทัด */}
+        <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
+          <p className="flex max-w-full flex-wrap items-center gap-2 text-2xl leading-tight font-bold text-black">
+            {order.placeLabel}
+            {fresh && (
+              <span className="rounded-full bg-status-queue-ink px-2 py-0.5 text-xs font-bold text-white">
+                ใหม่
+              </span>
+            )}
+            {/* เห็นตั้งแต่หัวใบ ก่อนไล่อ่านทีละจาน */}
+            {!done && order.items.some((item) => isAllergyNote(item.note)) && (
+              <span className="rounded-full bg-danger-ink px-2 py-0.5 text-xs font-bold text-white">
+                แพ้อาหาร
+              </span>
             )}
           </p>
 
-          {/* ยกเลิกอยู่บนตั๋ว ห่างจากปุ่มหลักล่างตั๋ว — มือเปียก/ใส่ถุงมือกดพลาดยาก */}
-          <button
-            type="button"
-            aria-label="ยกเลิกออเดอร์"
-            disabled={busy}
-            onClick={onCancel}
-            className="ml-auto flex min-h-11 shrink-0 items-center gap-1 rounded-lg border-2 border-gray-300 px-3 text-sm font-semibold text-danger-ink transition hover:border-danger hover:bg-danger/5 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              aria-hidden
-              className="h-4 w-4"
+          {/* เวลารอซ่อนในคอลัมน์เสร็จแล้ว — ของออกไปแล้ว ไม่ได้ "รอ" อะไรอีก
+              เกินเวลาบอก 2 ขั้น: ขอบแดง (15 นาที) → แดงทึบ (30 นาที) + ไอคอนเตือน
+              (รูปทรงเปลี่ยน ไม่ได้บอกด้วยสีอย่างเดียว) ข้อความสั้นบรรทัดเดียว */}
+          {!done && (
+            <p
+              className={`mt-0.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full text-base tabular-nums ${
+                veryLate
+                  ? 'bg-danger-ink px-3 py-1 font-bold text-white'
+                  : late
+                    ? 'border-2 border-danger bg-white px-3 py-0.5 font-bold text-danger-ink'
+                    : 'py-1 font-semibold text-gray-800'
+              }`}
             >
-              <path d="M6 6l12 12M18 6 6 18" />
-            </svg>
-            ยกเลิก
-          </button>
+              {late ? <AlertIcon /> : <ClockIcon />}
+              {/* นาทีแรกขึ้น "เพิ่งสั่ง" — "รอ 0 นาที" อ่านแล้วแปลก */}
+              {waitedLabel(waited)}
+              {late && (
+                <span className="sr-only"> เกินเวลา {veryLate ? VERY_LATE_MINUTES : LATE_MINUTES} นาที</span>
+              )}
+            </p>
+          )}
         </div>
-      )}
 
-      <ul className="mt-2 space-y-2">
+        <div className="mt-1 flex items-center justify-between gap-2">
+          {/* แค่ "#เลข" — คำว่า "ออเดอร์" นำหน้าทำให้ตัดบรรทัดในคอลัมน์แคบ */}
+          <p className="whitespace-nowrap text-sm font-semibold text-gray-700">
+            <span className="sr-only">ออเดอร์ </span>#{order.orderRef}
+          </p>
+
+          {/* ยกเลิกอยู่หัวใบ ห่างจากปุ่มหลักท้ายใบ — มือเปียก/ใส่ถุงมือกดพลาดยาก
+              คอลัมน์เสร็จแล้วไม่มี: ของเสิร์ฟไปแล้ว จะไม่คิดเงินเป็นเรื่องของแคชเชียร์ */}
+          {!done && (
+            <button
+              type="button"
+              aria-label="ยกเลิกออเดอร์"
+              disabled={busy}
+              onClick={onCancel}
+              className="flex min-h-11 shrink-0 items-center gap-1 rounded-lg border-2 border-gray-300 bg-white px-3 text-sm font-semibold text-danger-ink transition hover:border-danger hover:bg-danger/5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                aria-hidden
+                className="h-4 w-4"
+              >
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+              ยกเลิก
+            </button>
+          )}
+        </div>
+      </header>
+
+      {/* รายการเป็นบรรทัดบนใบสั่ง คั่นเส้นประ — ไม่ใช่กล่องซ้อนกล่อง */}
+      <ul className="divide-y divide-dashed divide-gray-300 border-t-2 border-dashed border-gray-300 px-3">
         {order.items.map((item) => (
           <KitchenItemRow
             key={item.id}
@@ -681,19 +695,21 @@ function KitchenTicket({
         ))}
       </ul>
 
-      {awaitingUndo ? (
-        // แถบเลิกทำแทนที่ปุ่มหลัก ตำแหน่งเดียวกับปุ่มที่เพิ่งกด — กดพลาดก็กดซ้ำที่เดิมเพื่อย้อน
-        <UndoServe onUndo={onUndo} />
-      ) : (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onAdvance}
-          className={`mt-3 min-h-12 w-full rounded-lg px-4 text-base font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${column.button}`}
-        >
-          {sending ? 'กำลังส่ง...' : column.buttonLabel}
-        </button>
-      )}
+      <footer className="border-t-2 border-dashed border-gray-300 p-3">
+        {awaitingUndo ? (
+          // แถบเลิกทำแทนที่ปุ่มหลัก ตำแหน่งเดียวกับปุ่มที่เพิ่งกด — กดพลาดก็กดซ้ำที่เดิมเพื่อย้อน
+          <UndoServe onUndo={onUndo} />
+        ) : (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onAdvance}
+            className={`min-h-12 w-full rounded-lg px-4 text-base font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${column.button}`}
+          >
+            {sending ? 'กำลังส่ง...' : column.buttonLabel}
+          </button>
+        )}
+      </footer>
     </article>
   )
 }
@@ -701,7 +717,7 @@ function KitchenTicket({
 /** ปุ่มเลิกทำ + แถบเวลาที่เหลือ หลังกด "ทำเสร็จแล้ว" — ใช้ทั้งบนตั๋วและการ์ดในแถบเสร็จแล้ว */
 function UndoServe({ onUndo }: Readonly<{ onUndo: () => void }>) {
   return (
-    <div className="mt-3">
+    <div>
       <button
         type="button"
         onClick={onUndo}
@@ -770,13 +786,15 @@ function DoneStrip({
               <li
                 key={order.id}
                 aria-busy={sending || awaitingUndo}
-                className={`flex w-56 shrink-0 flex-col rounded-xl border-2 bg-white p-3 ${column.border}`}
+                className={`flex w-56 shrink-0 flex-col overflow-hidden rounded-xl border-2 bg-white ${column.border}`}
               >
-                <p className="truncate text-xl font-bold text-black">{order.placeLabel}</p>
-                <p className="truncate text-sm text-gray-700">
+                <p className={`truncate px-3 py-2 text-xl font-bold text-black ${column.band}`}>
+                  {order.placeLabel}
+                </p>
+                <p className="truncate border-t-2 border-dashed border-gray-300 px-3 py-2 text-sm text-gray-700">
                   {order.items.map((item) => `${item.quantity}× ${item.menuItemName}`).join(' · ')}
                 </p>
-                <div className="mt-auto pt-2">
+                <div className="mt-auto border-t-2 border-dashed border-gray-300 p-3">
                   {awaitingUndo ? (
                     <UndoServe onUndo={() => onUndo(order.id)} />
                   ) : (
