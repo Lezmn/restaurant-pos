@@ -71,3 +71,44 @@ describe('LineMessagingService', () => {
     await expect(line.push('x')).resolves.toBe(false);
   });
 });
+
+describe('LineMessagingService — รายละเอียดเพิ่มเติม', () => {
+  const realFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = realFetch;
+  });
+
+  it('shopName อ่านจาก RESTAURANT_NAME ตัดช่องว่าง / ไม่ตั้ง = ว่าง', () => {
+    expect(new LineMessagingService(config({ RESTAURANT_NAME: '  ร้านป้าแดง ' }), settingsStub({})).shopName).toBe(
+      'ร้านป้าแดง',
+    );
+    expect(new LineMessagingService(config({}), settingsStub({})).shopName).toBe('');
+  });
+
+  it('อ่านค่าตั้งค่าไม่ได้ → push คืน false ไม่ throw', async () => {
+    global.fetch = jest.fn() as any;
+    const broken: any = { get: jest.fn().mockRejectedValue(new Error('decrypt')) };
+    await expect(new LineMessagingService(config({}), broken).push('x')).resolves.toBe(false);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('ข้อความยาวเกิน 5,000 ตัวถูกตัด', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true }) as any;
+    await new LineMessagingService(config({}), settingsStub({})).send('t', 'U', 'ก'.repeat(6000));
+    const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+    expect(body.messages[0].text).toHaveLength(5000);
+  });
+
+  it.each([
+    [429, '', /โควตา/],
+    [400, 'Invalid to', /User ID/],
+    [400, 'bad request', /ไม่ยอมส่ง/],
+    [403, '', /ไม่ยอมส่ง/],
+    [500, '', /ผิดปกติ \(500\)/],
+  ])('LINE ตอบ %s → อธิบายสาเหตุ', async (status, text, msg) => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status, text: async () => text }) as any;
+    const r = await new LineMessagingService(config({}), settingsStub({})).send('t', 'U', 'x');
+    expect(r).toMatchObject({ ok: false, status });
+    expect(!r.ok && r.message).toMatch(msg);
+  });
+});
