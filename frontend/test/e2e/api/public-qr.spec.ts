@@ -123,9 +123,9 @@ test('เมนูที่มีกลุ่มเนื้อสัตว์ (
   expect(res.status()).toBe(400)
 })
 
-// ทดสอบ: กดเรียกพนักงานซ้ำต้องไม่สร้างคำขอใหม่, ขอบิลซ้ำแค่เปลี่ยนวิธีจ่ายในคำขอเดิม, และขอจ่ายด้วยบัตรไม่ได้
-// วิธี: เรียกพนักงาน 2 ครั้ง เช็กว่าได้ id เดิม → ขอบิลเป็น CASH แล้วเป็น PROMPTPAY เช็กว่า id เดิมและวิธีจ่ายเปลี่ยน → ขอบิลด้วย CARD ได้ 400
-test('เรียกพนักงานซ้ำ ๆ = คำขอเดิม; ขอบิลซ้ำ = อัปเดตวิธีจ่าย; ขอบิลด้วย CARD → 400', async ({ request }) => {
+// ทดสอบ: กดเรียกพนักงานหรือขอบิลซ้ำต้องได้คำขอเดิม ไม่สร้างใหม่ — ลูกค้าไม่เลือกวิธีจ่ายแล้ว (แคชเชียร์เลือก) หน้าเก่าที่ยังส่งวิธีจ่ายมาก็ไม่ error และไม่บันทึกค่านั้น
+// วิธี: เรียกพนักงาน 2 ครั้ง เช็กว่าได้ id เดิม → ขอบิล 2 ครั้ง (ครั้งที่สองแนบ paymentMethod มาแบบหน้าเก่า) เช็กว่า id เดิม ไม่มี paymentMethod และ session ชี้คำขอนั้น
+test('เรียกพนักงาน/ขอบิลซ้ำ ๆ = คำขอเดิม และไม่รับวิธีจ่ายจากลูกค้า', async ({ request }) => {
   const { session } = await openNewSession(request, t)
   const first = await ok(await call(request, 'POST', '/public/call-staff', { data: { sessionToken: session.token } }))
   const again = await ok(await call(request, 'POST', '/public/call-staff', { data: { sessionToken: session.token } }))

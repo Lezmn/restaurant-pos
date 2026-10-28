@@ -435,5 +435,71 @@ describe('OrdersService', () => {
       await service.updateStatus('o1', OrderStatus.CANCELLED);
       expect(prisma.restaurantTable.update).not.toHaveBeenCalled();
     });
+
+    /** ยกเลิกออเดอร์ o1 ของโต๊ะ s1 — นับออเดอร์ค้างจ่าย/จ่ายแล้วตามที่ให้มา (ลำดับที่ closeSessionIfSettled ถาม) */
+    async function cancelWith(counts: { unpaid: number; paid?: number }) {
+      prisma.order.findUnique.mockResolvedValue(storedOrder(OrderStatus.PENDING));
+      prisma.order.updateMany.mockResolvedValue({ count: 1 });
+      prisma.order.count.mockResolvedValueOnce(counts.unpaid);
+      if (counts.paid !== undefined) prisma.order.count.mockResolvedValueOnce(counts.paid);
+      prisma.tableSession.updateMany.mockResolvedValue({ count: 1 });
+      prisma.tableSession.findUniqueOrThrow = jest.fn().mockResolvedValue({ tableId: 't1' });
+      prisma.serviceRequest = { updateMany: jest.fn() };
+      prisma.order.findUniqueOrThrow.mockResolvedValue(storedOrder(OrderStatus.CANCELLED));
+      await service.updateStatus('o1', OrderStatus.CANCELLED);
+    }
+    const closedEvent = () =>
+      events.emitToStaffAndSession.mock.calls.filter(([, event]) => event === 'table-session.closed');
+
+    // ทดสอบ: แยกบิลจ่ายไปบางใบแล้ว พอยกเลิกออเดอร์ใบสุดท้ายที่ค้างจ่าย โต๊ะต้องปิดเอง คืนโต๊ะว่าง ปิดคำขอ และแจ้งลูกค้า
+    // วิธี: ออเดอร์ค้างจ่ายเหลือ 0 และมีที่จ่ายแล้ว 1 ใบ → ยกเลิกออเดอร์ → เช็ก update session เป็น CLOSED, โต๊ะ AVAILABLE, ปิดคำขอ และมี event table-session.closed ครั้งเดียว
+    it('แยกบิลจ่ายใบอื่นไปแล้ว ยกเลิกใบสุดท้ายที่ค้าง → ปิดบิลเอง คืนโต๊ะ ปิดคำขอ และแจ้งลูกค้า', async () => {
+      await cancelWith({ unpaid: 0, paid: 1 });
+      expect(prisma.tableSession.updateMany).toHaveBeenCalledWith({
+        where: { id: 's1', status: TableSessionStatus.OPEN },
+        data: { status: TableSessionStatus.CLOSED, closedAt: expect.any(Date) },
+      });
+      expect(prisma.restaurantTable.update).toHaveBeenCalledWith({
+        where: { id: 't1' },
+        data: { status: TableStatus.AVAILABLE },
+      });
+      expect(prisma.serviceRequest.updateMany).toHaveBeenCalled();
+      expect(closedEvent()).toEqual([
+        ['s1', 'table-session.closed', { id: 's1', status: TableSessionStatus.CLOSED, tableId: 't1' }],
+      ]);
+    });
+
+    // ทดสอบ: ยกเลิกออเดอร์จนหมดโดยไม่เคยจ่าย ต้องไม่ปิดโต๊ะ เพราะลูกค้ายังนั่งอยู่และสั่งใหม่ได้
+    // วิธี: ออเดอร์ค้างจ่าย 0 และที่จ่ายแล้ว 0 + session ยังเปิด → ยกเลิกออเดอร์ → เช็กว่าไม่ปิด session, ไม่ปล่อยโต๊ะ และไม่มี event ปิดโต๊ะ
+    it('ยกเลิกทุกใบโดยยังไม่เคยจ่ายเลย → ไม่ปิดบิล (ลูกค้ายังนั่งอยู่ สั่งใหม่ได้)', async () => {
+      prisma.tableSession.findFirst.mockResolvedValue({ id: 's1' }); // session ยังเปิด
+      await cancelWith({ unpaid: 0, paid: 0 });
+      expect(prisma.tableSession.updateMany).not.toHaveBeenCalled();
+      expect(prisma.restaurantTable.update).not.toHaveBeenCalled();
+      expect(closedEvent()).toEqual([]);
+    });
+
+    // ทดสอบ: ยกเลิกออเดอร์ใบหนึ่งแต่ยังมีใบอื่นค้างจ่าย ต้องไม่ปิดโต๊ะ
+    // วิธี: ออเดอร์ค้างจ่ายเหลือ 1 → ยกเลิกออเดอร์ → เช็กว่าไม่ปิด session และไม่มี event ปิดโต๊ะ
+    it('ยังมีออเดอร์อื่นค้างจ่าย → ไม่ปิดบิล', async () => {
+      prisma.tableSession.findFirst.mockResolvedValue({ id: 's1' });
+      await cancelWith({ unpaid: 1 });
+      expect(prisma.tableSession.updateMany).not.toHaveBeenCalled();
+      expect(closedEvent()).toEqual([]);
+    });
+
+    // ทดสอบ: อีกเครื่องเก็บเงินครบไปพอดีระหว่างยกเลิก ต้องไม่ปิดซ้ำและไม่แจ้งซ้ำ
+    // วิธี: ค้างจ่าย 0 / จ่ายแล้ว 1 แต่ updateMany ปิด session ได้ 0 แถว (ปิดไปแล้ว) → ยกเลิกออเดอร์ → เช็กว่าไม่ไปอ่านโต๊ะต่อและไม่มี event ปิดโต๊ะ
+    it('บิลถูกปิดไปแล้วระหว่างนั้น (อีกเครื่องเก็บเงินครบพอดี) → ไม่ปิดซ้ำ ไม่แจ้งซ้ำ', async () => {
+      prisma.tableSession.updateMany.mockResolvedValue({ count: 0 });
+      prisma.order.findUnique.mockResolvedValue(storedOrder(OrderStatus.PENDING));
+      prisma.order.updateMany.mockResolvedValue({ count: 1 });
+      prisma.order.count.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+      prisma.tableSession.findUniqueOrThrow = jest.fn();
+      prisma.order.findUniqueOrThrow.mockResolvedValue(storedOrder(OrderStatus.CANCELLED));
+      await service.updateStatus('o1', OrderStatus.CANCELLED);
+      expect(prisma.tableSession.findUniqueOrThrow).not.toHaveBeenCalled();
+      expect(closedEvent()).toEqual([]);
+    });
   });
 });

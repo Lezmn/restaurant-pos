@@ -58,6 +58,14 @@ describe('TableSessionsService', () => {
       await expect(service.create({ tableId: 't1' })).rejects.toBeInstanceOf(NotFoundException);
     });
 
+    // ทดสอบ: เปิดโต๊ะจากหน้าโต๊ะบนโต๊ะเสมือนของกลับบ้านไม่ได้ (บิลกลับบ้านเปิดจากหน้า POS พร้อมออเดอร์แรกเท่านั้น)
+    // วิธี: restaurantTable.findUnique คืนโต๊ะที่ isTakeaway → create() ต้อง throw BadRequestException และไม่สร้าง session
+    it('โต๊ะเสมือนของกลับบ้าน → 400', async () => {
+      prisma.restaurantTable.findUnique.mockResolvedValue({ id: 'tk', isActive: true, isTakeaway: true });
+      await expect(service.create({ tableId: 'tk' })).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.tableSession.create).not.toHaveBeenCalled();
+    });
+
     it('โต๊ะที่ปิดใช้งาน (ยกออกแล้ว) เปิด QR ไม่ได้ → 400', async () => {
       prisma.restaurantTable.findUnique.mockResolvedValue({ id: 't1', isActive: false });
       await expect(service.create({ tableId: 't1' })).rejects.toBeInstanceOf(BadRequestException);
@@ -141,12 +149,80 @@ describe('TableSessionsService', () => {
   });
 
   describe('close', () => {
+    const stored = (status: TableSessionStatus) => ({
+      id: 's1', tableId: 't1', status, orders: [], serviceRequests: [], table: {},
+    });
+
+    // ทดสอบ: กดปิดโต๊ะตอนยังมีออเดอร์ที่ไม่จบ ต้องได้ 409 และไม่ปิดบิล ไม่แจ้งใคร
+    // วิธี: session เปิดอยู่ + นับออเดอร์ค้างได้ 1 → close() ต้อง throw ConflictException → เช็กว่าไม่ได้ update session และไม่ได้ส่ง event
     it('ยังมีออเดอร์ค้าง → 409', async () => {
-      prisma.tableSession.findUnique.mockResolvedValue({
-        id: 's1', tableId: 't1', status: 'OPEN', orders: [], serviceRequests: [], table: {},
-      });
+      prisma.tableSession.findUnique.mockResolvedValue(stored(TableSessionStatus.OPEN));
       prisma.order.count.mockResolvedValue(1);
       await expect(service.close('s1')).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.tableSession.update).not.toHaveBeenCalled();
+      expect(events.emitToStaffAndSession).not.toHaveBeenCalled();
+    });
+
+    // ทดสอบ: กดปิดโต๊ะที่ไม่มีออเดอร์ค้าง: บิลเป็น CLOSED, โต๊ะกลับว่าง, คำขอที่ค้างถูกปิด และแจ้งทั้งพนักงานและลูกค้าโต๊ะนั้น
+    // วิธี: session เปิดอยู่ + นับออเดอร์ค้างได้ 0 → close() → เช็กค่าที่ส่งให้ update session / โต๊ะ / คำขอ, event table-session.closed และผลที่คืนเป็น CLOSED
+    it('ไม่มีออเดอร์ค้าง → ปิดบิล คืนโต๊ะว่าง ปิดคำขอที่ค้าง และแจ้งพนักงาน+ลูกค้าโต๊ะนั้น', async () => {
+      prisma.tableSession.findUnique
+        .mockResolvedValueOnce(stored(TableSessionStatus.OPEN))
+        .mockResolvedValueOnce(stored(TableSessionStatus.CLOSED));
+      const result = await service.close('s1');
+
+      expect(prisma.tableSession.update).toHaveBeenCalledWith({
+        where: { id: 's1' },
+        data: { status: TableSessionStatus.CLOSED, closedAt: expect.any(Date) },
+      });
+      expect(prisma.restaurantTable.update).toHaveBeenCalledWith({
+        where: { id: 't1' },
+        data: { status: 'AVAILABLE' },
+      });
+      expect(prisma.serviceRequest.updateMany).toHaveBeenCalledWith({
+        where: { tableSessionId: 's1', status: ServiceRequestStatus.PENDING },
+        data: { status: ServiceRequestStatus.RESOLVED, resolvedAt: expect.any(Date) },
+      });
+      expect(events.emitToStaffAndSession).toHaveBeenCalledWith('s1', 'table-session.closed', {
+        id: 's1', status: TableSessionStatus.CLOSED, tableId: 't1',
+      });
+      expect(result.status).toBe(TableSessionStatus.CLOSED);
+    });
+
+    // ทดสอบ: ออเดอร์ที่จ่ายแล้วหรือยกเลิกแล้วไม่ทำให้ปิดโต๊ะไม่ได้
+    // วิธี: close() → เช็กว่าตอนนับออเดอร์ค้าง กรองเฉพาะ PENDING/PREPARING/SERVED (ไม่รวม PAID/CANCELLED) แล้วปิดบิลได้
+    it('ออเดอร์ที่จ่ายแล้ว/ยกเลิกแล้วไม่ขวางการปิด — นับเฉพาะ รอคิว/กำลังทำ/เสิร์ฟแล้วแต่ยังไม่จ่าย', async () => {
+      prisma.tableSession.findUnique.mockResolvedValue(stored(TableSessionStatus.OPEN));
+      await service.close('s1');
+      expect(prisma.order.count).toHaveBeenCalledWith({
+        where: {
+          tableSessionId: 's1',
+          status: { in: [OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.SERVED] },
+        },
+      });
+      expect(prisma.tableSession.update).toHaveBeenCalled();
+    });
+
+    // ทดสอบ: กดปิดโต๊ะที่บิลปิดหรือหมดอายุไปแล้ว ต้องคืนค่าเดิมเฉย ๆ ไม่แก้ข้อมูลและไม่แจ้งซ้ำ
+    // วิธี: session เป็น CLOSED / EXPIRED → close() → เช็กสถานะที่คืน และไม่มี transaction, ไม่ update โต๊ะ, ไม่ส่ง event
+    it.each([TableSessionStatus.CLOSED, TableSessionStatus.EXPIRED])(
+      'บิลเป็น %s อยู่แล้ว → คืนค่าเดิม ไม่แก้อะไรและไม่แจ้งซ้ำ',
+      async (status) => {
+        prisma.tableSession.findUnique.mockResolvedValue(stored(status));
+        const result = await service.close('s1');
+        expect(result.status).toBe(status);
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+        expect(prisma.restaurantTable.update).not.toHaveBeenCalled();
+        expect(events.emitToStaffAndSession).not.toHaveBeenCalled();
+      },
+    );
+
+    // ทดสอบ: ปิดโต๊ะด้วย id บิลที่ไม่มีอยู่ ต้องได้ 404
+    // วิธี: findUnique คืน null → close() ต้อง throw NotFoundException และไม่เริ่ม transaction
+    it('ไม่พบบิล → 404', async () => {
+      prisma.tableSession.findUnique.mockResolvedValue(null);
+      await expect(service.close('nope')).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
   });
 });

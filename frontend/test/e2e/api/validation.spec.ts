@@ -43,7 +43,7 @@ test('POST /orders: payload ผิดรูปแบบ → 400 ทุกกร�
 })
 
 // ทดสอบ: ข้อมูลรับเงินที่ผิดต้องได้ 400 หรือ 404 ตามความหมาย ไม่ใช่ 500
-// วิธี: วนยิง POST /payments ด้วย 10 กรณี (method มั่ว, ยอดติดลบ/ทศนิยม 3 ตำแหน่ง, session/ออเดอร์ที่ไม่มีจริง ฯลฯ) → เช็กว่าได้สถานะที่คาดไว้
+// วิธี: วนยิง POST /payments ด้วย 8 กรณี (ไม่มีข้อมูล, method เลิกรับ/มั่ว, ส่วนลด % ผิด 4 แบบ, session ที่ไม่มีจริง) → เช็กว่าได้สถานะที่คาดไว้
 test('POST /payments: payload ผิด → 400/404 ไม่ใช่ 500', async ({ request }) => {
   const cases: [string, unknown, number[]][] = [
     ['ไม่มีอะไรเลย', {}, [400]],
@@ -54,13 +54,7 @@ test('POST /payments: payload ผิด → 400/404 ไม่ใช่ 500', asy
     ['discountPercent ทศนิยม', { tableSessionId: 'x', method: 'CASH', discountPercent: 12.5 }, [400]],
     ['discountPercent เป็นข้อความ', { tableSessionId: 'x', method: 'CASH', discountPercent: 'abc' }, [400]],
     ['discountPercent เกิน 100', { tableSessionId: 'x', method: 'CASH', discountPercent: 101 }, [400]],
-    ['splitParts 1 คน', { tableSessionId: 'x', method: 'CASH', splitParts: 1 }, [400]],
-    ['items จำนวน 0', { items: [{ orderItemId: ID, quantity: 0 }], method: 'CASH' }, [400]],
-    ['items ไม่ใช่ uuid', { items: [{ orderItemId: 'x', quantity: 1 }], method: 'CASH' }, [400]],
-    ['orderIds ไม่ใช่ uuid', { orderIds: ['x'], method: 'CASH' }, [400]],
-    ['orderIds ว่าง', { orderIds: [], method: 'CASH' }, [400]],
     ['session ไม่มีจริง', { tableSessionId: 'no-such-session', method: 'CASH' }, [404]],
-    ['ออเดอร์ไม่มีจริง', { orderIds: [ID], method: 'CASH' }, [404]],
   ]
   const wrong: string[] = []
   for (const [name, data, expected] of cases) {

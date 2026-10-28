@@ -270,51 +270,10 @@ describe('PaymentsService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('ไม่ส่งทั้ง tableSessionId และ orderIds → 400', async () => {
+    it('ไม่ส่ง tableSessionId → 400', async () => {
       await expect(service.create({ method: PaymentMethod.CASH } as any, staff)).rejects.toBeInstanceOf(
         BadRequestException,
       );
-    });
-
-    it('แยกบิล: orderIds ที่ไม่มีอยู่ → 404', async () => {
-      prisma.order.findMany.mockResolvedValue([order('o1', [{ price: 10, qty: 1 }])]);
-      await expect(
-        service.create({ orderIds: ['o1', 'o-missing'], method: PaymentMethod.CASH }, staff),
-      ).rejects.toBeInstanceOf(NotFoundException);
-    });
-
-    it('แยกบิล: ออเดอร์ที่จ่ายไปแล้ว → 409, ยังไม่เสิร์ฟ → 400, ไม่มี session → 400', async () => {
-      prisma.order.findMany.mockResolvedValueOnce([
-        order('o1', [{ price: 10, qty: 1 }], { status: OrderStatus.PAID }),
-      ]);
-      await expect(
-        service.create({ orderIds: ['o1'], method: PaymentMethod.CASH }, staff),
-      ).rejects.toBeInstanceOf(ConflictException);
-
-      prisma.order.findMany.mockResolvedValueOnce([
-        order('o1', [{ price: 10, qty: 1 }], { status: OrderStatus.PENDING }),
-      ]);
-      await expect(
-        service.create({ orderIds: ['o1'], method: PaymentMethod.CASH }, staff),
-      ).rejects.toBeInstanceOf(BadRequestException);
-
-      prisma.order.findMany.mockResolvedValueOnce([
-        order('o1', [{ price: 10, qty: 1 }], { tableSessionId: null }),
-      ]);
-      await expect(
-        service.create({ orderIds: ['o1'], method: PaymentMethod.CASH }, staff),
-      ).rejects.toBeInstanceOf(BadRequestException);
-    });
-
-    it('แยกบิล: orderIds ซ้ำกันไม่ทำให้คิดเงินซ้ำ', async () => {
-      prisma.order.findMany.mockResolvedValue([order('o1', [{ price: 40, qty: 1 }])]);
-      prisma.order.updateMany.mockResolvedValue({ count: 1 });
-      prisma.order.count.mockResolvedValue(0);
-      const result: any = await service.create(
-        { orderIds: ['o1', 'o1'], method: PaymentMethod.CASH },
-        staff,
-      );
-      expect(Number(result.amount)).toBe(40);
     });
 
     it('กดรับเงินชนกันสองเครื่อง (claim ได้ไม่ครบ) → 409', async () => {
@@ -582,6 +541,8 @@ describe('PaymentSlipService', () => {
       prisma.payment.update.mockImplementation(({ data }: any) => Promise.resolve({ id: 'p', ...data }));
     });
 
+    // ทดสอบ: ตรวจสลิปซ้ำแล้ว SlipOK ยังตรวจไม่ได้ และยังไม่ครบจำนวนครั้ง บิลต้องยังรอตรวจ นับครั้งเพิ่ม และเก็บเหตุผลล่าสุด
+    // วิธี: บิล PENDING ตรวจไปแล้ว 1 ครั้ง + SlipOK ตอบ unavailable → recheck() → เช็กว่าไม่เปลี่ยน slipStatus, slipAttempts เป็น 2 และ slipMessage เป็นเหตุผลล่าสุด
     it('ยังตรวจไม่ได้ และยังไม่ครบจำนวนครั้ง → ยังรอตรวจ นับครั้งเพิ่ม เก็บเหตุผลล่าสุด', async () => {
       slipOk.check.mockResolvedValue({ kind: 'unavailable', code: 1009, message: 'down' });
       const updated: any = await service.recheck('p');
@@ -590,6 +551,8 @@ describe('PaymentSlipService', () => {
       expect(updated.slipMessage).toBe('down');
     });
 
+    // ทดสอบ: ตรวจซ้ำแล้วรอบนี้ผ่าน บิลต้องเป็น VERIFIED พร้อมรหัสรายการ ยอด และธนาคาร
+    // วิธี: SlipOK ตอบ verified ยอดตรง → recheck() → เช็กฟิลด์ที่บันทึก, ตอนเช็กสลิปซ้ำไม่นับบิลตัวเอง และ update เฉพาะตอนบิลยัง PENDING
     it('รอบนี้ตรวจผ่าน → VERIFIED พร้อมรหัสรายการ ยอด และธนาคาร', async () => {
       slipOk.check.mockResolvedValue(verified());
       const updated: any = await service.recheck('p');
@@ -606,6 +569,8 @@ describe('PaymentSlipService', () => {
       );
     });
 
+    // ทดสอบ: SlipOK บอกว่าสลิปผ่าน แต่ยอดในสลิปไม่ตรงยอดบิล ต้องเป็น FAILED พร้อมเหตุผล
+    // วิธี: SlipOK ตอบ verified ยอด 90 กับบิล 100 → recheck() → เช็ก slipStatus FAILED และข้อความบอกทั้งสองยอด
     it('SlipOK บอกผ่าน แต่ยอดไม่ตรงบิล → FAILED พร้อมเหตุผล', async () => {
       slipOk.check.mockResolvedValue(verified({ amount: 90 }));
       const updated: any = await service.recheck('p');
@@ -613,6 +578,8 @@ describe('PaymentSlipService', () => {
       expect(updated.slipMessage).toMatch(/ยอดในสลิป 90\.00 ไม่ตรงกับยอดที่เก็บ 100\.00/);
     });
 
+    // ทดสอบ: SlipOK บอกว่าสลิปผ่าน แต่โอนก่อนเปิดโต๊ะ (สลิปของรายการอื่น) ต้องเป็น FAILED
+    // วิธี: SlipOK ตอบ verified เวลาโอนเมื่อวาน → recheck() → เช็ก FAILED และข้อความ "โอนก่อนเปิดโต๊ะ"
     it('SlipOK บอกผ่าน แต่โอนก่อนเปิดโต๊ะ → FAILED', async () => {
       slipOk.check.mockResolvedValue(verified({ transAt: new Date(Date.now() - 24 * 60 * 60_000) }));
       const updated: any = await service.recheck('p');
@@ -620,6 +587,8 @@ describe('PaymentSlipService', () => {
       expect(updated.slipMessage).toMatch(/โอนก่อนเปิดโต๊ะ/);
     });
 
+    // ทดสอบ: SlipOK บอกว่าสลิปผ่าน แต่มีบิลอื่นใช้สลิปนี้ไปแล้ว ต้องเป็น FAILED
+    // วิธี: SlipOK ตอบ verified + มีบิลอื่นที่ใช้รหัสรายการเดียวกัน → recheck() → เช็ก FAILED และข้อความบอกเลขใบเสร็จของบิลนั้น
     it('SlipOK บอกผ่าน แต่สลิปนี้มีบิลอื่นใช้อยู่แล้ว → FAILED', async () => {
       slipOk.check.mockResolvedValue(verified());
       prisma.payment.findFirst.mockResolvedValue({ id: 'other', receipt: { number: 'RCPT-9' } });
@@ -628,12 +597,16 @@ describe('PaymentSlipService', () => {
       expect(updated.slipMessage).toMatch(/ใบเสร็จ RCPT-9/);
     });
 
+    // ทดสอบ: ตรวจซ้ำแล้ว SlipOK ปฏิเสธสลิป ต้องเป็น FAILED ด้วยข้อความจาก SlipOK
+    // วิธี: SlipOK ตอบ rejected (1014 โอนผิดบัญชี) → recheck() → เช็ก slipStatus และ slipMessage
     it('SlipOK ปฏิเสธ → FAILED ด้วยข้อความจาก SlipOK', async () => {
       slipOk.check.mockResolvedValue({ kind: 'rejected', code: 1014, message: 'ไม่ได้โอนเข้าบัญชีของร้าน' });
       const updated: any = await service.recheck('p');
       expect(updated).toMatchObject({ slipStatus: SlipStatus.FAILED, slipMessage: 'ไม่ได้โอนเข้าบัญชีของร้าน' });
     });
 
+    // ทดสอบ: สองบิลตรวจสลิปใบเดียวกันพร้อมกัน บิลที่บันทึกทีหลังต้องเป็น FAILED และไม่เก็บรหัสรายการซ้ำ
+    // วิธี: SlipOK ตอบ verified แต่ update ครั้งแรกชน unique (P2002) → recheck() → เช็กว่าบันทึกใหม่เป็น FAILED "ถูกใช้กับบิลอื่นแล้ว" นับครั้งเพิ่ม และไม่มี slipTransRef
     it('สองบิลใช้สลิปเดียวกันพร้อมกัน: บิลอื่นบันทึกรหัสรายการไปก่อน (unique ชน) → บิลนี้ FAILED', async () => {
       slipOk.check.mockResolvedValue(verified());
       prisma.payment.update
@@ -646,6 +619,8 @@ describe('PaymentSlipService', () => {
       expect(updated.slipTransRef).toBeUndefined();
     });
 
+    // ทดสอบ: ADMIN กดยืนยันเองไประหว่างที่ระบบกำลังตรวจซ้ำ ระบบต้องไม่เขียนทับผลของ ADMIN
+    // วิธี: SlipOK ตอบ verified แต่ update ไม่เจอบิลที่ยัง PENDING (P2025) → recheck() ต้อง throw ConflictException และ update แค่ครั้งเดียว
     it('ADMIN ยืนยันเองไประหว่างตรวจ (ไม่เป็น PENDING แล้ว) → 409 ไม่ทับผลของ ADMIN', async () => {
       slipOk.check.mockResolvedValue(verified());
       prisma.payment.update.mockRejectedValue(known('P2025'));
@@ -653,6 +628,8 @@ describe('PaymentSlipService', () => {
       expect(prisma.payment.update).toHaveBeenCalledTimes(1);
     });
 
+    // ทดสอบ: ตรวจซ้ำบิลที่ไม่มีอยู่ได้ 404 ส่วนบิลที่ไม่ได้รอตรวจ ถูกยกเลิก หรือไม่มีข้อมูลสลิป ได้ 409 และไม่เรียก SlipOK
+    // วิธี: findUnique คืน null → 404 แล้วไล่บิล VERIFIED / VOIDED / ไม่มี slipPayload → แต่ละตัวต้อง ConflictException → เช็กว่าไม่เคยเรียก SlipOK
     it('ไม่พบบิล → 404 · บิลไม่ได้รอตรวจ / ถูกยกเลิก / ไม่มีข้อมูลสลิป → 409 และไม่เรียก SlipOK', async () => {
       prisma.payment.findUnique.mockResolvedValueOnce(null);
       await expect(service.recheck('p')).rejects.toBeInstanceOf(NotFoundException);
@@ -667,6 +644,8 @@ describe('PaymentSlipService', () => {
       expect(slipOk.check).not.toHaveBeenCalled();
     });
 
+    // ทดสอบ: รอบตรวจอัตโนมัติตรวจทุกบิลที่รอ และบิลหนึ่งพังต้องไม่หยุดบิลถัดไป
+    // วิธี: มีบิลรอตรวจ a, b + recheck ของ a โยน error → recheckPending() → เช็กว่าเรียก recheck ครบทั้ง a และ b ตามลำดับ
     it('รอบอัตโนมัติ: ตรวจทุกบิลที่รอ บิลหนึ่งพังไม่หยุดบิลถัดไป', async () => {
       prisma.payment.findMany = jest.fn().mockResolvedValue([{ id: 'a' }, { id: 'b' }]);
       jest.spyOn(service, 'recheck').mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce({} as any);

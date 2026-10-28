@@ -25,6 +25,8 @@ afterEach(() => {
 });
 
 describe('SlipOkService — ต่อ SlipOK จริง', () => {
+  // ทดสอบ: ยังไม่ได้ตั้ง API key หรือสาขาของ SlipOK ต้องตอบว่าตรวจไม่ได้ชั่วคราว และไม่เรียก SlipOK
+  // วิธี: สร้าง service โดยไม่มี config → check() → เช็กผล unavailable "ยังไม่ได้ตั้งค่า SlipOK" และ fetch ไม่ถูกเรียก
   it('ยังไม่ได้ตั้ง API key / สาขา → ตรวจไม่ได้ชั่วคราว ไม่เรียก SlipOK', async () => {
     const fetch = jest.spyOn(global, 'fetch');
     const result = await new SlipOkService(config({})).check('qr', 100);
@@ -32,6 +34,8 @@ describe('SlipOkService — ต่อ SlipOK จริง', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  // ทดสอบ: คำขอที่ส่งไป SlipOK ถูกต้อง: URL ของสาขาร้าน, API key ใน header และ body มีข้อความ QR ยอด และ log: true
+  // วิธี: ดัก fetch ให้ตอบผ่าน → check() → อ่าน URL, header และ body ของคำขอที่ส่งไป
   it('ส่งข้อความ QR + ยอด + log ไปที่สาขาของร้าน พร้อม API key ใน header', async () => {
     const fetch = respond(200, { success: true, data: { success: true, transRef: 'T1', amount: 100 } });
     await real().check('qr-text', 100);
@@ -41,6 +45,8 @@ describe('SlipOkService — ต่อ SlipOK จริง', () => {
     expect(JSON.parse(init.body as string)).toEqual({ data: 'qr-text', amount: 100, log: true });
   });
 
+  // ทดสอบ: SlipOK ตอบว่าผ่าน ต้องได้ verified พร้อมรหัสรายการ ยอด (แปลงจากข้อความเป็นตัวเลข) เวลาโอน และธนาคาร
+  // วิธี: ดัก fetch ให้ตอบ success พร้อม amount เป็นข้อความ "150.50" → check() → เช็กผลทั้งก้อน
   it('ตรวจผ่าน → verified พร้อมรหัสรายการ ยอด (แปลงจากข้อความ) เวลาโอน และธนาคาร', async () => {
     respond(200, {
       success: true,
@@ -63,6 +69,8 @@ describe('SlipOkService — ต่อ SlipOK จริง', () => {
     });
   });
 
+  // ทดสอบ: รหัส error ที่แปลว่าสลิปใช้ไม่ได้ (1000, 1011-1014) ต้องได้ rejected และใช้ข้อความไทยของเราเมื่อ SlipOK ไม่ส่งข้อความมา
+  // วิธี: ดัก fetch ให้ตอบ 400 พร้อมแค่รหัส (ทีละรหัส) → check() → เช็ก kind, code และข้อความ
   it.each([
     [1000, 'ไม่พบข้อมูล QR ของสลิป'],
     [1011, 'QR หมดอายุ หรือไม่มีรายการโอนนี้จริง'],
@@ -74,6 +82,8 @@ describe('SlipOkService — ต่อ SlipOK จริง', () => {
     expect(await real().check('qr', 100)).toEqual({ kind: 'rejected', code, message });
   });
 
+  // ทดสอบ: รหัส error ที่เป็นปัญหาฝั่งระบบ ไม่ใช่สลิป (ตั้งค่าผิด/แพ็กเกจหมด/โควตาเต็ม/ธนาคารขัดข้อง/ให้รอ) ต้องได้ unavailable เพื่อบันทึกรอตรวจซ้ำ
+  // วิธี: ดัก fetch ให้ตอบ 400 พร้อมแค่รหัส (ทีละรหัส) → check() → เช็ก kind, code และข้อความ
   it.each([
     [1001, 'ตั้งค่า SlipOK ไม่ถูกต้อง (ไม่พบสาขา)'],
     [1003, 'แพ็กเกจ SlipOK หมดอายุ'],
@@ -85,16 +95,22 @@ describe('SlipOkService — ต่อ SlipOK จริง', () => {
     expect(await real().check('qr', 100)).toEqual({ kind: 'unavailable', code, message });
   });
 
+  // ทดสอบ: ถ้า SlipOK ส่งข้อความ error มาเอง ต้องใช้ข้อความนั้นแทนข้อความของเรา
+  // วิธี: ดัก fetch ให้ตอบรหัส 1012 พร้อม message → check() → เช็กว่าได้ message ของ SlipOK
   it('SlipOK ส่งข้อความมาเอง → ใช้ข้อความนั้นแทนของเรา', async () => {
     respond(400, { success: false, code: 1012, message: 'Duplicate slip' });
     expect(await real().check('qr', 100)).toEqual({ kind: 'rejected', code: 1012, message: 'Duplicate slip' });
   });
 
+  // ทดสอบ: SlipOK อ่าน QR ได้แต่ไม่ใช่รายการโอน (data.success = false) ต้องได้ rejected
+  // วิธี: ดัก fetch ให้ตอบ success: true แต่ data.success: false → check() → เช็กผล rejected พร้อมข้อความใน data
   it('อ่าน QR ได้แต่ไม่ใช่รายการที่ตรวจได้ (data.success = false) → rejected', async () => {
     respond(200, { success: true, data: { success: false, message: 'ไม่ใช่สลิป' } });
     expect(await real().check('qr', 100)).toEqual({ kind: 'rejected', code: null, message: 'ไม่ใช่สลิป' });
   });
 
+  // ทดสอบ: SlipOK ตอบ 500 ที่ไม่ใช่ JSON ต้องได้ unavailable และบอก HTTP status
+  // วิธี: ดัก fetch ให้ตอบ 500 ที่ parse JSON ไม่ได้ → check() → เช็กข้อความ "HTTP 500"
   it('ตอบ 500 ไม่ใช่ JSON → unavailable บอก HTTP status', async () => {
     respond(500, null);
     expect(await real().check('qr', 100)).toEqual({
@@ -104,11 +120,15 @@ describe('SlipOkService — ต่อ SlipOK จริง', () => {
     });
   });
 
+  // ทดสอบ: รหัส error ที่ไม่รู้จัก ต้องได้ unavailable ไม่ตัดสินว่าสลิปเสีย
+  // วิธี: ดัก fetch ให้ตอบรหัส 9999 → check() → เช็ก kind unavailable
   it('รหัสที่ไม่รู้จัก → unavailable (ไม่ตัดสินว่าสลิปเสีย)', async () => {
     respond(400, { success: false, code: 9999 });
     expect(await real().check('qr', 100)).toMatchObject({ kind: 'unavailable', code: 9999 });
   });
 
+  // ทดสอบ: เน็ตหลุดหรือเรียก SlipOK หมดเวลา ต้องได้ unavailable และไม่ throw
+  // วิธี: ดัก fetch ให้ reject ด้วย TimeoutError → check() → เช็กผล unavailable "ติดต่อ SlipOK ไม่ได้"
   it('เน็ตหลุด / หมดเวลา → unavailable ไม่ throw', async () => {
     jest.spyOn(global, 'fetch').mockRejectedValue(new DOMException('timed out', 'TimeoutError'));
     expect(await real().check('qr', 100)).toEqual({
@@ -120,12 +140,16 @@ describe('SlipOkService — ต่อ SlipOK จริง', () => {
 });
 
 describe('SlipOkService — โหมดจำลอง (SLIPOK_MOCK=true)', () => {
+  // ทดสอบ: โหมดจำลองไม่เรียก SlipOK จริง และสลิปทั่วไปผ่านด้วยยอดที่ขอ
+  // วิธี: เปิด SLIPOK_MOCK → check() ด้วยข้อความธรรมดา → เช็ก verified ยอด 80 และ fetch ไม่ถูกเรียก
   it('ไม่เรียก SlipOK จริง และสลิปทั่วไปผ่านด้วยยอดที่ขอ', async () => {
     const fetch = jest.spyOn(global, 'fetch');
     expect(await mock().check('anything', 80)).toMatchObject({ kind: 'verified', amount: 80 });
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  // ทดสอบ: โหมดจำลอง: คำนำหน้าแต่ละแบบให้ผลตามที่กำหนด (สลิปซ้ำ/ยอดไม่ตรง/โอนผิดบัญชี/QR หมดอายุ/ระบบล่ม/ธนาคารให้รอ)
+  // วิธี: เปิด SLIPOK_MOCK → check() ด้วยแต่ละคำนำหน้า → เช็ก kind และ code
   it.each([
     ['MOCK-DUP-1', 'rejected', 1012],
     ['MOCK-AMOUNT-1', 'rejected', 1013],
@@ -137,6 +161,8 @@ describe('SlipOkService — โหมดจำลอง (SLIPOK_MOCK=true)', () 
     expect(await mock().check(payload, 100)).toMatchObject({ kind, code });
   });
 
+  // ทดสอบ: โหมดจำลอง MOCK-RETRY: ครั้งแรกตรวจไม่ได้ ครั้งต่อไปผ่าน และนับแยกต่อสลิป
+  // วิธี: check() สลิป a, สลิป b, แล้ว a อีกครั้ง → เช็กว่า a กับ b ครั้งแรกเป็น unavailable และ a ครั้งที่สองเป็น verified
   it('MOCK-RETRY: ครั้งแรกตรวจไม่ได้ ครั้งต่อไปผ่าน (นับแยกต่อสลิป)', async () => {
     const service = mock();
     expect(await service.check('MOCK-RETRY-a', 100)).toMatchObject({ kind: 'unavailable', code: 1009 });
@@ -144,6 +170,8 @@ describe('SlipOkService — โหมดจำลอง (SLIPOK_MOCK=true)', () 
     expect(await service.check('MOCK-RETRY-a', 100)).toMatchObject({ kind: 'verified' });
   });
 
+  // ทดสอบ: โหมดจำลอง: สลิปเดียวกันได้รหัสรายการเดิมทุกครั้ง สลิปต่างกันได้รหัสต่างกัน (ใช้ทดสอบกันสลิปซ้ำฝั่งเรา)
+  // วิธี: check() สลิป a สองครั้งและสลิป b → เทียบ transRef
   it('สลิปเดียวกันได้รหัสรายการเดิมทุกครั้ง สลิปต่างกันได้รหัสต่างกัน', async () => {
     const service = mock();
     const a1 = await service.check('slip-a', 100);
@@ -155,6 +183,8 @@ describe('SlipOkService — โหมดจำลอง (SLIPOK_MOCK=true)', () 
     expect(a1.transRef).not.toBe(b.transRef);
   });
 
+  // ทดสอบ: โหมดจำลอง MOCK-OLD: ผ่าน แต่เวลาโอนเป็นเมื่อวาน (ใช้ทดสอบสลิปเก่าก่อนเปิดโต๊ะ)
+  // วิธี: check() ด้วย MOCK-OLD → เช็ก verified และเวลาโอนห่างจากตอนนี้เกิน 23 ชม.
   it('MOCK-OLD: ผ่านแต่เวลาโอนเมื่อวาน', async () => {
     const result = await mock().check('MOCK-OLD-1', 100);
     expect(result.kind).toBe('verified');

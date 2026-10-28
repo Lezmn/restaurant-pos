@@ -129,27 +129,6 @@ test('กดรับเงินพร้อมกันสองเครื�
   expect(payments.filter((p) => p.tableSessionId === session.id && p.status === 'COMPLETED')).toHaveLength(1)
 })
 
-// ทดสอบ: แยกบิลได้: จ่ายบางออเดอร์แล้วโต๊ะยังเปิด ยอดค้างลดลง และพอจ่ายครบโต๊ะปิดเอง
-// วิธี: สั่ง 2 ออเดอร์ (น้ำ 20, ข้าวผัดหมู 50) แล้วเสิร์ฟ → จ่ายออเดอร์แรก เช็กว่าโต๊ะยังเปิดและค้าง 50 → จ่ายใบเดิมซ้ำได้ 409 → จ่ายออเดอร์ที่สอง เช็กว่าโต๊ะปิด
-test('แยกบิล: จ่ายบางออเดอร์ โต๊ะยังเปิด ยอดค้างลดลง จ่ายครบแล้วปิด', async ({ request }) => {
-  const { session } = await openNewSession(request, t)
-  const a = await customerOrder(request, session.token, [{ menuItemId: water.id, quantity: 2 }])
-  const b = await customerOrder(request, session.token, [{ menuItemId: friedRice.id, quantity: 1, optionIds: [opt('หมู')] }])
-  await serve(request, t.KITCHEN, a.id)
-  await serve(request, t.KITCHEN, b.id)
-
-  const p1 = await ok(await call(request, 'POST', '/payments', { token: t.STAFF, data: { orderIds: [a.id], method: 'CASH' } }))
-  expect(p1.amount).toBe(20)
-  expect(p1.closedSessionIds).toEqual([])
-  const mid = await sessionSummary(request, t.STAFF, session.id)
-  expect(mid).toMatchObject({ status: 'OPEN', total: 50 })
-  // จ่ายใบเดิมซ้ำ → 409
-  expectStatus(await call(request, 'POST', '/payments', { token: t.STAFF, data: { orderIds: [a.id], method: 'CASH' } }), 409)
-
-  const p2 = await ok(await call(request, 'POST', '/payments', { token: t.STAFF, data: { orderIds: [b.id], method: 'CASH' } }))
-  expect(p2.closedSessionIds).toEqual([session.id])
-})
-
 // @totals-billing: เทียบยอดขายทั้งวัน — รันแยกหลังเทสอื่นจบ (playwright.config.ts)
 // ทดสอบ: การตรวจสลิป PromptPay ทุกกรณี: ผ่าน, สลิปซ้ำ, ยอดไม่ตรง, ไม่มีสลิป, สลิปเก่า, ระบบตรวจล่ม (รอตรวจ แล้วให้ ADMIN ยืนยันเอง) และยกเลิกบิลแล้วใช้สลิปเดิมใหม่ได้
 // วิธี: ใช้ SlipOK โหมดจำลอง ซึ่งผลขึ้นกับคำนำหน้าสลิป (MOCK-OK/AMOUNT/OLD/DOWN) → ยิงทีละกรณีแล้วเช็กสถานะและ slipStatus → STAFF ยืนยันสลิปเองได้ 403, ADMIN ได้ → เช็กว่ายอด PromptPay ในปิดยอดเพิ่มเท่าน้ำ 3 ขวด และยอดเงินสดไม่เปลี่ยน (แท็ก @totals-billing)

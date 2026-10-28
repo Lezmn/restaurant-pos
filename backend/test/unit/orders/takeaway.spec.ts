@@ -157,26 +157,3 @@ describe('OrdersService ออเดอร์ที่จ่ายก่อน�
     );
   });
 });
-
-describe('OrdersService รายการราคาเปิด', () => {
-  it('สั่งได้แม้ไม่มีเมนูเลย — เก็บชื่อ/ราคาตามที่พิมพ์ ไม่ผูกเมนู', async () => {
-    const prisma = makePrisma();
-    prisma.menuItem.findMany.mockResolvedValue([]);
-    const service = new OrdersService(prisma, { emitToStaff: jest.fn(), emitToStaffAndSession: jest.fn(), emitToEveryone: jest.fn() } as any, {} as any);
-
-    await service.createTakeaway({ items: [], customItems: [{ name: 'ข้าวเพิ่ม', price: 10, quantity: 2 }] });
-
-    const created = prisma.order.create.mock.calls[0][0].data.items.create;
-    expect(created).toHaveLength(1);
-    expect(created[0]).toMatchObject({ customName: 'ข้าวเพิ่ม', quantity: 2 });
-    expect(Number(created[0].unitPrice)).toBe(10);
-    expect(created[0].menuItemId).toBeUndefined();
-  });
-
-  it('ไม่มีทั้งเมนูและรายการราคาเปิด → 400', async () => {
-    const prisma = makePrisma();
-    prisma.menuItem.findMany.mockResolvedValue([]);
-    const service = new OrdersService(prisma, {} as any, {} as any);
-    await expect(service.createTakeaway({ items: [] })).rejects.toBeInstanceOf(BadRequestException);
-  });
-});
