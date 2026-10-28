@@ -110,7 +110,7 @@ describe('OrderPage (จอครัว)', () => {
 
     const ticket = (await screen.findByText('โต๊ะ 4')).closest('article')!
     expect(within(ticket).queryByRole('button', { name: 'ยกเลิกออเดอร์' })).not.toBeInTheDocument()
-    expect(within(ticket).queryByText(/รอมาแล้ว|เพิ่งสั่ง/)).not.toBeInTheDocument()
+    expect(within(ticket).queryByText(/^รอ \d|เพิ่งสั่ง/)).not.toBeInTheDocument()
     expect(within(ticket).getByRole('button', { name: 'เสิร์ฟแล้ว · เอาออก' })).toBeEnabled()
   })
 
@@ -172,16 +172,24 @@ describe('OrderPage (จอครัว)', () => {
     renderPage()
 
     expect(await screen.findByText('ใหม่')).toBeInTheDocument()
-    // นาทีแรกไม่ขึ้น "รอมาแล้ว 0 นาที" ที่อ่านแล้วแปลก
+    // นาทีแรกไม่ขึ้น "รอ 0 นาที" ที่อ่านแล้วแปลก
     expect(screen.getByText('เพิ่งสั่ง')).toBeInTheDocument()
   })
 
-  it('รอเกิน 1 นาที → "รอมาแล้ว X นาที"', async () => {
+  it('รอเกิน 1 นาที → "รอ X นาที"', async () => {
     const earlier = new Date(Date.now() - 7 * 60_000 - 5_000).toISOString()
     vi.mocked(getOrders).mockResolvedValue([{ ...order, createdAt: earlier }])
     renderPage()
 
-    expect(await screen.findByText('รอมาแล้ว 7 นาที')).toBeInTheDocument()
+    expect(await screen.findByText('รอ 7 นาที')).toBeInTheDocument()
+  })
+
+  it('รอเกินชั่วโมง → บอกเป็นชั่วโมง ไม่ใช่นาทียาวจนล้นตั๋ว', async () => {
+    const stale = new Date(Date.now() - 55 * 60 * 60_000).toISOString()
+    vi.mocked(getOrders).mockResolvedValue([{ ...order, createdAt: stale }])
+    renderPage()
+
+    expect(await screen.findByText('รอ 55 ชม.')).toBeInTheDocument()
   })
 
   it('รอเกิน 15 นาที → screen reader ได้ยิน "เกินเวลา" ไม่ใช่แค่เห็นสีเปลี่ยน', async () => {

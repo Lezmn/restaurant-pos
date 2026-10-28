@@ -132,7 +132,7 @@ export function CashDrawerBar() {
       </p>
 
       <details className="group/help mx-4 mt-2 text-sm">
-        <summary className="inline-flex min-h-10 cursor-pointer list-none items-center gap-1.5 font-semibold text-brand-500">
+        <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 font-semibold text-brand-500">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden className="h-4 w-4">
             <circle cx="12" cy="12" r="9" />
             <path d="M9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.7-.8 1.2V14M12 17h.01" strokeLinecap="round" />
@@ -161,7 +161,7 @@ export function CashDrawerBar() {
 
       {items.length > 0 && (
         <details className="group mx-4 mt-1 border-t border-gray-200 pt-1 text-sm">
-          <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between font-semibold text-gray-700">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between font-semibold text-gray-700">
             รายการหยิบออก ({items.length})
             <svg
               viewBox="0 0 24 24"

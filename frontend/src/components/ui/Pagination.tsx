@@ -37,7 +37,7 @@ export function Pagination({
 
         {pageNumbers(page, totalPages).map((n) =>
           typeof n === 'string' ? (
-            <span key={n} className="px-1 text-sm text-gray-400">
+            <span key={n} className="px-1 text-sm text-gray-500">
               …
             </span>
           ) : (
@@ -46,7 +46,7 @@ export function Pagination({
               type="button"
               aria-current={n === page ? 'page' : undefined}
               onClick={() => onChange(n)}
-              className={`min-w-9 rounded-lg px-3 py-1.5 text-sm font-bold transition ${
+              className={`min-h-11 min-w-11 rounded-lg px-3 text-sm font-bold transition ${
                 n === page
                   ? 'bg-brand-500 text-white'
                   : 'text-gray-600 hover:bg-brand-50 hover:text-brand-500'
@@ -81,7 +81,7 @@ function PageButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-600 transition hover:bg-brand-50 hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-600"
+      className="min-h-11 rounded-lg px-3 text-sm font-semibold text-gray-600 transition hover:bg-brand-50 hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-600"
     >
       {label}
     </button>

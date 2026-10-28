@@ -1,6 +1,7 @@
 import { Badge, type BadgeTone } from '@/components/ui/Badge'
 import { LoadError } from '@/components/ui/LoadError'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { button } from '@/components/ui/styles'
 import {
   useResolveServiceRequest,
   useServiceRequests,
@@ -62,7 +63,7 @@ export function RequestsPage() {
         {requests?.map((req) => (
           <div
             key={req.id}
-            className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+            className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white p-4"
           >
             <div>
               <p className="font-semibold text-gray-900">
@@ -85,7 +86,7 @@ export function RequestsPage() {
                   type="button"
                   disabled={resolve.isPending}
                   onClick={() => resolve.mutate(req.id)}
-                  className="min-h-10 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                  className={button('primary')}
                 >
                   ทำเสร็จแล้ว
                 </button>

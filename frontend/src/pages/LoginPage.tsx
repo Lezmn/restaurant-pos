@@ -126,7 +126,7 @@ export function LoginPage({
           <button
             type="submit"
             disabled={login.isPending}
-            className="mt-6 w-full rounded-lg border border-brand-400 bg-brand-100 py-2.5 text-sm font-bold text-black lg:py-3 lg:text-base xl:mt-8 xl:rounded-xl xl:py-4 xl:text-lg shadow-[0_3px_6px_rgba(0,0,0,0.2)] transition hover:bg-brand-200 disabled:opacity-50"
+            className="mt-6 w-full rounded-lg border border-brand-400 bg-brand-100 py-2.5 text-sm font-bold text-black lg:py-3 lg:text-base xl:mt-8 xl:rounded-xl xl:py-4 xl:text-lg transition hover:bg-brand-200 disabled:opacity-50"
           >
             {login.isPending ? 'กำลังเข้าสู่ระบบ...' : 'Login'}
           </button>

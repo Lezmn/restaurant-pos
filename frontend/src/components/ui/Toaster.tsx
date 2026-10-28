@@ -43,7 +43,7 @@ function ToastRow({ item }: Readonly<{ item: ToastItem }>) {
               item.action?.run()
               dismiss(item.id)
             }}
-            className="min-h-10 rounded-md px-3 font-bold text-brand-100 transition hover:bg-white/10"
+            className="min-h-11 rounded-md px-3 font-bold text-brand-100 transition hover:bg-white/10"
           >
             {item.action.label}
           </button>
@@ -52,7 +52,7 @@ function ToastRow({ item }: Readonly<{ item: ToastItem }>) {
           type="button"
           aria-label="ปิดข้อความ"
           onClick={() => dismiss(item.id)}
-          className="flex h-10 w-10 items-center justify-center rounded-md text-white/80 transition hover:bg-white/10"
+          className="flex h-11 w-11 items-center justify-center rounded-md text-white/80 transition hover:bg-white/10"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden className="h-4 w-4">
             <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />

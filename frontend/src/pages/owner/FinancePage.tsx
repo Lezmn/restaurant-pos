@@ -2,7 +2,7 @@ import { ErrorNote } from '@/components/ui/ErrorNote'
 import { Modal } from '@/components/ui/Modal'
 import { Pagination } from '@/components/ui/Pagination'
 import { StatCard } from '@/components/ui/StatCard'
-import { button } from '@/components/ui/styles'
+import { button, field, fieldCompact } from '@/components/ui/styles'
 import {
   useAddExpense,
   useDeleteExpense,
@@ -99,13 +99,13 @@ export function FinancePage() {
               value={month}
               max={currentMonth()}
               onChange={(e) => e.target.value && setMonth(e.target.value)}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-800 outline-none focus:border-brand-300"
+              className={fieldCompact}
             />
           </label>
           <button
             type="button"
             onClick={() => setFormOpen((v) => !v)}
-            className={button('danger')}
+            className={button('primary')}
           >
             {formOpen ? 'ปิดฟอร์ม' : '+ รายจ่าย'}
           </button>
@@ -165,7 +165,7 @@ export function FinancePage() {
             key={f.key}
             type="button"
             onClick={() => setFilter(f.key)}
-            className={`min-h-10 rounded-full border-2 px-4 py-1.5 text-sm font-semibold transition ${
+            className={`min-h-11 rounded-full border-2 px-4 py-1.5 text-sm font-semibold transition ${
               filter === f.key
                 ? 'border-brand-500 bg-brand-500 text-white'
                 : 'border-brand-400 bg-white text-brand-500 hover:bg-brand-50'
@@ -194,7 +194,7 @@ export function FinancePage() {
             <tbody className="divide-y divide-gray-200">
               {transactions.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-10 text-center text-sm text-gray-400">
+                  <td colSpan={5} className="py-10 text-center text-sm text-gray-500">
                     ไม่มีรายการในหมวดนี้
                   </td>
                 </tr>
@@ -239,20 +239,20 @@ export function FinancePage() {
                             setFormOpen(false)
                             setEditing(tx)
                           }}
-                          className="min-h-10 rounded-lg px-3 text-sm font-semibold text-brand-500 underline-offset-4 transition hover:bg-brand-50 hover:underline"
+                          className="min-h-11 rounded-lg px-3 text-sm font-semibold text-brand-500 underline-offset-4 transition hover:bg-brand-50 hover:underline"
                         >
                           แก้ไข
                         </button>
                         <button
                           type="button"
                           onClick={() => setDeleting(tx)}
-                          className="min-h-10 rounded-lg px-3 text-sm font-semibold text-danger-ink underline-offset-4 transition hover:bg-danger/5 hover:underline"
+                          className="min-h-11 rounded-lg px-3 text-sm font-semibold text-danger-ink underline-offset-4 transition hover:bg-danger/5 hover:underline"
                         >
                           ลบ
                         </button>
                       </div>
                     ) : (
-                      <span className="text-xs text-gray-400">รายรับจากบิล</span>
+                      <span className="text-xs text-gray-500">รายรับจากบิล</span>
                     )}
                   </td>
                 </tr>
@@ -325,7 +325,7 @@ function ConfirmDeleteDialog({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg border-2 border-gray-300 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
+          className={button('secondary')}
         >
           ยกเลิก
         </button>
@@ -333,7 +333,7 @@ function ConfirmDeleteDialog({
           type="button"
           disabled={isDeleting}
           onClick={onConfirm}
-          className="rounded-lg bg-danger-ink py-2.5 text-sm font-bold text-white transition hover:brightness-95 disabled:opacity-60"
+          className={button('danger')}
         >
           {isDeleting ? 'กำลังลบ...' : 'ลบรายการนี้'}
         </button>
@@ -402,7 +402,7 @@ function ExpenseForm({
           value={detail}
           onChange={(e) => setDetail(e.target.value)}
           placeholder="เช่น ซื้อวัตถุดิบจากตลาด"
-          className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-300"
+          className={field}
         />
       </label>
 
@@ -411,7 +411,7 @@ function ExpenseForm({
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
-          className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-300"
+          className={field}
         >
           {Object.values(ExpenseCategory).map((c) => (
             <option key={c} value={c}>
@@ -429,7 +429,7 @@ function ExpenseForm({
           step="0.01"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-300"
+          className={field}
         />
       </label>
 
@@ -446,7 +446,7 @@ function ExpenseForm({
         <button
           type="submit"
           disabled={saving.isPending}
-          className="rounded-lg bg-danger-ink px-6 py-2 text-sm font-bold text-white disabled:opacity-60"
+          className={button('primary')}
         >
           {submitLabel}
         </button>
@@ -454,7 +454,7 @@ function ExpenseForm({
           <button
             type="button"
             onClick={onDone}
-            className="rounded-lg border-2 border-gray-300 px-6 py-2 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
+            className={button('secondary')}
           >
             ยกเลิก
           </button>

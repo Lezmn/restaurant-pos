@@ -28,7 +28,7 @@ export function OrdersPage() {
         {orders?.map((order) => (
           <div
             key={order.id}
-            className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+            className="rounded-xl border border-gray-200 bg-white p-4"
           >
             <div className="flex items-center justify-between">
               <div>
@@ -50,13 +50,13 @@ export function OrdersPage() {
                   <span className="text-gray-700">
                     {item.quantity}× {item.menuItemName}
                     {item.optionNames.length > 0 && (
-                      <span className="text-gray-400">
+                      <span className="text-gray-500">
                         {' '}
                         ({item.optionNames.join(', ')})
                       </span>
                     )}
                     {item.note && (
-                      <span className="text-amber-600"> — {item.note}</span>
+                      <span className="text-amber-800"> — {item.note}</span>
                     )}
                   </span>
                   <span className="shrink-0 text-gray-500">

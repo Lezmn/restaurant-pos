@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/Badge'
-import { button } from '@/components/ui/styles'
+import { button, fieldCompact } from '@/components/ui/styles'
 import type { AuditAction } from '@/features/audit/api'
 import { auditActionMeta, auditActionOrder, describeAudit } from '@/features/audit/describe'
 import { useAuditLogs } from '@/features/audit/hooks'
@@ -22,8 +22,7 @@ const dayRange = (ymd: string) => {
 const timeText = (iso: string) =>
   new Date(iso).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 
-const selectClass =
-  'rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-800 outline-none focus:border-brand-300'
+const selectClass = fieldCompact
 
 /**
  * ประวัติการทำรายการสำคัญ — ลดราคา ยกเลิกบิล ลบรายการ เงินออกจากลิ้นชัก ฯลฯ
