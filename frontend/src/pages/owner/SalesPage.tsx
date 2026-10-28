@@ -5,11 +5,13 @@ import { useSales } from '@/features/reports/hooks'
 import { BUSINESS_HOURS } from '@/lib/config'
 import { formatBaht } from '@/lib/format'
 import type { KitchenStats, SalesData, SalesHour, SalesItem } from '@/types/reports'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 /** แสดงอันดับแรก ๆ ก่อน ที่เหลือกดดูเพิ่ม — เมนูทั้งร้านมีหลายสิบรายการ */
 const TOP_N = 5
+/** เมนูที่ไม่มีใครสั่งเกินเท่านี้ค่อยพับไว้ */
+const UNSOLD_COLLAPSE_AT = 8
 
 type SortKey = 'quantity' | 'revenue'
 
@@ -116,9 +118,9 @@ function SalesSkeleton() {
   )
 }
 
-/** อันดับเมนู — แท่งแนวนอนยาวตามค่าที่เลือก ตัวเลขอยู่ท้ายแถวเสมอ ไม่ต้องอ่านจากแท่ง */
 /**
- * อันดับเมนู + ท้ายการ์ดคือเมนูที่เปิดขายแต่ไม่มีใครสั่ง (= อันดับท้ายสุด 0 ออเดอร์)
+ * อันดับเมนู — แท่งแนวนอนยาวตามค่าที่เลือก ตัวเลขอยู่ท้ายแถวเสมอ ไม่ต้องอ่านจากแท่ง
+ * ท้ายการ์ดคือเมนูที่เปิดขายแต่ไม่มีใครสั่ง (= อันดับท้ายสุด 0 ออเดอร์)
  * อยู่การ์ดเดียวกัน ตัดสินใจเรื่องเมนูได้ในที่เดียว
  */
 function TopItems({
@@ -209,29 +211,83 @@ function TopItems({
         </button>
       )}
 
-      {unsold.length > 0 && (
-        <div className="mt-4 border-t border-gray-200 pt-4">
-          <h3 className="text-sm font-bold text-black">ไม่มีใครสั่งเลย ({unsold.length})</h3>
-          <ul aria-label="เมนูที่ไม่มีใครสั่ง" className="mt-2 flex flex-wrap gap-2">
-            {unsold.map((item) => (
-              <li
-                key={item.menuItemId}
-                className="rounded-full border border-gray-300 px-3 py-1 text-sm text-gray-800"
-              >
-                {item.name}
-                <span className="text-gray-500"> · {item.categoryName}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-sm text-gray-600">
-            เปิดขายอยู่แต่ไม่มีออเดอร์ — ลองปรับราคา รูป หรือเอาออกจากเมนู{' '}
-            <Link to="/employee/manage" className="font-semibold text-brand-500 underline">
-              ไปหน้าจัดการเมนู →
-            </Link>
-          </p>
-        </div>
-      )}
+      {unsold.length > 0 && <UnsoldItems items={unsold} />}
     </section>
+  )
+}
+
+/**
+ * เมนูที่เปิดขายแต่ไม่มีใครสั่ง — มักมีหลายสิบรายการ ถ้ากางหมดจะยาวกว่าอันดับเมนูเสียอีก
+ * ปกติพับไว้ โชว์แค่จำนวนแยกหมวด กดดูรายชื่อแล้วจัดกลุ่มตามหมวด ไม่ต้องพิมพ์ชื่อหมวดซ้ำทุกเมนู
+ */
+function UnsoldItems({ items }: Readonly<{ items: SalesData['unsoldItems'] }>) {
+  const [expanded, setExpanded] = useState(false)
+  // ไม่กี่เมนูกางไว้เลย — ปุ่ม "ดูรายชื่อทั้ง 1 เมนู" มีแต่เพิ่มขั้นตอน
+  const collapsible = items.length > UNSOLD_COLLAPSE_AT
+  const open = expanded || !collapsible
+
+  const groups = new Map<string, string[]>()
+  for (const item of items) {
+    groups.set(item.categoryName, [...(groups.get(item.categoryName) ?? []), item.name])
+  }
+  // หมวดที่ค้างเยอะสุดขึ้นก่อน — เป็นหมวดที่ควรรื้อเมนูก่อน
+  const byCategory = [...groups].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'th'))
+
+  return (
+    <div className="mt-4 border-t border-gray-200 pt-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h3 className="text-sm font-bold text-black">
+          ไม่มีใครสั่งเลย <span className="tabular-nums">{items.length.toLocaleString('th-TH')}</span> เมนู
+        </h3>
+        <Link to="/employee/manage" className="text-sm font-semibold text-brand-500 underline">
+          ไปหน้าจัดการเมนู →
+        </Link>
+      </div>
+      <p className="mt-1 text-sm text-gray-600">เปิดขายอยู่แต่ไม่มีออเดอร์ — ลองปรับราคา รูป หรือเอาออกจากเมนู</p>
+
+      {open ? (
+        <dl aria-label="เมนูที่ไม่มีใครสั่ง แยกตามหมวด" className="mt-3 space-y-2.5">
+          {byCategory.map(([category, names]) => (
+            <div key={category}>
+              <dt className="text-xs font-semibold text-gray-600">
+                {category} <span className="tabular-nums">({names.length})</span>
+              </dt>
+              {/* nowrap ทีละชื่อ — ภาษาไทยไม่มีเว้นวรรค ไม่งั้นตัดบรรทัดกลางชื่อเมนู */}
+              <dd className="mt-0.5 text-sm leading-relaxed text-gray-800">
+                {names.map((name, i) => (
+                  <Fragment key={name}>
+                    {i > 0 && <span className="text-gray-400"> · </span>}
+                    <span className="whitespace-nowrap">{name}</span>
+                  </Fragment>
+                ))}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="mt-3 text-sm text-gray-700">
+          {byCategory.map(([category, names], i) => (
+            <Fragment key={category}>
+              {i > 0 && <span className="text-gray-400"> · </span>}
+              <span className="whitespace-nowrap">
+                {category} <span className="font-semibold tabular-nums text-black">{names.length}</span>
+              </span>
+            </Fragment>
+          ))}
+        </p>
+      )}
+
+      {collapsible && (
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-3 min-h-11 w-full rounded-lg border-2 border-gray-300 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
+        >
+          {open ? 'ซ่อนรายชื่อ' : `ดูรายชื่อทั้ง ${items.length.toLocaleString('th-TH')} เมนู`}
+        </button>
+      )}
+    </div>
   )
 }
 
