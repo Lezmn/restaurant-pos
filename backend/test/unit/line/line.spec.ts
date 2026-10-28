@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
-import { formatCashCloseSummary } from './cash-close-summary';
-import { LineMessagingService } from './line-messaging.service';
+import { formatCashCloseSummary } from '../../../src/line/cash-close-summary';
+import { LineMessagingService } from '../../../src/line/line-messaging.service';
 
 const config = (env: Record<string, string>) => ({ get: (k: string) => env[k] }) as any;
 

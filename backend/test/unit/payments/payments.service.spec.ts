@@ -14,12 +14,12 @@ import {
   SlipStatus,
   TableSessionStatus,
 } from '@prisma/client';
-import { AuthenticatedUser } from '../auth/jwt.strategy';
-import { EventsGateway } from '../events/events.gateway';
-import { PrismaService } from '../prisma/prisma.service';
-import { SlipOkService } from '../slipok/slipok.service';
-import { PaymentSlipService } from './payment-slip.service';
-import { PaymentsService } from './payments.service';
+import { AuthenticatedUser } from '../../../src/auth/jwt.strategy';
+import { EventsGateway } from '../../../src/events/events.gateway';
+import { PrismaService } from '../../../src/prisma/prisma.service';
+import { SlipOkService } from '../../../src/slipok/slipok.service';
+import { PaymentSlipService } from '../../../src/payments/payment-slip.service';
+import { PaymentsService } from '../../../src/payments/payments.service';
 import { ConfigService } from '@nestjs/config';
 
 const D = (v: number | string) => new Prisma.Decimal(v);
@@ -561,5 +561,119 @@ describe('PaymentSlipService', () => {
     const updated: any = await service.recheck('p');
     expect(updated.slipStatus).toBe(SlipStatus.FAILED);
     expect(updated.slipAttempts).toBe(3);
+  });
+
+  describe('recheck — ตรวจซ้ำบิลที่รอตรวจ', () => {
+    const pending = {
+      id: 'p', status: PaymentStatus.COMPLETED, slipStatus: SlipStatus.PENDING, slipPayload: 'x',
+      slipAttempts: 1, amount: D(100), tableSession: { openedAt: new Date(Date.now() - 60_000) },
+    };
+    const verified = (overrides: Record<string, unknown> = {}) => ({
+      kind: 'verified', transRef: 'T9', amount: 100, transAt: new Date(), sendingBank: '004', receivingBank: '014',
+      ...overrides,
+    });
+    const known = (code: string) => new Prisma.PrismaClientKnownRequestError('x', { code, clientVersion: 'x' });
+
+    beforeEach(() => {
+      // ปิดรอบอัตโนมัติ แต่ใช้จำนวนครั้งตรวจซ้ำค่าเริ่มต้น (15)
+      const config = { get: (k: string) => (k === 'SLIP_RECHECK_INTERVAL_MS' ? '0' : undefined) } as unknown as ConfigService;
+      service = new PaymentSlipService(prisma, slipOk as any, { emitToStaff: jest.fn() } as any, config);
+      prisma.payment.findUnique.mockResolvedValue(pending);
+      prisma.payment.update.mockImplementation(({ data }: any) => Promise.resolve({ id: 'p', ...data }));
+    });
+
+    it('ยังตรวจไม่ได้ และยังไม่ครบจำนวนครั้ง → ยังรอตรวจ นับครั้งเพิ่ม เก็บเหตุผลล่าสุด', async () => {
+      slipOk.check.mockResolvedValue({ kind: 'unavailable', code: 1009, message: 'down' });
+      const updated: any = await service.recheck('p');
+      expect(updated.slipStatus).toBeUndefined(); // ไม่แตะสถานะ = ยัง PENDING
+      expect(updated.slipAttempts).toBe(2);
+      expect(updated.slipMessage).toBe('down');
+    });
+
+    it('รอบนี้ตรวจผ่าน → VERIFIED พร้อมรหัสรายการ ยอด และธนาคาร', async () => {
+      slipOk.check.mockResolvedValue(verified());
+      const updated: any = await service.recheck('p');
+      expect(updated).toMatchObject({
+        slipStatus: SlipStatus.VERIFIED, slipTransRef: 'T9', slipSendingBank: '004', slipMessage: 'ตรวจผ่าน (ตรวจซ้ำ)',
+      });
+      expect(updated.slipAmount.equals(D(100))).toBe(true);
+      // เช็กสลิปซ้ำโดยไม่นับบิลตัวเอง และอัปเดตเฉพาะตอนยัง PENDING (กันชนกับ ADMIN ยืนยันเอง)
+      expect(prisma.payment.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { slipTransRef: 'T9', id: { not: 'p' } } }),
+      );
+      expect(prisma.payment.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'p', slipStatus: SlipStatus.PENDING } }),
+      );
+    });
+
+    it('SlipOK บอกผ่าน แต่ยอดไม่ตรงบิล → FAILED พร้อมเหตุผล', async () => {
+      slipOk.check.mockResolvedValue(verified({ amount: 90 }));
+      const updated: any = await service.recheck('p');
+      expect(updated.slipStatus).toBe(SlipStatus.FAILED);
+      expect(updated.slipMessage).toMatch(/ยอดในสลิป 90\.00 ไม่ตรงกับยอดที่เก็บ 100\.00/);
+    });
+
+    it('SlipOK บอกผ่าน แต่โอนก่อนเปิดโต๊ะ → FAILED', async () => {
+      slipOk.check.mockResolvedValue(verified({ transAt: new Date(Date.now() - 24 * 60 * 60_000) }));
+      const updated: any = await service.recheck('p');
+      expect(updated.slipStatus).toBe(SlipStatus.FAILED);
+      expect(updated.slipMessage).toMatch(/โอนก่อนเปิดโต๊ะ/);
+    });
+
+    it('SlipOK บอกผ่าน แต่สลิปนี้มีบิลอื่นใช้อยู่แล้ว → FAILED', async () => {
+      slipOk.check.mockResolvedValue(verified());
+      prisma.payment.findFirst.mockResolvedValue({ id: 'other', receipt: { number: 'RCPT-9' } });
+      const updated: any = await service.recheck('p');
+      expect(updated.slipStatus).toBe(SlipStatus.FAILED);
+      expect(updated.slipMessage).toMatch(/ใบเสร็จ RCPT-9/);
+    });
+
+    it('SlipOK ปฏิเสธ → FAILED ด้วยข้อความจาก SlipOK', async () => {
+      slipOk.check.mockResolvedValue({ kind: 'rejected', code: 1014, message: 'ไม่ได้โอนเข้าบัญชีของร้าน' });
+      const updated: any = await service.recheck('p');
+      expect(updated).toMatchObject({ slipStatus: SlipStatus.FAILED, slipMessage: 'ไม่ได้โอนเข้าบัญชีของร้าน' });
+    });
+
+    it('สองบิลใช้สลิปเดียวกันพร้อมกัน: บิลอื่นบันทึกรหัสรายการไปก่อน (unique ชน) → บิลนี้ FAILED', async () => {
+      slipOk.check.mockResolvedValue(verified());
+      prisma.payment.update
+        .mockRejectedValueOnce(known('P2002'))
+        .mockImplementationOnce(({ data }: any) => Promise.resolve({ id: 'p', ...data }));
+      const updated: any = await service.recheck('p');
+      expect(updated).toMatchObject({
+        slipStatus: SlipStatus.FAILED, slipMessage: 'สลิปนี้ถูกใช้กับบิลอื่นแล้ว', slipAttempts: 2,
+      });
+      expect(updated.slipTransRef).toBeUndefined();
+    });
+
+    it('ADMIN ยืนยันเองไประหว่างตรวจ (ไม่เป็น PENDING แล้ว) → 409 ไม่ทับผลของ ADMIN', async () => {
+      slipOk.check.mockResolvedValue(verified());
+      prisma.payment.update.mockRejectedValue(known('P2025'));
+      await expect(service.recheck('p')).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.payment.update).toHaveBeenCalledTimes(1);
+    });
+
+    it('ไม่พบบิล → 404 · บิลไม่ได้รอตรวจ / ถูกยกเลิก / ไม่มีข้อมูลสลิป → 409 และไม่เรียก SlipOK', async () => {
+      prisma.payment.findUnique.mockResolvedValueOnce(null);
+      await expect(service.recheck('p')).rejects.toBeInstanceOf(NotFoundException);
+      for (const bad of [
+        { slipStatus: SlipStatus.VERIFIED },
+        { status: PaymentStatus.VOIDED },
+        { slipPayload: null },
+      ]) {
+        prisma.payment.findUnique.mockResolvedValueOnce({ ...pending, ...bad });
+        await expect(service.recheck('p')).rejects.toBeInstanceOf(ConflictException);
+      }
+      expect(slipOk.check).not.toHaveBeenCalled();
+    });
+
+    it('รอบอัตโนมัติ: ตรวจทุกบิลที่รอ บิลหนึ่งพังไม่หยุดบิลถัดไป', async () => {
+      prisma.payment.findMany = jest.fn().mockResolvedValue([{ id: 'a' }, { id: 'b' }]);
+      jest.spyOn(service, 'recheck').mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce({} as any);
+      jest.spyOn((service as any).logger, 'warn').mockImplementation(() => undefined);
+      await service.recheckPending();
+      expect(service.recheck).toHaveBeenNthCalledWith(1, 'a');
+      expect(service.recheck).toHaveBeenNthCalledWith(2, 'b');
+    });
   });
 });

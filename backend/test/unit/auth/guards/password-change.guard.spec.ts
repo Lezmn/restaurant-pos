@@ -1,6 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { PasswordChangeGuard } from './password-change.guard';
+import { PasswordChangeGuard } from '../../../../src/auth/guards/password-change.guard';
 
 const ctx = (user: unknown) =>
   ({

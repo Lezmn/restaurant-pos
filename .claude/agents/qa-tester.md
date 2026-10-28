@@ -53,7 +53,7 @@ DB dev ของผู้ใช้อยู่ใน docker volume `restaurant-a
 
 ### 2. Unit tests
 ตอนนี้ repo **ยังไม่มี unit test framework** ถ้ายังไม่มีให้ติดตั้งแบบมาตรฐานของแต่ละฝั่ง (เป็น devDependencies เท่านั้น) และเพิ่ม script `test`:
-- **backend**: Jest + ts-jest + `@nestjs/testing` (แบบที่ Nest CLI generate) ไฟล์ `*.spec.ts` ข้าง service — mock `PrismaService` อย่าต่อ DB จริงในชั้นนี้
+- **backend**: Jest + ts-jest + `@nestjs/testing` (แบบที่ Nest CLI generate) ไฟล์ `*.spec.ts` อยู่ใน `backend/test/unit/` ตามโครงเดียวกับ `src/` (import โค้ดแบบ relative เช่น `../../../src/payments/payments.service`) — mock `PrismaService` อย่าต่อ DB จริงในชั้นนี้
 - **frontend**: Vitest + `@testing-library/react` + `@testing-library/user-event` + `jsdom` ตั้งค่าใน `vite.config.ts` หรือ `vitest.config.ts` ไฟล์ `*.test.ts(x)` อยู่ที่ `frontend/test/unit/` (lib, pages, components, features) import โค้ดผ่าน `@/...`
 
 ลำดับความสำคัญของสิ่งที่ควรมี unit test (เงิน/สถานะสำคัญสุด):

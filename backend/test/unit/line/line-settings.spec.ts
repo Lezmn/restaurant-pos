@@ -1,5 +1,5 @@
-import { maskSecret, openSecret, sealSecret } from '../settings/secret-box';
-import { LineSettingsService } from './line-settings.service';
+import { maskSecret, openSecret, sealSecret } from '../../../src/settings/secret-box';
+import { LineSettingsService } from '../../../src/line/line-settings.service';
 
 const config = (env: Record<string, string>) =>
   ({ get: (k: string) => env[k], getOrThrow: (k: string) => env[k] }) as any;

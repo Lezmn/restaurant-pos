@@ -2,8 +2,8 @@ import { BadRequestException } from '@nestjs/common';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { detectImageType } from './image-type';
-import { MAX_IMAGE_BYTES, UploadsService } from './uploads.service';
+import { detectImageType } from '../../../src/uploads/image-type';
+import { MAX_IMAGE_BYTES, UploadsService } from '../../../src/uploads/uploads.service';
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
 const JPG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10]);

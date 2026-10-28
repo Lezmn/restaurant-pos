@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { OrderStatus, Prisma, ServiceRequestStatus, ServiceRequestType, TableSessionStatus } from '@prisma/client';
-import { closeSessionIfSettled } from './session-settlement';
-import { TableSessionsService } from './table-sessions.service';
+import { closeSessionIfSettled } from '../../../src/table-sessions/session-settlement';
+import { TableSessionsService } from '../../../src/table-sessions/table-sessions.service';
 
 const D = (v: number) => new Prisma.Decimal(v);
 

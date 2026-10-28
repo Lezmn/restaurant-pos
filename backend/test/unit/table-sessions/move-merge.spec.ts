@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Prisma, TableSessionStatus } from '@prisma/client';
-import { TableSessionsService } from './table-sessions.service';
+import { TableSessionsService } from '../../../src/table-sessions/table-sessions.service';
 
 const openSession = (overrides: Partial<any> = {}) => ({
   id: 's1',

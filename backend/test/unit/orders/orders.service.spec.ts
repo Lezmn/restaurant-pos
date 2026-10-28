@@ -5,7 +5,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { OrderStatus, Prisma, TableSessionStatus, TableStatus } from '@prisma/client';
-import { OrdersService } from './orders.service';
+import { OrdersService } from '../../../src/orders/orders.service';
 
 const D = (v: number) => new Prisma.Decimal(v);
 

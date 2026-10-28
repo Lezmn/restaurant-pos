@@ -1,5 +1,5 @@
 import { ExpenseCategory, PaymentMethod, Prisma, SlipStatus, TableStatus } from '@prisma/client';
-import { ReportsService } from './reports.service';
+import { ReportsService } from '../../../src/reports/reports.service';
 
 const D = (v: number) => new Prisma.Decimal(v);
 

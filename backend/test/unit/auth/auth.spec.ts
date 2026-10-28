@@ -3,12 +3,12 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Role } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
-import { createIdentityTracker, ipTracker } from '../common/throttle-trackers';
-import { AuthService } from './auth.service';
-import { IS_PUBLIC_KEY } from './decorators/public.decorator';
-import { ROLES_KEY } from './decorators/roles.decorator';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { RolesGuard } from './guards/roles.guard';
+import { createIdentityTracker, ipTracker } from '../../../src/common/throttle-trackers';
+import { AuthService } from '../../../src/auth/auth.service';
+import { IS_PUBLIC_KEY } from '../../../src/auth/decorators/public.decorator';
+import { ROLES_KEY } from '../../../src/auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../../src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../src/auth/guards/roles.guard';
 
 const jwt = new JwtService({ secret: 'unit-test-secret' });
 

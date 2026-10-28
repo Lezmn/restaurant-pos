@@ -71,19 +71,22 @@
       "json",
       "ts"
     ],
-    "rootDir": "src",
+    "rootDir": ".",
+    "roots": [
+      "<rootDir>/test/unit"
+    ],
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.ts$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "src/**/*.(t|j)s"
     ],
-    "coverageDirectory": "../coverage",
+    "coverageDirectory": "coverage",
     "testEnvironment": "node",
     "setupFiles": [
-      "<rootDir>/../test/setup-tz.js"
+      "<rootDir>/test/setup-tz.js"
     ],
-    "globalSetup": "<rootDir>/../test/global-tz.js"
+    "globalSetup": "<rootDir>/test/global-tz.js"
   }
 }

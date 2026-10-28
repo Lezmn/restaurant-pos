@@ -5,7 +5,7 @@ import {
   restoreStock,
   stockUsageOf,
   toStockUsage,
-} from './ingredient-stock';
+} from '../../../src/ingredients/ingredient-stock';
 
 const egg = { id: 'egg', name: 'ไข่', stockQty: 10 };
 const pork = { id: 'pork', name: 'หมู', stockQty: null };

@@ -1,7 +1,7 @@
 import { mkdtemp, rm, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SystemStatusService } from './system-status.service';
+import { SystemStatusService } from '../../../src/health/system-status.service';
 
 const NOW = new Date('2026-10-26T12:00:00+07:00');
 const hoursAgo = (h: number) => new Date(NOW.getTime() - h * 3_600_000);

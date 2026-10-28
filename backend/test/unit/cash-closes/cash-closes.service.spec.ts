@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { PaymentMethod, Prisma, Role } from '@prisma/client';
-import { CashClosesService } from './cash-closes.service';
+import { CashClosesService } from '../../../src/cash-closes/cash-closes.service';
 
 const D = (v: number) => new Prisma.Decimal(v);
 const user = { id: 'u1', email: 'e', name: 'แคชเชียร์', role: Role.STAFF };

@@ -1,4 +1,4 @@
-import { addDays, monthToRange, resolveDateRange, startOfDay } from './date-range.util';
+import { addDays, monthToRange, resolveDateRange, startOfDay } from '../../../src/common/date-range.util';
 
 /** ทุกเคสรันด้วย TZ=Asia/Bangkok (test/setup-tz.js) — เวลาร้าน = UTC+7 */
 describe('date-range.util (เวลาไทย)', () => {

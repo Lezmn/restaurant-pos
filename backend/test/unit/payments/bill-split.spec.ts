@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { splitShare } from './bill-split';
+import { splitShare } from '../../../src/payments/bill-split';
 
 const D = (v: number | string) => new Prisma.Decimal(v);
 

@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
-import { UsersService } from './users.service';
+import { UsersService } from '../../../src/users/users.service';
 
 const user = (over: Partial<{ id: string; role: Role; isActive: boolean }> = {}) => ({
   id: 'u2',

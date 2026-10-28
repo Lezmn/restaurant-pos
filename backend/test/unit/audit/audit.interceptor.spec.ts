@@ -2,9 +2,9 @@ import { CallHandler, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Role } from '@prisma/client';
 import { lastValueFrom, of, throwError } from 'rxjs';
-import { AUDIT_KEY, AuditOptions } from './audit.decorator';
-import { AuditInterceptor, readDevice } from './audit.interceptor';
-import { sanitizeDetails } from './audit.service';
+import { AUDIT_KEY, AuditOptions } from '../../../src/audit/audit.decorator';
+import { AuditInterceptor, readDevice } from '../../../src/audit/audit.interceptor';
+import { sanitizeDetails } from '../../../src/audit/audit.service';
 
 const user = { id: 'u1', email: 'front@shop', name: 'หน้าร้าน', role: Role.STAFF };
 

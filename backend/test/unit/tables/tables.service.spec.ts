@@ -1,6 +1,6 @@
 import { ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { TablesService } from './tables.service';
+import { TablesService } from '../../../src/tables/tables.service';
 
 function setup() {
   const prisma: any = {
