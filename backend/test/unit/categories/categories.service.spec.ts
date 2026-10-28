@@ -14,6 +14,8 @@ function setup() {
       update: jest.fn(async ({ data }: any) => ({ id: 'c-1', ...data })),
       delete: jest.fn().mockResolvedValue({ id: 'c-1' }),
     },
+    // เมนูที่ลบแบบซ่อนแล้วแต่ยังผูกหมวดอยู่ — ค่าเริ่มต้นไม่มี
+    menuItem: { count: jest.fn().mockResolvedValue(0) },
   };
   return { prisma, service: new CategoriesService(prisma) };
 }
@@ -34,12 +36,12 @@ describe('CategoriesService', () => {
     await expect(service.create({ name: 'x' } as any)).rejects.toBe(err);
   });
 
-  it('findAll นับจำนวนเมนูในหมวด เรียงตามชื่อ', async () => {
+  it('findAll นับจำนวนเมนูในหมวด (ไม่นับเมนูที่ลบแบบซ่อน) เรียงตามชื่อ', async () => {
     const { prisma, service } = setup();
     await service.findAll();
     expect(prisma.category.findMany).toHaveBeenCalledWith({
       orderBy: { name: 'asc' },
-      include: { _count: { select: { menuItems: true } } },
+      include: { _count: { select: { menuItems: { where: { deletedAt: null } } } } },
     });
   });
 
@@ -66,6 +68,15 @@ describe('CategoriesService', () => {
     const { prisma, service } = setup();
     prisma.category.findUnique.mockResolvedValue({ id: 'c-1', menuItems: [{}, {}] });
     await expect(service.remove('c-1')).rejects.toThrow(/2 รายการ/);
+    expect(prisma.category.delete).not.toHaveBeenCalled();
+  });
+
+  it('remove หมวดที่เหลือแต่เมนูที่ลบแบบซ่อน (มีประวัติออเดอร์) → 409 และไม่ลบ', async () => {
+    const { prisma, service } = setup();
+    prisma.category.findUnique.mockResolvedValue({ id: 'c-1', menuItems: [] });
+    prisma.menuItem.count.mockResolvedValue(3);
+    await expect(service.remove('c-1')).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.menuItem.count).toHaveBeenCalledWith({ where: { categoryId: 'c-1' } });
     expect(prisma.category.delete).not.toHaveBeenCalled();
   });
 

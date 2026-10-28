@@ -76,6 +76,8 @@ describe('PublicService (หน้าลูกค้าสแกน QR)', () => 
     const menuItems = prisma.category.findMany.mock.calls[0][0].include.menuItems;
     expect(menuItems.where).toEqual({
       isAvailable: true,
+      // เมนูที่ลบแบบซ่อน (deletedAt) ต้องไม่โผล่ในหน้าลูกค้า
+      deletedAt: null,
       ingredients: { none: { ingredient: { isAvailable: false } } },
     });
     expect(menuItems.include.options.where).toEqual({ isAvailable: true });
