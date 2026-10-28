@@ -133,7 +133,8 @@ export function EmployeeLayout() {
             <span aria-hidden className="text-2xl text-brand-400">
               🍴
             </span>
-            <p className="truncate text-lg font-bold text-brand-400 sm:text-2xl">
+            {/* brand-400 ผ่าน contrast เฉพาะตัวหนา 24px — จอเล็กตัว 18px ใช้ brand-500 */}
+            <p className="truncate text-lg font-bold text-brand-500 sm:text-2xl sm:text-brand-400">
               {RESTAURANT_NAME}
             </p>
           </div>

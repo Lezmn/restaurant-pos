@@ -20,8 +20,8 @@ export function NoteChips({
   const chip = (tag: string) => {
     const on = hasNoteTag(value, tag)
     const tone = on
-      ? 'border-brand-300 bg-brand-300 text-white'
-      : 'border-gray-300 bg-white text-gray-700 hover:border-brand-300'
+      ? 'border-brand-500 bg-brand-500 text-white'
+      : 'border-gray-300 bg-white text-gray-700 hover:border-brand-400'
     return (
       <button
         key={tag}

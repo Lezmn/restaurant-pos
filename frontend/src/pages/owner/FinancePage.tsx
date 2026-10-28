@@ -2,6 +2,7 @@ import { ErrorNote } from '@/components/ui/ErrorNote'
 import { Modal } from '@/components/ui/Modal'
 import { Pagination } from '@/components/ui/Pagination'
 import { StatCard } from '@/components/ui/StatCard'
+import { button } from '@/components/ui/styles'
 import {
   useAddExpense,
   useDeleteExpense,
@@ -29,9 +30,9 @@ const categoryLabel: Record<PaymentMethod | ExpenseCategory, string> = {
 }
 
 const categoryTone: Record<PaymentMethod | ExpenseCategory, string> = {
-  [PaymentMethod.CASH]: 'bg-success/10 text-success',
-  [PaymentMethod.PROMPTPAY]: 'bg-success/10 text-success',
-  [ExpenseCategory.INGREDIENTS]: 'bg-danger/10 text-danger',
+  [PaymentMethod.CASH]: 'bg-success/10 text-success-ink',
+  [PaymentMethod.PROMPTPAY]: 'bg-success/10 text-success-ink',
+  [ExpenseCategory.INGREDIENTS]: 'bg-danger/10 text-danger-ink',
   [ExpenseCategory.UTILITIES]: 'bg-brand-50 text-brand-500',
   [ExpenseCategory.SALARY]: 'bg-brand-50 text-brand-500',
   [ExpenseCategory.EQUIPMENT]: 'bg-brand-50 text-brand-500',
@@ -77,7 +78,7 @@ export function FinancePage() {
   }
   if (isError || !data) {
     return (
-      <p className="text-sm text-danger">
+      <p className="text-sm text-danger-ink">
         {error instanceof Error ? error.message : 'โหลดข้อมูลไม่สำเร็จ'}
       </p>
     )
@@ -104,7 +105,7 @@ export function FinancePage() {
           <button
             type="button"
             onClick={() => setFormOpen((v) => !v)}
-            className="rounded-lg bg-danger px-4 py-2 text-sm font-bold text-white"
+            className={button('danger')}
           >
             {formOpen ? 'ปิดฟอร์ม' : '+ รายจ่าย'}
           </button>
@@ -166,8 +167,8 @@ export function FinancePage() {
             onClick={() => setFilter(f.key)}
             className={`min-h-10 rounded-full border-2 px-4 py-1.5 text-sm font-semibold transition ${
               filter === f.key
-                ? 'border-brand-400 bg-brand-400 text-white'
-                : 'border-brand-400 bg-white text-brand-400 hover:bg-brand-50'
+                ? 'border-brand-500 bg-brand-500 text-white'
+                : 'border-brand-400 bg-white text-brand-500 hover:bg-brand-50'
             }`}
           >
             {f.label}
@@ -222,7 +223,7 @@ export function FinancePage() {
                   </td>
                   <td
                     className={`whitespace-nowrap px-4 py-3 text-right text-sm font-bold ${
-                      tx.amount < 0 ? 'text-danger' : 'text-success'
+                      tx.amount < 0 ? 'text-danger-ink' : 'text-success-ink'
                     }`}
                   >
                     {tx.amount < 0 ? '-' : '+'}
@@ -238,14 +239,14 @@ export function FinancePage() {
                             setFormOpen(false)
                             setEditing(tx)
                           }}
-                          className="min-h-10 rounded-lg px-3 text-sm font-semibold text-brand-400 underline-offset-4 transition hover:bg-brand-50 hover:underline"
+                          className="min-h-10 rounded-lg px-3 text-sm font-semibold text-brand-500 underline-offset-4 transition hover:bg-brand-50 hover:underline"
                         >
                           แก้ไข
                         </button>
                         <button
                           type="button"
                           onClick={() => setDeleting(tx)}
-                          className="min-h-10 rounded-lg px-3 text-sm font-semibold text-danger underline-offset-4 transition hover:bg-danger/5 hover:underline"
+                          className="min-h-10 rounded-lg px-3 text-sm font-semibold text-danger-ink underline-offset-4 transition hover:bg-danger/5 hover:underline"
                         >
                           ลบ
                         </button>
@@ -311,7 +312,7 @@ function ConfirmDeleteDialog({
         <p className="mt-1 text-gray-500">
           {thaiDate(expense.date)} · {categoryLabel[expense.category]}
         </p>
-        <p className="mt-1 text-lg font-bold text-danger">
+        <p className="mt-1 text-lg font-bold text-danger-ink">
           {formatBaht(Math.abs(expense.amount))}
         </p>
       </div>
@@ -332,7 +333,7 @@ function ConfirmDeleteDialog({
           type="button"
           disabled={isDeleting}
           onClick={onConfirm}
-          className="rounded-lg bg-danger py-2.5 text-sm font-bold text-white transition hover:brightness-95 disabled:opacity-60"
+          className="rounded-lg bg-danger-ink py-2.5 text-sm font-bold text-white transition hover:brightness-95 disabled:opacity-60"
         >
           {isDeleting ? 'กำลังลบ...' : 'ลบรายการนี้'}
         </button>
@@ -433,7 +434,7 @@ function ExpenseForm({
       </label>
 
       {(invalid || saving.error) && (
-        <p role="alert" className="text-sm font-semibold text-danger sm:col-span-4">
+        <p role="alert" className="text-sm font-semibold text-danger-ink sm:col-span-4">
           {invalid ||
             (saving.error instanceof Error
               ? saving.error.message
@@ -445,7 +446,7 @@ function ExpenseForm({
         <button
           type="submit"
           disabled={saving.isPending}
-          className="rounded-lg bg-danger px-6 py-2 text-sm font-bold text-white disabled:opacity-60"
+          className="rounded-lg bg-danger-ink px-6 py-2 text-sm font-bold text-white disabled:opacity-60"
         >
           {submitLabel}
         </button>

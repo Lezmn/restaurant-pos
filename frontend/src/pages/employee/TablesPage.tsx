@@ -1,6 +1,7 @@
 import { Badge, type BadgeTone } from '@/components/ui/Badge'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ErrorNote } from '@/components/ui/ErrorNote'
+import { LoadError } from '@/components/ui/LoadError'
 import { Modal } from '@/components/ui/Modal'
 import { button } from '@/components/ui/styles'
 import { pageRoles } from '@/features/auth/permissions'
@@ -36,8 +37,10 @@ const customerUrl = (token: string) => `${window.location.origin}/t/${token}`
 
 export function TablesPage() {
   const user = useAuth((s) => s.user)
-  const { data: tables, isPending } = useTables()
-  const { data: sessions } = useSessions()
+  const tablesQuery = useTables()
+  const sessionsQuery = useSessions()
+  const { data: tables, isPending } = tablesQuery
+  const { data: sessions } = sessionsQuery
   const openSession = useOpenSession()
   const closeSession = useCloseSession()
   const [qrTarget, setQrTarget] = useState<TableSession | null>(null)
@@ -60,6 +63,23 @@ export function TablesPage() {
 
   return (
     <div>
+      {/* โหลดไม่ขึ้นต้องบอก — ไม่งั้นโต๊ะที่เปิดอยู่จะดูเหมือน "ว่าง" แล้วเผลอเปิดซ้ำ */}
+      {tablesQuery.isError && (
+        <LoadError
+          what="รายการโต๊ะ"
+          stale={Boolean(tables)}
+          error={tablesQuery.error}
+          onRetry={() => tablesQuery.refetch()}
+        />
+      )}
+      {sessionsQuery.isError && (
+        <LoadError
+          what="โต๊ะที่เปิดอยู่"
+          stale={Boolean(sessions)}
+          error={sessionsQuery.error}
+          onRetry={() => sessionsQuery.refetch()}
+        />
+      )}
       <ErrorNote error={openSession.error} />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -84,7 +104,8 @@ export function TablesPage() {
           return (
             <article
               key={table.id}
-              className="rounded-xl border-2 border-brand-75 bg-white p-4"
+              // min-w-0: token ยาวที่ truncate ไว้ไม่ดันการ์ดจนล้นจอมือถือ
+              className="min-w-0 rounded-xl border-2 border-brand-75 bg-white p-4"
             >
               <div className="flex items-center justify-between">
                 <p className="text-xl font-bold text-black">โต๊ะ {table.name}</p>
@@ -111,7 +132,7 @@ export function TablesPage() {
                   <button
                     type="button"
                     onClick={() => setOrderTarget(session)}
-                    className="mt-3 w-full rounded-lg bg-brand-300 py-2 text-sm font-bold text-white transition hover:bg-brand-400"
+                    className={`mt-3 w-full ${button('primary')}`}
                   >
                     รับออเดอร์แทนลูกค้า
                   </button>
@@ -120,7 +141,7 @@ export function TablesPage() {
                     type="button"
                     disabled={closeSession.isPending}
                     onClick={() => setCloseTarget(session)}
-                    className="mt-2 w-full rounded-lg border-2 border-danger py-2 text-sm font-bold text-danger transition hover:bg-danger/10 disabled:opacity-60"
+                    className={`mt-2 w-full ${button('danger-outline')}`}
                   >
                     ปิดโต๊ะ
                   </button>
@@ -136,7 +157,7 @@ export function TablesPage() {
                       onSuccess: (session) => setQrTarget(session),
                     })
                   }
-                  className="mt-4 w-full rounded-lg bg-brand-300 py-2.5 text-sm font-bold text-white transition hover:bg-brand-400 disabled:cursor-not-allowed disabled:bg-gray-300"
+                  className={`mt-4 w-full ${button('primary')}`}
                 >
                   เปิดโต๊ะ/สร้าง QR
                 </button>
@@ -238,14 +259,14 @@ function QrDialog({
           <button
             type="button"
             onClick={copy}
-            className="rounded-lg border-2 border-brand-300 py-2.5 text-sm font-bold text-brand-400 transition hover:bg-brand-50"
+            className={button('outline')}
           >
             {copied ? 'คัดลอกแล้ว' : 'คัดลอกลิงก์'}
           </button>
           <button
             type="button"
             onClick={() => window.print()}
-            className="rounded-lg bg-brand-300 py-2.5 text-sm font-bold text-white transition hover:bg-brand-400"
+            className={button('primary')}
           >
             พิมพ์
           </button>

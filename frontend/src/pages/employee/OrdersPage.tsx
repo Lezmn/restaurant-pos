@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/Badge'
+import { LoadError } from '@/components/ui/LoadError'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { useOrders } from '@/features/orders/hooks'
 import { formatBaht, formatTime } from '@/lib/format'
@@ -6,12 +7,21 @@ import { itemTotal, orderTotal } from '@/features/orders/order-total'
 import { statusLabel, statusTone } from '@/features/orders/order-status'
 
 export function OrdersPage() {
-  const { data: orders, isPending } = useOrders()
+  const ordersQuery = useOrders()
+  const { data: orders, isPending } = ordersQuery
 
   return (
     <div>
       <PageHeader title="ออเดอร์" description="ออเดอร์ทั้งหมดของวันนี้" />
 
+      {ordersQuery.isError && (
+        <LoadError
+          what="ออเดอร์"
+          stale={Boolean(orders)}
+          error={ordersQuery.error}
+          onRetry={() => ordersQuery.refetch()}
+        />
+      )}
       {isPending && <p className="text-sm text-gray-500">กำลังโหลด...</p>}
 
       <div className="space-y-4">

@@ -48,8 +48,8 @@ export function Pagination({
               onClick={() => onChange(n)}
               className={`min-w-9 rounded-lg px-3 py-1.5 text-sm font-bold transition ${
                 n === page
-                  ? 'bg-brand-400 text-white'
-                  : 'text-gray-600 hover:bg-brand-50 hover:text-brand-400'
+                  ? 'bg-brand-500 text-white'
+                  : 'text-gray-600 hover:bg-brand-50 hover:text-brand-500'
               }`}
             >
               {n}
@@ -81,7 +81,7 @@ function PageButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-600 transition hover:bg-brand-50 hover:text-brand-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-600"
+      className="rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-600 transition hover:bg-brand-50 hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-600"
     >
       {label}
     </button>

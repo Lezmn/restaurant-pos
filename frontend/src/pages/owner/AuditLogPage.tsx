@@ -78,7 +78,7 @@ export function AuditLogPage() {
       </div>
 
       {logs.isError && (
-        <p className="text-sm text-danger">
+        <p className="text-sm text-danger-ink">
           {logs.error instanceof Error ? logs.error.message : 'โหลดข้อมูลไม่สำเร็จ'}
         </p>
       )}

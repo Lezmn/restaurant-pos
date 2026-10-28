@@ -20,8 +20,8 @@ const thaiDate = (ymd: string) =>
   })
 
 const differenceTone = (value: number) => {
-  if (value === 0) return 'text-success'
-  return value > 0 ? 'text-brand-400' : 'text-danger'
+  if (value === 0) return 'text-success-ink'
+  return value > 0 ? 'text-brand-500' : 'text-danger-ink'
 }
 
 const differenceLabel = (value: number) => {
@@ -111,7 +111,7 @@ export function CashClosesPage() {
       </div>
 
       {isError && (
-        <p className="text-sm text-danger">
+        <p className="text-sm text-danger-ink">
           {error instanceof Error ? error.message : 'โหลดข้อมูลไม่สำเร็จ'}
         </p>
       )}
@@ -156,7 +156,7 @@ export function CashClosesPage() {
                   </td>
                   <td className="px-3 py-3">{formatBaht(c.openingFloat)}</td>
                   <td className="px-3 py-3 text-brand-300">{formatBaht(c.cashSales)}</td>
-                  <td className="px-3 py-3 text-danger">
+                  <td className="px-3 py-3 text-danger-ink">
                     {c.drawerExpenses > 0 ? `-${formatBaht(c.drawerExpenses)}` : '-'}
                   </td>
                   <td className="px-3 py-3">{formatBaht(c.expectedCash)}</td>
@@ -175,7 +175,7 @@ export function CashClosesPage() {
                       type="button"
                       onClick={() => setDeleting(c)}
                       title="ลบการปิดยอดนี้ เพื่อให้นับใหม่"
-                      className="min-h-10 rounded-lg px-3 font-semibold text-danger underline-offset-4 transition hover:bg-danger/5 hover:underline"
+                      className="min-h-10 rounded-lg px-3 font-semibold text-danger-ink underline-offset-4 transition hover:bg-danger/5 hover:underline"
                     >
                       ลบ
                     </button>

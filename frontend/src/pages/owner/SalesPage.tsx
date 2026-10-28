@@ -420,6 +420,9 @@ const DAY_FULL = ['อาทิตย์', 'จันทร์', 'อังค�
 const HEAT_STEPS = ['bg-gray-100', 'bg-brand-50', 'bg-brand-75', 'bg-brand-300', 'bg-brand-500']
 const heatClass = (value: number, max: number) =>
   value === 0 ? HEAT_STEPS[0] : HEAT_STEPS[Math.min(4, 1 + Math.floor((value / max) * 3.999))]
+/** ตัวขาวได้เฉพาะบน brand-500 — บน brand-300 ได้แค่ 2.3:1 */
+const heatTextClass = (heat: string) =>
+  heat === 'bg-brand-500' ? 'font-semibold text-white' : heat === 'bg-brand-300' ? 'font-semibold text-black' : 'text-gray-700'
 
 /**
  * heatmap วัน × ชั่วโมง — ใช้วางกะพนักงาน/เตรียมของ ว่าวันไหนชั่วโมงไหนยุ่ง
@@ -469,7 +472,8 @@ function WeekHeatmap({ grid }: Readonly<{ grid: number[][] }>) {
       </div>
 
       {/* เต็มความกว้างกรอบ — จอแคบเกิน (มือถือ) เลื่อนเฉพาะในกรอบ หน้าไม่เลื่อนข้าง */}
-      <div className="mt-4 overflow-x-auto">
+      {/* relative: ช่อง sr-only (absolute) ต้องอยู่ในกรอบนี้ ไม่งั้นหลุดกรอบดันทั้งหน้าให้เลื่อนข้าง */}
+      <div className="relative mt-4 overflow-x-auto">
         <table className="w-full border-separate border-spacing-0.5 text-xs md:text-sm">
           <caption className="sr-only">จำนวนออเดอร์แยกตามวันและชั่วโมง พร้อมยอดรวมรายวันและรายชั่วโมง</caption>
           <thead>
@@ -501,13 +505,12 @@ function WeekHeatmap({ grid }: Readonly<{ grid: number[][] }>) {
                 </th>
                 {hours.map((hour) => {
                   const count = grid[day]?.[hour] ?? 0
+                  const heat = heatClass(count, max)
                   return (
                     <td
                       key={hour}
                       title={`${DAY_FULL[day]} ${hourRange(hour)} · ${count} ออเดอร์`}
-                      className={`h-8 min-w-11 rounded text-center tabular-nums md:h-9 ${heatClass(count, max)} ${
-                        count / max > 0.5 ? 'font-semibold text-white' : 'text-gray-700'
-                      }`}
+                      className={`h-8 min-w-11 rounded text-center tabular-nums md:h-9 ${heat} ${heatTextClass(heat)}`}
                     >
                       {count > 0 ? count : <span className="sr-only">0</span>}
                     </td>
