@@ -23,7 +23,7 @@ export function CallStaffAlert() {
       r.status === ServiceRequestStatus.PENDING,
   )
 
-  // คำขอใหม่ → ปี๊บ 3 ครั้ง (แคชเชียร์อาจก้มนับเงินอยู่ ไม่ได้มองจอ) — ค่าเริ่มต้นเปิด (ปุ่มปิดอยู่บนจอครัว ซึ่งเครื่องแคชเชียร์เข้าไม่ได้ — ปิดที่ลำโพงเครื่องแทน)
+  // คำขอใหม่ → ปี๊บ 3 ครั้ง (แคชเชียร์อาจก้มนับเงินอยู่ ไม่ได้มองจอ) — ค่าเริ่มต้นเปิด (ปุ่มปิดอยู่ที่หัวจอ AlertSoundToggle)
   useEffect(installAudioUnlock, [])
   useNewArrivals(requests && pending.map((r) => r.id), () => playAlert('call'))
 

@@ -1,3 +1,4 @@
+import { AlertSoundToggle } from '@/components/AlertSoundToggle'
 import { CallStaffAlert } from '@/components/CallStaffAlert'
 import { Toaster } from '@/components/ui/Toaster'
 import { pageRoles } from '@/features/auth/permissions'
@@ -137,6 +138,7 @@ export function EmployeeLayout() {
             </p>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
+            <AlertSoundToggle />
             {/* ADMIN = เจ้าของร้าน มีหน้า Dashboard แยกอีกชุด (บัญชีผู้ใช้อยู่ในนั้นด้วย) */}
             {user?.role === Role.ADMIN && (
               <Link
