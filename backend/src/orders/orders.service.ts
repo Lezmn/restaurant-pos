@@ -312,8 +312,12 @@ export class OrdersService {
   /** ยอดรวมของออเดอร์ = sum(unitPrice * quantity) ของทุกรายการ */
   async getTotal(id: string) {
     const order = await this.findOne(id);
-    const total = order.items.reduce((sum, item) => sum + this.calculateLineTotal(item), 0);
-    return { orderId: id, total, itemCount: order.items.length };
+    // บวกด้วย Decimal เหมือนตอนเก็บเงิน — บวกด้วย number แล้วราคาสตางค์เพี้ยน (0.1 + 0.2 = 0.30000000000000004)
+    const total = order.items.reduce(
+      (sum, item) => sum.plus(this.calculateLineTotal(item)),
+      new Prisma.Decimal(0),
+    );
+    return { orderId: id, total: total.toNumber(), itemCount: order.items.length };
   }
 
   async addItem(orderId: string, dto: OrderItemInputDto) {
@@ -639,11 +643,9 @@ export class OrdersService {
     quantity: number;
     selectedOptions: { price: Prisma.Decimal }[];
   }) {
-    const optionTotal = item.selectedOptions.reduce(
-      (sum, option) => sum + Number(option.price),
-      0,
-    );
-    return (Number(item.unitPrice) + optionTotal) * item.quantity;
+    return item.selectedOptions
+      .reduce((sum, option) => sum.plus(option.price), new Prisma.Decimal(item.unitPrice))
+      .mul(item.quantity);
   }
 
   private assertOrderIsEditable(order: { status: OrderStatus; paymentId: string | null }) {
