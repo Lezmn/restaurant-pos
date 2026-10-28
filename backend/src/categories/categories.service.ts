@@ -23,14 +23,15 @@ export class CategoriesService {
   findAll() {
     return this.prisma.category.findMany({
       orderBy: { name: 'asc' },
-      include: { _count: { select: { menuItems: true } } },
+      // ไม่นับเมนูที่ลบแบบซ่อนแล้ว
+      include: { _count: { select: { menuItems: { where: { deletedAt: null } } } } },
     });
   }
 
   async findOne(id: string) {
     const category = await this.prisma.category.findUnique({
       where: { id },
-      include: { menuItems: true },
+      include: { menuItems: { where: { deletedAt: null } } },
     });
     if (!category) {
       throw new NotFoundException(`ไม่พบหมวดหมู่ id: ${id}`);
@@ -52,6 +53,13 @@ export class CategoriesService {
     if (category.menuItems.length > 0) {
       throw new ConflictException(
         `ลบไม่ได้: หมวดหมู่นี้ยังมีเมนู ${category.menuItems.length} รายการผูกอยู่ ต้องย้ายหรือลบเมนูก่อน`,
+      );
+    }
+    // เมนูที่ลบแบบซ่อนยังผูกหมวดอยู่ (เก็บประวัติขาย) — ลบหมวดจริงไม่ได้ บอกตรง ๆ แทน 500
+    const hidden = await this.prisma.menuItem.count({ where: { categoryId: id } });
+    if (hidden > 0) {
+      throw new ConflictException(
+        `ลบไม่ได้: หมวดหมู่นี้มีเมนูที่ลบไปแล้วแต่ยังมีประวัติออเดอร์ ${hidden} รายการ — เปลี่ยนชื่อหมวดแทนได้`,
       );
     }
     return this.prisma.category.delete({ where: { id } });

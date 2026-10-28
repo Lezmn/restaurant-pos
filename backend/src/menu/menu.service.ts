@@ -62,6 +62,7 @@ export class MenuService {
     return this.prisma.menuItem.findMany({
       where: {
         categoryId: params?.categoryId,
+        deletedAt: null,
         ...(params?.onlyAvailable
           ? {
               isAvailable: true,
@@ -75,8 +76,9 @@ export class MenuService {
   }
 
   async findOne(id: string) {
-    const item = await this.prisma.menuItem.findUnique({
-      where: { id },
+    // เมนูที่ลบแบบซ่อนแล้ว = ไม่มีอยู่สำหรับหน้าจัดการ (แก้/ลบซ้ำไม่ได้)
+    const item = await this.prisma.menuItem.findFirst({
+      where: { id, deletedAt: null },
       include: MENU_ITEM_INCLUDE,
     });
     if (!item) {
@@ -112,6 +114,11 @@ export class MenuService {
     }
   }
 
+  /**
+   * ลบเมนู — ที่เคยถูกสั่งแล้วลบจริงไม่ได้ (order_items อ้างอยู่) จึงซ่อนแทน เหมือน removeOption:
+   * ตั้ง deletedAt + ปิดขาย + ปลดวัตถุดิบ (ทั้งของเมนูและของตัวเลือก) ให้จำนวน "ใช้ใน N เมนู" ของวัตถุดิบไม่นับเมนูที่ลบแล้ว
+   * ประวัติออเดอร์/รายงานยังเห็นชื่อเมนูครบ
+   */
   async remove(id: string) {
     await this.findOne(id);
     try {
@@ -119,7 +126,23 @@ export class MenuService {
         await this.prisma.menuItem.delete({ where: { id } }),
       );
     } catch (e) {
-      throw this.mapItemDeleteError(e);
+      if (
+        !(e instanceof Prisma.PrismaClientKnownRequestError) ||
+        e.code !== 'P2003'
+      ) {
+        throw e;
+      }
+      const [hidden] = await this.prisma.$transaction([
+        this.prisma.menuItem.update({
+          where: { id },
+          data: { deletedAt: new Date(), isAvailable: false, ingredients: { deleteMany: {} } },
+        }),
+        this.prisma.menuOption.updateMany({
+          where: { menuItemId: id },
+          data: { ingredientId: null },
+        }),
+      ]);
+      return this.notifyMenuChanged(hidden);
     }
   }
 
@@ -241,19 +264,6 @@ export class MenuService {
       throw new NotFoundException(`ไม่พบตัวเลือก id: ${optionId} ในเมนูนี้`);
     }
     return option;
-  }
-
-  /** เมนูที่เคยถูกสั่งจะมี order_items อ้างอยู่ ลบไม่ได้ — บอกทางออกแทนที่จะปล่อยเป็น 500 */
-  private mapItemDeleteError(e: unknown): Error {
-    if (
-      e instanceof Prisma.PrismaClientKnownRequestError &&
-      e.code === 'P2003'
-    ) {
-      return new BadRequestException(
-        'ลบไม่ได้: เมนูนี้ถูกสั่งไปแล้วในออเดอร์ที่มีอยู่ ให้ปิด "พร้อมจำหน่าย" แทนการลบ',
-      );
-    }
-    return e as Error;
   }
 
   private mapPrismaError(e: unknown): Error {

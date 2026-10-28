@@ -39,6 +39,7 @@ export class PublicService {
           // วัตถุดิบหลักของเมนูหมด = ซ่อนทั้งเมนู เหมือนปิดขาย
           where: {
             isAvailable: true,
+            deletedAt: null,
             ingredients: { none: { ingredient: { isAvailable: false } } },
           },
           include: {
