@@ -148,23 +148,6 @@ const columns: {
   },
 ]
 
-/**
- * แถบบนจอครัว: ปุ่มของหมด + สถานะกันจอดับ
- * ปุ่มเปิด/ปิดเสียงย้ายไปหัวจอ (AlertSoundToggle) ให้กดได้ทุกหน้า
- * แท็บเล็ตไม่ยอมเล่นเสียงจนกว่าจะแตะจอ 1 ครั้ง — แตะตรงไหนก็ได้ installAudioUnlock เปิดให้เอง
- */
-function KitchenAlertBar({ screenAwake }: Readonly<{ screenAwake: boolean }>) {
-  return (
-    <div className="mb-4 flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
-      {/* ของหมดกดได้จากจอครัวเลย ไม่ต้องสลับไปหน้า Manage */}
-      <div className="mr-auto">
-        <KitchenSoldOutButton />
-      </div>
-      {screenAwake && <span className="text-sm text-gray-600">หน้าจอเปิดค้างไว้ระหว่างอยู่หน้านี้</span>}
-    </div>
-  )
-}
-
 /** รอเกินนี้ (นาที) ตัวเลขเวลารอเปลี่ยนเป็นสีแดง — ครัวเห็นว่าตั๋วไหนค้างนาน */
 const LATE_MINUTES = 15
 
@@ -363,7 +346,7 @@ export function OrderPage() {
 
   // ออเดอร์ใหม่เข้าคิว → ติ๊งต่อง (ครัวไม่ได้จ้องจอตลอด) / จอไม่ดับระหว่างเปิดหน้านี้
   useEffect(installAudioUnlock, [])
-  const screenAwake = useWakeLock()
+  useWakeLock()
   useNewArrivals(
     orders && visible.filter((o) => o.status === OrderStatus.PENDING).map((o) => o.id),
     (count) => {
@@ -393,7 +376,10 @@ export function OrderPage() {
       <p role="status" aria-live="polite" className="sr-only">
         {announcement}
       </p>
-      <KitchenAlertBar screenAwake={screenAwake} />
+      {/* ของหมดกดได้จากจอครัวเลย ไม่ต้องสลับไปหน้า Manage */}
+      <div className="mb-4">
+        <KitchenSoldOutButton />
+      </div>
       {ordersQuery.isError && (
         <LoadError
           what="ออเดอร์"
