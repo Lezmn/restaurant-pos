@@ -22,7 +22,11 @@ import { CheckPage } from '@/pages/employee/CheckPage'
 vi.mock('@/features/table-sessions/hooks', () => ({ useSessions: vi.fn(), useCloseSession: vi.fn() }))
 vi.mock('@/features/orders/hooks', () => ({ useOrders: vi.fn() }))
 vi.mock('@/features/service-requests/hooks', () => ({ useServiceRequests: vi.fn() }))
-vi.mock('@/features/payments/hooks', () => ({ useCreatePayment: vi.fn() }))
+vi.mock('@/features/payments/hooks', () => ({
+  useCreatePayment: vi.fn(),
+  // ใช้ตัดสิน layout เท่านั้น (ตารางบิลกว้างเต็มเมื่อไม่มีสลิปค้าง) — แผงสลิปเองถูก mock ทิ้งด้านล่าง
+  useSlipIssuePayments: () => ({ data: [] }),
+}))
 // ค่า PromptPay มาจาก .env ของแต่ละเครื่อง — ล็อกเป็นโหมดเดโมไว้ ผลเทสจะได้ไม่ขึ้นกับว่าเครื่องไหนตั้ง VITE_PROMPTPAY_ID
 vi.mock('@/lib/config', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/config')>()),
