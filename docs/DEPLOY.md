@@ -57,6 +57,7 @@ certbot --nginx -d pos.ร้าน.com -d api.ร้าน.com --redirect -m <�
 | Secrets | `VPS_HOST` / `VPS_USER` / `VPS_SSH_KEY` | IP / `deploy` / private key ที่ใส่ไว้ใน authorized_keys ของ deploy |
 | Variables | `VITE_API_URL` | `https://api.ร้าน.com` |
 | Variables | `VITE_PROMPTPAY_ID`, `VITE_RESTAURANT_NAME` | เบอร์พร้อมเพย์ / ชื่อร้าน |
+| Variables | `VITE_OPEN_HOUR`, `VITE_CLOSE_HOUR` | (ไม่บังคับ) ชั่วโมงเปิด / ชั่วโมงสุดท้ายที่รับออเดอร์ เช่น `10` / `22` — heatmap หน้ายอดขายแสดงเฉพาะช่วงนี้ |
 | Variables | `APP_URL` | `https://pos.ร้าน.com` — **ต้องอยู่แท็บ Variables** ไม่งั้น job deploy ถูกข้าม |
 
 แล้ว Actions → **Deploy** → Run workflow (ครั้งต่อไป push เข้า main แล้ว deploy เอง) — ไม่ต้องสร้าง token ของ GHCR บน VPS
