@@ -455,7 +455,7 @@ export function ManagePage() {
           title="ลบเมนู"
           subject={deleting.name}
           detail={formatBaht(deleting.price)}
-          consequence="ลบแล้วกู้คืนไม่ได้ ถ้าเมนูนี้เคยถูกสั่งไปแล้วจะลบไม่ได้ ให้ปิดขายแทนเพื่อซ่อนจากลูกค้า"
+          consequence="ลบแล้วกู้คืนไม่ได้ เมนูจะหายจากหน้านี้และหน้าเมนูลูกค้า ส่วนออเดอร์และรายงานที่เคยขายไปแล้วยังเห็นชื่อเมนูอยู่"
           confirmLabel="ลบเมนู"
           pendingLabel="กำลังลบ..."
           isPending={deleteItem.isPending}

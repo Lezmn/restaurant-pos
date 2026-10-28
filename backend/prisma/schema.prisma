@@ -119,6 +119,9 @@ model MenuItem {
   isAvailable Boolean  @default(true)
   /// มีตัวเลือกกลุ่มเนื้อสัตว์แล้ว ลูกค้าต้องเลือก 1 อย่างไหม — false = เนื้อเป็นของเพิ่ม สั่งเปล่า ๆ ได้ (ข้าวไข่เจียว)
   proteinRequired Boolean @default(true)
+  /// ลบแบบซ่อน — เมนูที่เคยถูกสั่งลบจริงไม่ได้ (order_items อ้างอยู่) จึงตั้งค่านี้แทน
+  /// หายจากหน้าจัดการ/หน้าลูกค้า แต่ประวัติออเดอร์และรายงานยังเห็นชื่อเมนูครบ
+  deletedAt   DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

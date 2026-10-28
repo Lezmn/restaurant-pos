@@ -5,12 +5,14 @@ import { MenuService } from '../../../src/menu/menu.service';
 const known = (code: string) => new Prisma.PrismaClientKnownRequestError('x', { code, clientVersion: 'x' });
 
 function makePrisma() {
-  return {
+  const prisma = {
+    // ลบแบบซ่อนรันหลายคำสั่งใน $transaction — mock ให้รันทุกคำสั่งแล้วคืนผลตามลำดับ
+    $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
     category: { findUnique: jest.fn().mockResolvedValue({ id: 'c1' }) },
     menuItem: {
       create: jest.fn(({ data }: any) => Promise.resolve({ id: 'm1', ...data })),
       findMany: jest.fn().mockResolvedValue([]),
-      findUnique: jest.fn().mockResolvedValue({ id: 'm1', name: 'ข้าวผัด' }),
+      findFirst: jest.fn().mockResolvedValue({ id: 'm1', name: 'ข้าวผัด' }),
       update: jest.fn(({ data }: any) => Promise.resolve({ id: 'm1', ...data })),
       delete: jest.fn().mockResolvedValue({ id: 'm1' }),
     },
@@ -19,9 +21,11 @@ function makePrisma() {
       findFirst: jest.fn().mockResolvedValue(null),
       findUnique: jest.fn().mockResolvedValue({ id: 'o1', menuItemId: 'm1', name: 'ไข่ดาว', ingredientId: null }),
       update: jest.fn(({ data }: any) => Promise.resolve({ id: 'o1', ...data })),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       delete: jest.fn().mockResolvedValue({ id: 'o1' }),
     },
   };
+  return prisma;
 }
 
 describe('MenuService', () => {
@@ -80,35 +84,69 @@ describe('MenuService', () => {
     });
 
     // ทดสอบ: แก้หรือลบเมนูที่ไม่มีอยู่ ต้องได้ 404 และไม่เขียนอะไร
-    // วิธี: menuItem.findUnique คืน null → update() และ remove() ต้อง throw NotFoundException → เช็กว่าไม่เรียก update/delete
+    // วิธี: menuItem.findFirst คืน null → update() และ remove() ต้อง throw NotFoundException → เช็กว่าไม่เรียก update/delete
     it('แก้/ลบเมนูที่ไม่มี → 404', async () => {
-      prisma.menuItem.findUnique.mockResolvedValue(null);
+      prisma.menuItem.findFirst.mockResolvedValue(null);
       await expect(service.update('nope', { price: 1 } as any)).rejects.toBeInstanceOf(NotFoundException);
       await expect(service.remove('nope')).rejects.toBeInstanceOf(NotFoundException);
       expect(prisma.menuItem.update).not.toHaveBeenCalled();
       expect(prisma.menuItem.delete).not.toHaveBeenCalled();
     });
 
-    // ทดสอบ: ลบเมนูที่เคยถูกสั่งแล้ว (ออเดอร์อ้างอยู่) ต้องได้ 400 พร้อมบอกให้ปิดขายแทน ไม่ใช่ 500
-    // วิธี: menuItem.delete โยน P2003 → remove() ต้อง throw BadRequestException ที่แนะนำให้ปิด "พร้อมจำหน่าย"
-    it('ลบเมนูที่เคยถูกสั่ง → 400 แนะนำให้ปิดขายแทน', async () => {
+    // ทดสอบ: เมนูที่ลบแบบซ่อนไปแล้ว หน้าจัดการต้องมองไม่เห็น — หา/แก้/ลบซ้ำต้องได้ 404
+    // วิธี: findOne('m1') → เช็กว่า where ของ menuItem.findFirst มี deletedAt: null
+    it('หาเมนู: ไม่นับเมนูที่ลบแบบซ่อนแล้ว', async () => {
+      await service.findOne('m1');
+      expect(prisma.menuItem.findFirst.mock.calls[0][0].where).toEqual({ id: 'm1', deletedAt: null });
+    });
+
+    // ทดสอบ: ลบเมนูที่ยังไม่เคยถูกสั่ง ต้องลบจริง ไม่ต้องซ่อน
+    // วิธี: menuItem.delete สำเร็จ → remove() → เช็กว่าเรียก delete, ไม่เรียก update/transaction และแจ้งทุกจอ
+    it('ลบเมนูที่ไม่เคยถูกสั่ง → ลบจริง', async () => {
+      await service.remove('m1');
+      expect(prisma.menuItem.delete).toHaveBeenCalledWith({ where: { id: 'm1' } });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(events.emitToEveryone).toHaveBeenCalledWith('menu.updated', expect.any(Object));
+    });
+
+    // ทดสอบ: ลบเมนูที่เคยถูกสั่งแล้ว (ออเดอร์อ้างอยู่) ต้องซ่อนแทน ไม่ error — ประวัติออเดอร์ยังอ้างเมนูได้
+    // วิธี: menuItem.delete โยน P2003 → remove() → เช็กว่าตั้ง deletedAt + ปิดขาย + ปลดวัตถุดิบของเมนู,
+    //       ปลดวัตถุดิบของตัวเลือกทุกตัวของเมนูนั้น และยังแจ้งทุกจอ
+    it('ลบเมนูที่เคยถูกสั่ง → ซ่อนแทน (deletedAt + ปิดขาย + ปลดวัตถุดิบ)', async () => {
       prisma.menuItem.delete.mockRejectedValue(known('P2003'));
-      const error = await service.remove('m1').catch((e: unknown) => e);
-      expect(error).toBeInstanceOf(BadRequestException);
-      expect((error as Error).message).toMatch(/ให้ปิด "พร้อมจำหน่าย" แทนการลบ/);
+      await service.remove('m1');
+      const { where, data } = prisma.menuItem.update.mock.calls[0][0];
+      expect(where).toEqual({ id: 'm1' });
+      expect(data).toMatchObject({ isAvailable: false, ingredients: { deleteMany: {} } });
+      expect(data.deletedAt).toBeInstanceOf(Date);
+      expect(prisma.menuOption.updateMany).toHaveBeenCalledWith({
+        where: { menuItemId: 'm1' },
+        data: { ingredientId: null },
+      });
+      expect(events.emitToEveryone).toHaveBeenCalledWith('menu.updated', expect.any(Object));
+    });
+
+    // ทดสอบ: error อื่นที่ไม่ใช่ "มีออเดอร์อ้างอยู่" ต้องโยนต่อ ไม่ไปซ่อนเมนูมั่ว ๆ
+    // วิธี: menuItem.delete โยน Error ธรรมดา → remove() ต้อง reject ด้วย error นั้น และไม่เรียก update
+    it('ลบเมนูแล้ว error อื่น → โยนต่อ ไม่ซ่อน', async () => {
+      prisma.menuItem.delete.mockRejectedValue(new Error('db down'));
+      await expect(service.remove('m1')).rejects.toThrow('db down');
+      expect(prisma.menuItem.update).not.toHaveBeenCalled();
     });
 
     // ทดสอบ: หน้าลูกค้าขอเฉพาะเมนูที่สั่งได้ ต้องกรองทั้งเมนูที่ปิดขายเองและเมนูที่วัตถุดิบหลักหมด ส่วนหน้าจัดการได้ทุกเมนู
+    // (ทั้งสองแบบไม่เอาเมนูที่ลบแบบซ่อนแล้ว)
     // วิธี: findAll({ onlyAvailable: true }) → เช็ก where มี isAvailable และเงื่อนไขวัตถุดิบไม่หมด → findAll() เฉย ๆ → where ไม่มีเงื่อนไขพวกนี้
     it('findAll: onlyAvailable กรองทั้งปิดขายและวัตถุดิบหมด', async () => {
       await service.findAll({ onlyAvailable: true });
       expect(prisma.menuItem.findMany.mock.calls[0][0].where).toEqual({
         categoryId: undefined,
+        deletedAt: null,
         isAvailable: true,
         ingredients: { none: { ingredient: { isAvailable: false } } },
       });
       await service.findAll();
-      expect(prisma.menuItem.findMany.mock.calls[1][0].where).toEqual({ categoryId: undefined });
+      expect(prisma.menuItem.findMany.mock.calls[1][0].where).toEqual({ categoryId: undefined, deletedAt: null });
     });
   });
 
