@@ -128,14 +128,17 @@ export async function createMenu(
   input: {
     name: string
     price: number
+    /** ไม่ส่ง = หมวดแรกจาก seed */
+    categoryId?: string
     options?: { name: string; price?: number; group?: 'PROTEIN' | 'EXTRA'; ingredientId?: string }[]
   },
 ) {
-  const [category] = await ok<{ id: string }[]>(await call(request, 'GET', '/categories', { token: adminToken }))
+  const categoryId =
+    input.categoryId ?? (await ok<{ id: string }[]>(await call(request, 'GET', '/categories', { token: adminToken })))[0].id
   const menu = await ok<{ id: string; name: string }>(
     await call(request, 'POST', '/menu', {
       token: adminToken,
-      data: { name: input.name, price: input.price, categoryId: category.id },
+      data: { name: input.name, price: input.price, categoryId },
     }),
   )
   const options: { id: string; name: string }[] = []

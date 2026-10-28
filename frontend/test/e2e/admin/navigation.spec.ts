@@ -21,12 +21,14 @@ test('เมนูล่างของ admin เปิดได้ครบท�
   await expect(page.getByRole('link', { name: 'Takeaway' })).toBeVisible()
 })
 
-// ทดสอบ: ADMIN เห็นลิงก์ "Dashboard" และปุ่ม "Logout" ที่ header และไม่มีลิงก์ "โต๊ะ / QR" แล้ว (ย้ายไปแถบล่าง "Table")
+// ทดสอบ: ADMIN เห็นปุ่มเสียงแจ้งเตือน ลิงก์ "Dashboard" และปุ่ม "Logout" ที่ header และไม่มีลิงก์ "โต๊ะ / QR" แล้ว (ย้ายไปแถบล่าง "Table")
 // วิธี: login เป็น admin → เปิด /employee/order → เช็กลิงก์/ปุ่มที่ header
 test('admin เห็นลิงก์ "Dashboard" และปุ่ม "Logout" ที่ header (โต๊ะ/QR ย้ายไปแถบล่าง "Table")', async ({ page, request }) => {
   await loginAsAdmin(page, request)
   await page.goto('/employee/order')
 
+  // ปุ่มเสียงย้ายจากจอครัวมาอยู่ที่หัวจอ (ข้าง Dashboard) — กดได้ทุกหน้า
+  await expect(page.getByRole('button', { name: 'เสียงแจ้งเตือนเปิดอยู่ (แตะเพื่อปิด)' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Logout' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'โต๊ะ / QR' })).toHaveCount(0)
