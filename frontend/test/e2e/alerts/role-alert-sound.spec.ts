@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test'
-import { API_URL, loginAsCashier, loginAsKitchen, loginViaApi } from '../helpers'
+import { API_URL, loginAsCashier, loginAsKitchen, loginViaApi, onlyCallStaffAlertsFrom } from '../helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data (DB ทดสอบเท่านั้น — สร้างโต๊ะ/ออเดอร์/คำขอเรียกพนักงานจริง)
 // เสียงแจ้งเตือนแยกตาม role:
@@ -109,12 +109,13 @@ async function openAndWaitFor(page: Page, path: string, apiPath: string) {
 }
 
 // ทดสอบ: แคชเชียร์ได้ยินเสียงลูกค้าเรียกและเห็นป๊อปอัปของโต๊ะนั้น แต่ไม่ได้ยินเสียงออเดอร์ใหม่
-// วิธี: ดักโน้ต Web Audio ก่อนหน้าโหลด → login STAFF เปิดหน้า Check รอโหลดคำขอรอบแรก → แตะจอปลดล็อกเสียง
+// วิธี: ดักโน้ต Web Audio ก่อนหน้าโหลด + ให้หน้าเห็นเฉพาะคำขอของโต๊ะนี้ → login STAFF เปิดหน้า Check รอโหลดคำขอรอบแรก → แตะจอปลดล็อกเสียง
 //       → ลูกค้าสั่งอาหารก่อน แล้วค่อยกดเรียกพนักงาน → รอป๊อปอัปของโต๊ะนี้ขึ้น + ได้ยินปี๊บเรียก
 //       → รอต่ออีกนิดให้ออเดอร์ (ที่ส่งก่อนคำขอ) มีเวลาไปถึงแน่ ๆ → ต้องไม่มีเสียงติ๊งต่องออเดอร์
 test('แคชเชียร์: ได้ยินเสียงลูกค้าเรียก + ขึ้นป๊อปอัป แต่ไม่ได้ยินเสียงสั่งอาหาร', async ({ page, request }) => {
   const { tableName, token } = await openFreshTable(request)
   await recordTones(page)
+  await onlyCallStaffAlertsFrom(page, tableName)
   await loginAsCashier(page, request)
   await openAndWaitFor(page, '/employee/check', '/service-requests')
   await unlockSound(page)
@@ -122,15 +123,9 @@ test('แคชเชียร์: ได้ยินเสียงลูกค
   await customerOrders(request, token)
   await customerCallsStaff(request, token)
 
-  // ป๊อปอัปโชว์ทีละโต๊ะ — รับทราบของโต๊ะอื่นที่ค้างอยู่ (seed/เทสต์อื่น) จนเห็นของโต๊ะนี้
+  // หน้านี้เห็นเฉพาะคำขอของโต๊ะนี้ (onlyCallStaffAlertsFrom) — ไม่ต้องไปกดรับทราบของโต๊ะอื่น
   const alert = page.getByRole('alert').filter({ hasText: `โต๊ะ ${tableName}` })
-  const anyAlert = page.getByRole('alert').filter({ hasText: 'มีการเรียกพนักงาน' })
-  await expect(async () => {
-    if ((await alert.count()) === 0 && (await anyAlert.count()) > 0) {
-      await anyAlert.getByRole('button', { name: 'รับทราบ' }).click()
-    }
-    await expect(alert).toBeVisible({ timeout: 1000 })
-  }).toPass({ timeout: 20_000 })
+  await expect(alert).toBeVisible({ timeout: 10_000 })
 
   await expect.poll(async () => (await heard(page)).call, { message: 'ต้องได้ยินเสียงลูกค้าเรียก' }).toBeGreaterThan(0)
   await page.waitForTimeout(2000)
@@ -162,4 +157,30 @@ test('ครัว: ได้ยินเสียงสั่งอาหาร
   await page.waitForTimeout(2000)
   expect((await heard(page)).call, 'ครัวต้องไม่ได้ยินเสียงลูกค้าเรียก').toBe(0)
   await expect(page.getByRole('alert').filter({ hasText: 'มีการเรียกพนักงาน' })).toHaveCount(0)
+})
+
+// ทดสอบ: ครัวกดปิดเสียงที่แถบบนจอครัวแล้ว ออเดอร์ใหม่ต้องไม่ร้อง (ตั๋วยังขึ้นตามปกติ) และค่าปิดเสียงจำไว้ในเครื่องนี้ แม้ refresh
+// วิธี: ดักโน้ต Web Audio ก่อนหน้าโหลด → login KITCHEN เปิดบอร์ดครัว รอโหลดรอบแรก → แตะจอปลดล็อกเสียง → กดปุ่มเสียง (เปิดอยู่ → ปิด) เช็ก aria-pressed
+//       → จดจำนวนโน้ตที่ได้ยินไปแล้ว → ลูกค้าสั่งอาหาร → รอตั๋วขึ้นในคอลัมน์รอคิว → รอต่ออีกนิด เช็กว่าไม่มีโน้ตเสียงออเดอร์เพิ่ม → reload เช็กว่าปุ่มยังเป็น "ปิดอยู่"
+test('ครัว: กดปิดเสียงแล้วออเดอร์ใหม่ไม่ร้อง (ตั๋วยังขึ้น) และ refresh แล้วยังปิดอยู่', async ({ page, request }) => {
+  const { token } = await openFreshTable(request)
+  await recordTones(page)
+  await loginAsKitchen(page, request)
+  await openAndWaitFor(page, '/employee/order', '/orders')
+  await unlockSound(page)
+
+  await page.getByRole('button', { name: 'เสียงแจ้งเตือนเปิดอยู่ (แตะเพื่อปิด)' }).click()
+  const muted = page.getByRole('button', { name: 'เสียงแจ้งเตือนปิดอยู่ (แตะเพื่อเปิด)' })
+  await expect(muted).toHaveAttribute('aria-pressed', 'false')
+  // นับเฉพาะเสียงหลังกดปิด — ออเดอร์ของเทสต์อื่นที่เข้ามาก่อนกดปิดร้องได้ตามปกติ
+  const before = (await heard(page)).order
+
+  const orderRef = await customerOrders(request, token)
+  const queue = page.getByRole('region', { name: 'รอคิว', exact: true })
+  await expect(queue.locator('article', { hasText: `#${orderRef}` })).toBeVisible({ timeout: 10_000 })
+  await page.waitForTimeout(2000)
+  expect((await heard(page)).order - before, 'ปิดเสียงแล้วต้องไม่มีเสียงออเดอร์').toBe(0)
+
+  await page.reload()
+  await expect(muted).toBeVisible()
 })

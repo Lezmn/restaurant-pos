@@ -48,7 +48,11 @@ export default defineConfig({
       fullyParallel: false,
       dependencies: ['chromium', 'webkit'],
     },
-    { name: 'totals-dashboard', use: { ...chrome }, grep: /@totals-dashboard/, dependencies: ['totals-billing'] },
+    // หน้ารายงานที่เทียบตัวเลขบนจอกับ response ที่หน้าเว็บโหลดเอง (Dashboard/ช่วงวันที่/ยอดขาย/การเงิน) — รันขนานกันได้
+    // แต่ต้องไม่รันพร้อม totals-dashboard: เทสต์พวกนี้เก็บเงิน/เพิ่มรายจ่ายเอง ยอด "ก่อน/หลัง" ของ totals-dashboard จะปน
+    { name: 'totals-reports', use: { ...chrome }, grep: /@totals-reports/, dependencies: ['totals-billing'] },
+    // เทียบยอดทั้งวันก่อน/หลังเก็บเงิน (ลิ้นชัก/รายรับวันนี้) — ไฟล์เดียวแบบ serial ไม่มีเทสต์อื่นรันพร้อมกัน
+    { name: 'totals-dashboard', use: { ...chrome }, grep: /@totals-dashboard/, dependencies: ['totals-reports'] },
     // ปิดยอดวันนี้ต้องรันท้ายสุด — ปิดยอดแล้วยกเลิกบิลของวันนั้นไม่ได้ (เทสที่ยกเลิกบิลจะพังถ้ามาทีหลัง)
     { name: 'totals-cashclose', use: { ...chrome }, grep: /@totals-cashclose/, dependencies: ['totals-dashboard'] },
   ],

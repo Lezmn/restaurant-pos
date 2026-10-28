@@ -79,8 +79,8 @@ const statusRow = (page: Page, label: string): Locator =>
 const notifications = (page: Page) => sectionOf(page, 'บิลที่รับเงินวันนี้')
 
 // ทดสอบ: ตัวเลขทุกส่วนบน Dashboard วันนี้ (การ์ด 4 ใบ, ในร้านตอนนี้, กราฟรายชั่วโมง, บิลที่รับเงินวันนี้, เมนูขายดี, แบนเนอร์สลิป) ต้องตรงกับข้อมูลที่หน้าเว็บโหลดมาจาก API
-// วิธี: เก็บเงินสดโต๊ะใหม่ 1 บิลผ่าน API → admin เปิด Dashboard พร้อมดักเก็บ response /reports/dashboard, /payments และ /reports/sales ที่หน้าเว็บโหลดเอง → เทียบตัวเลขทีละส่วนกับ response นั้น → เช็กว่ามีบิลที่เพิ่งเก็บ และแบนเนอร์สลิปขึ้นหรือไม่ขึ้นตามจำนวนสลิปค้าง (แท็ก @totals-dashboard)
-test('Dashboard: การ์ด, ในร้านตอนนี้, กราฟ, บิลวันนี้, เมนูขายดี และแบนเนอร์สลิป ตรงกับข้อมูลจาก API', { tag: '@totals-dashboard' }, async ({ page, request }) => {
+// วิธี: เก็บเงินสดโต๊ะใหม่ 1 บิลผ่าน API → admin เปิด Dashboard พร้อมดักเก็บ response /reports/dashboard, /payments และ /reports/sales ที่หน้าเว็บโหลดเอง → เทียบตัวเลขทีละส่วนกับ response นั้น → เช็กว่ามีบิลที่เพิ่งเก็บ และแบนเนอร์สลิปขึ้นหรือไม่ขึ้นตามจำนวนสลิปค้าง (แท็ก @totals-reports)
+test('Dashboard: การ์ด, ในร้านตอนนี้, กราฟ, บิลวันนี้, เมนูขายดี และแบนเนอร์สลิป ตรงกับข้อมูลจาก API', { tag: '@totals-reports' }, async ({ page, request }) => {
   // มีบิลเงินสดของวันนี้อย่างน้อย 1 ใบ จากโต๊ะที่รู้เลข — เช็คได้ว่าโผล่ในการแจ้งเตือน
   const t = await tokens(request)
   const { table, session } = await openNewSession(request, t)
@@ -169,8 +169,8 @@ test('Dashboard: การ์ด, ในร้านตอนนี้, กร�
 })
 
 // ทดสอบ: รายการบิลที่รับเงินวันนี้บน Dashboard แบ่งหน้าละ 10 บิล กดหน้า 2 แล้วต้องเห็นบิลที่เหลือถูกต้อง
-// วิธี: admin เปิด Dashboard พร้อมดักเก็บ /payments (ถ้าวันนี้มีบิลไม่เกิน 10 ใบจะข้าม) → กดหน้า 2 → เทียบจำนวนรายการ ยอดใบแรก และข้อความ "11–n จาก m บิล" (แท็ก @totals-dashboard)
-test('Dashboard: บิลเกิน 10 ใบแบ่งหน้า กดหน้าถัดไปแล้วเห็นบิลที่เหลือ', { tag: '@totals-dashboard' }, async ({ page, request }) => {
+// วิธี: admin เปิด Dashboard พร้อมดักเก็บ /payments (ถ้าวันนี้มีบิลไม่เกิน 10 ใบจะข้าม) → กดหน้า 2 → เทียบจำนวนรายการ ยอดใบแรก และข้อความ "11–n จาก m บิล" (แท็ก @totals-reports)
+test('Dashboard: บิลเกิน 10 ใบแบ่งหน้า กดหน้าถัดไปแล้วเห็นบิลที่เหลือ', { tag: '@totals-reports' }, async ({ page, request }) => {
   await loginAsAdmin(page, request)
   const { today } = await openDashboard(page)
   test.skip(today.length <= 10, `วันนี้มีบิล ${today.length} ใบ ยังไม่ถึง 10 — ไม่มีหน้าที่ 2 ให้เทส`)

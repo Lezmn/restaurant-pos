@@ -24,7 +24,7 @@ export const auth = (token?: string) => (token ? { Authorization: `Bearer ${toke
 
 export async function call(
   request: APIRequestContext,
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   path: string,
   opts: { token?: string; data?: unknown } = {},
 ): Promise<APIResponse> {
@@ -113,4 +113,43 @@ export async function sessionSummary(request: APIRequestContext, staffToken: str
 
 export function expectStatus(res: APIResponse, status: number) {
   expect(res.status(), res.url()).toBe(status)
+}
+
+/** ชื่อไม่ซ้ำสำหรับข้อมูลที่เทสต์สร้างเอง (เมนู/วัตถุดิบ) — รันซ้ำหรือขนานกันไม่ชน */
+export const uniqueName = (prefix: string) => `${prefix} ${Date.now().toString(36)}${randomInt(1000)}`
+
+/**
+ * เมนูของเทสต์เอง (ไม่ไปปิดขายเมนู seed ที่เทสต์อื่นสั่งอยู่) — คืน id เมนูและตัวเลือกที่สร้าง
+ * ลบทิ้งด้วย DELETE /menu/:id ได้ถ้ายังไม่เคยถูกสั่ง
+ */
+export async function createMenu(
+  request: APIRequestContext,
+  adminToken: string,
+  input: {
+    name: string
+    price: number
+    options?: { name: string; price?: number; group?: 'PROTEIN' | 'EXTRA'; ingredientId?: string }[]
+  },
+) {
+  const [category] = await ok<{ id: string }[]>(await call(request, 'GET', '/categories', { token: adminToken }))
+  const menu = await ok<{ id: string; name: string }>(
+    await call(request, 'POST', '/menu', {
+      token: adminToken,
+      data: { name: input.name, price: input.price, categoryId: category.id },
+    }),
+  )
+  const options: { id: string; name: string }[] = []
+  for (const option of input.options ?? []) {
+    options.push(
+      await ok(await call(request, 'POST', `/menu/${menu.id}/options`, { token: adminToken, data: option })),
+    )
+  }
+  return { ...menu, options }
+}
+
+/** วัตถุดิบของเทสต์เอง — ปิด/เปิดได้โดยไม่กระทบเมนู seed */
+export async function createIngredient(request: APIRequestContext, adminToken: string, name: string) {
+  return ok<{ id: string; name: string }>(
+    await call(request, 'POST', '/ingredients', { token: adminToken, data: { name } }),
+  )
 }

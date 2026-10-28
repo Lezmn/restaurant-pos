@@ -1,4 +1,7 @@
 import { randomInt } from 'node:crypto'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { QRCodeSVG } from 'qrcode.react'
 import { expect, type APIRequestContext, type Page } from '@playwright/test'
 
 // ชี้ API อื่นได้ด้วย E2E_API_URL (เช่น API ทดสอบที่ต่อ DB restaurant_test)
@@ -208,3 +211,45 @@ export async function chooseOption(page: Page, role: 'radio' | 'checkbox', name:
 export function paidBillsTable(page: Page) {
   return page.getByRole('region', { name: /บิลที่เก็บแล้ววันนี้/ }).locator('table')
 }
+
+/**
+ * รูป PNG ของสลิป (จำลอง) — มี QR ที่เข้ารหัส text ไว้ ใช้แนบที่ปุ่ม "แนบรูป" หน้ารับเงิน
+ * วาด QR ด้วย qrcode.react ตัวเดียวกับหน้าเว็บ แล้วแคปจากหน้าเปล่าใน context เดียวกับ page
+ * text = null → รูปขาวล้วนไม่มี QR (เคส "ไม่พบ QR ในรูป")
+ */
+export async function slipImage(page: Page, text: string | null) {
+  const body = text
+    ? renderToStaticMarkup(createElement(QRCodeSVG, { value: text, size: 320, marginSize: 4 }))
+    : '<div style="width:320px;height:320px;background:#fff"></div>'
+  const canvas = await page.context().newPage()
+  try {
+    await canvas.setContent(`<body style="margin:0;background:#fff"><div id="slip" style="display:inline-block;padding:24px;background:#fff">${body}</div></body>`)
+    const buffer = await canvas.locator('#slip').screenshot()
+    return { name: 'slip.png', mimeType: 'image/png', buffer }
+  } finally {
+    await canvas.close()
+  }
+}
+
+/**
+ * ป๊อปอัป "มีการเรียกพนักงาน" ในหน้านี้ ให้เห็นเฉพาะคำขอของโต๊ะที่ระบุ (ไม่ระบุ = ไม่เห็นเลย)
+ * กรอง response ของ GET /service-requests จาก backend จริง — ทั้งชุดรันขนานกัน คำขอของโต๊ะอื่นเข้ามาตลอด
+ * ป๊อปอัปโชว์ทีละใบ (เก่าสุดก่อน) จึงบังของโต๊ะตัวเอง หรือลอยทับปุ่มแถวล่าง ๆ ในเทสต์ที่ไม่เกี่ยว
+ * ห้ามกด "รับทราบ" ของโต๊ะอื่นแทน — เป็นการปิดคำขอจริงใน DB ทำให้เทสต์อื่นที่รอป๊อปอัปของโต๊ะตัวเองพัง
+ */
+export async function onlyCallStaffAlertsFrom(page: Page, tableNumber?: string | number) {
+  const origin = new URL(API_URL).origin
+  await page.route(
+    (url) => url.origin === origin && url.pathname === '/service-requests',
+    async (route) => {
+      if (route.request().method() !== 'GET') return route.continue()
+      if (tableNumber === undefined) return route.fulfill({ json: [] })
+      const res = await route.fetch()
+      const all = (await res.json()) as { table?: { number: number } }[]
+      await route.fulfill({ response: res, json: all.filter((r) => String(r.table?.number) === String(tableNumber)) })
+    },
+  )
+}
+
+/** ซ่อนป๊อปอัป "มีการเรียกพนักงาน" ทั้งหมดในหน้านี้ (เทสต์ที่ไม่เกี่ยวกับการเรียกพนักงาน) */
+export const hideCallStaffAlerts = (page: Page) => onlyCallStaffAlertsFrom(page)

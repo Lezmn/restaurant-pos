@@ -11,7 +11,7 @@ const ADMIN: Role[] = ['ADMIN']
 const ADMIN_STAFF: Role[] = ['ADMIN', 'STAFF']
 const ADMIN_KITCHEN: Role[] = ['ADMIN', 'KITCHEN']
 
-type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE'
+type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
 const matrix: [Method, string, Role[]][] = [
   ['GET', '/auth/me', ALL],
   // บัญชีกลางของครัว/หน้าร้านเปลี่ยนรหัสเองไม่ได้ (คนเดียวเปลี่ยน = ทั้งตำแหน่ง login ไม่ได้) — ADMIN ตั้งให้ที่ /users/:id
@@ -37,6 +37,7 @@ const matrix: [Method, string, Role[]][] = [
   ['PATCH', `/tables/${ID}`, ADMIN],
   ['DELETE', `/tables/${ID}`, ADMIN],
   ['POST', '/orders', ADMIN_STAFF],
+  ['POST', '/orders/takeaway', ADMIN_STAFF],
   ['GET', '/orders', ALL],
   ['PATCH', `/orders/${ID}/status`, ADMIN_KITCHEN],
   ['PATCH', `/orders/${ID}/clear`, ADMIN_KITCHEN],
@@ -51,9 +52,12 @@ const matrix: [Method, string, Role[]][] = [
   ['POST', '/table-sessions', ADMIN_STAFF],
   ['GET', '/table-sessions', ADMIN_STAFF],
   ['PATCH', `/table-sessions/${ID}/close`, ADMIN_STAFF],
+  ['PATCH', `/table-sessions/${ID}/guests`, ADMIN_STAFF],
   ['GET', '/service-requests', ADMIN_STAFF],
   ['POST', '/service-requests', ADMIN_STAFF],
   ['PATCH', `/service-requests/${ID}/resolve`, ADMIN_STAFF],
+  ['PATCH', `/service-requests/${ID}/payment-method`, ADMIN_STAFF],
+  ['PATCH', `/service-requests/${ID}/cancel`, ADMIN_STAFF],
   ['GET', '/users', ADMIN],
   ['POST', '/users', ADMIN],
   ['PATCH', `/users/${ID}`, ADMIN],
@@ -65,6 +69,14 @@ const matrix: [Method, string, Role[]][] = [
   ['POST', '/expenses/drawer', ADMIN_STAFF],
   ['GET', '/reports/dashboard', ADMIN],
   ['GET', '/reports/income-expense', ADMIN],
+  ['GET', '/reports/sales', ADMIN],
+  ['GET', '/audit-logs', ADMIN],
+  ['GET', '/audit-logs/devices', ADMIN],
+  ['GET', '/system/status', ADMIN],
+  // POST /settings/line/test ไม่อยู่ในตารางนี้ — role ที่มีสิทธิ์จะยิงไป LINE จริง (403 ของ role อื่นเทสต์ใน owner/line-settings.spec.ts)
+  ['GET', '/settings/line', ADMIN],
+  ['PUT', '/settings/line', ADMIN],
+  ['POST', '/uploads/menu-image', ADMIN],
   ['GET', '/cash-closes/preview', ADMIN_STAFF],
   ['POST', '/cash-closes', ADMIN_STAFF],
   ['GET', '/cash-closes', ADMIN],

@@ -1,5 +1,6 @@
 import { test, expect, devices, type Browser } from '@playwright/test'
-import { API_URL, chooseOption, loginAsCashier, loginAsKitchen, loginViaApi } from '../helpers'
+import { API_URL, chooseOption, loginAsCashier, loginAsKitchen, loginViaApi, onlyCallStaffAlertsFrom } from '../helpers'
+import { customerOrder, menuItemByName } from '../api/api-helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data (DB ทดสอบเท่านั้น — เทสต์นี้สร้างโต๊ะ/ออเดอร์จริง)
 // flow ลูกค้าสแกน QR บนมือถือ: เมนู → เลือกตัวเลือก → ตะกร้า → ส่งเข้าครัว → สถานะ → เรียกพนักงาน → ขอบิล
@@ -85,7 +86,7 @@ test('ลูกค้าสั่งผ่าน QR บนมือถือ แ
 })
 
 // ทดสอบ: ลูกค้ากดเรียกพนักงานหรือแจ้งชำระเงินจากมือถือ แคชเชียร์ต้องเห็นป๊อปอัป และการ์ดโต๊ะขึ้น "ขอเช็คบิล" ทันทีโดยไม่ต้อง refresh และถ้ายังไม่สั่งอะไร หน้าบิลต้องบอกว่าไม่มีรายการ
-// วิธี: สร้างโต๊ะใหม่ → cashier เปิดหน้า Check → ลูกค้าเปิดหน้าบิลตอนยังไม่สั่ง เช็กข้อความ → สั่งน้ำแล้วกดเรียกพนักงาน → cashier รับทราบป๊อปอัปของโต๊ะอื่นที่ค้างอยู่ก่อน จนเห็นของโต๊ะนี้ แล้วกดรับทราบ → ครัวเสิร์ฟน้ำผ่าน API → ลูกค้ากดแจ้งชำระเงิน + ยืนยัน → เช็กว่าปุ่มหายไป และการ์ดโต๊ะขึ้น "ขอเช็คบิล" กับ ฿10
+// วิธี: สร้างโต๊ะใหม่ → cashier เปิดหน้า Check (ให้เห็นเฉพาะคำขอของโต๊ะนี้ — คำขอของเทสต์อื่นที่รันพร้อมกันจะบังป๊อปอัป) → ลูกค้าเปิดหน้าบิลตอนยังไม่สั่ง เช็กข้อความ → สั่งน้ำแล้วกดเรียกพนักงาน → cashier เห็นป๊อปอัปของโต๊ะนี้ แล้วกดรับทราบ → ครัวเสิร์ฟน้ำผ่าน API → ลูกค้ากดแจ้งชำระเงิน + ยืนยัน → เช็กว่าปุ่มหายไป และการ์ดโต๊ะขึ้น "ขอเช็คบิล" กับ ฿10
 test('เรียกพนักงาน/แจ้งชำระเงินจากมือถือ → แคชเชียร์เห็นป๊อปอัปและคำขอเช็คบิลโดยไม่ refresh', async ({
   browser,
   page,
@@ -93,6 +94,7 @@ test('เรียกพนักงาน/แจ้งชำระเงิน�
 }) => {
   const { tableName, token } = await openFreshTable(request)
 
+  await onlyCallStaffAlertsFrom(page, tableName)
   await loginAsCashier(page, request)
   await page.setViewportSize({ width: 1024, height: 768 })
   await page.goto('/employee/check')
@@ -113,15 +115,9 @@ test('เรียกพนักงาน/แจ้งชำระเงิน�
   await customer.getByRole('button', { name: '➤ ส่งรายการเข้าครัว' }).click()
   await customer.getByRole('button', { name: /เรียกพนักงาน/ }).click()
 
-  // ป๊อปอัปโชว์ทีละโต๊ะ เรียงจากคำขอเก่าสุด — รับทราบของโต๊ะอื่นที่ค้างอยู่ก่อน (ข้อมูล seed/เทสต์อื่น)
+  // หน้านี้เห็นเฉพาะคำขอของโต๊ะนี้ (onlyCallStaffAlertsFrom) — ไม่ไปกดรับทราบคำขอของเทสต์อื่น
   const alert = page.getByRole('alert').filter({ hasText: `โต๊ะ ${tableName}` })
-  const anyAlert = page.getByRole('alert').filter({ hasText: 'มีการเรียกพนักงาน' })
-  await expect(async () => {
-    if ((await alert.count()) === 0 && (await anyAlert.count()) > 0) {
-      await anyAlert.getByRole('button', { name: 'รับทราบ' }).click()
-    }
-    await expect(alert).toBeVisible({ timeout: 1000 })
-  }).toPass({ timeout: 20_000 })
+  await expect(alert).toBeVisible({ timeout: 10_000 })
   await alert.getByRole('button', { name: 'รับทราบ' }).click()
   await expect(alert).toHaveCount(0)
 
@@ -152,6 +148,55 @@ test('เรียกพนักงาน/แจ้งชำระเงิน�
   await expect(tile.getByText('ขอเช็คบิล')).toBeVisible()
   await expect(tile.getByText('฿10')).toBeVisible()
   await customer.context().close()
+})
+
+// ทดสอบ: ปุ่ม "แจ้งชำระเงิน" มีปุ่มเดียว ต้องยืนยันก่อน (กดยกเลิก = ไม่ส่ง), ส่งได้ครั้งเดียว และ reload หรือเปิดจากมือถืออีกเครื่องของโต๊ะเดียวกัน ปุ่มก็ยังซ่อนอยู่
+// วิธี: สร้างโต๊ะใหม่ + สั่งน้ำ 1 ขวดผ่าน API → มือถือเปิดหน้าบิล ดักนับ POST /public/checkout → กดแจ้งชำระเงิน เช็กกล่องยืนยันมีเลขโต๊ะและยอด → กดยกเลิก เช็กว่าไม่ส่งและปุ่มยังอยู่ → กดอีกครั้งแล้วยืนยัน เช็กว่าส่ง 1 ครั้ง ปุ่มหาย → reload ปุ่มยังหาย → มือถืออีกเครื่องเปิดหน้าบิลเดียวกัน ปุ่มก็ไม่มี → เช็ก /public/sessions/:token มี checkoutRequest
+test('แจ้งชำระเงิน: ยกเลิกในกล่องยืนยัน = ไม่ส่ง · ยืนยันแล้วส่งครั้งเดียว · reload/อีกเครื่อง ปุ่มยังซ่อน', async ({ browser, request }) => {
+  const { tableName, token } = await openFreshTable(request)
+  const water = await menuItemByName(request, 'น้ำเปล่า')
+  await customerOrder(request, token, [{ menuItemId: water.id, quantity: 1 }])
+
+  const customer = await phone(browser)
+  const posts: string[] = []
+  customer.on('request', (r) => {
+    if (r.method() === 'POST' && new URL(r.url()).pathname === '/public/checkout') posts.push(r.url())
+  })
+  await customer.goto(`/t/${token}/bill`)
+  const pay = customer.getByRole('button', { name: 'แจ้งชำระเงิน' })
+  const dialog = customer.getByRole('dialog', { name: 'ยืนยันการแจ้งชำระเงิน' })
+  const done = customer.getByText('แจ้งพนักงานแล้วว่าต้องการชำระเงิน')
+
+  await pay.click()
+  await expect(dialog).toContainText(`โต๊ะ ${tableName}`)
+  await expect(dialog).toContainText(`฿${water.price}`)
+  await dialog.getByRole('button', { name: 'ยกเลิก' }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(pay).toBeVisible()
+  expect(posts).toHaveLength(0)
+
+  await pay.click()
+  await dialog.getByRole('button', { name: 'ยืนยัน' }).click()
+  await expect(done).toBeVisible()
+  await expect(pay).toHaveCount(0)
+  expect(posts).toHaveLength(1)
+
+  // รีเฟรช — session บอกว่ามีคำขอค้างอยู่ ปุ่มต้องไม่กลับมา
+  await customer.reload()
+  await expect(done).toBeVisible()
+  await expect(pay).toHaveCount(0)
+
+  // มือถืออีกเครื่องของโต๊ะเดียวกัน (เพื่อนร่วมโต๊ะสแกน QR เดียวกัน) ก็กดซ้ำไม่ได้
+  const friend = await phone(browser)
+  await friend.goto(`/t/${token}/bill`)
+  await expect(friend.getByText('แจ้งพนักงานแล้วว่าต้องการชำระเงิน')).toBeVisible()
+  await expect(friend.getByRole('button', { name: 'แจ้งชำระเงิน' })).toHaveCount(0)
+  expect(posts).toHaveLength(1)
+
+  const session = await (await request.get(`${API_URL}/public/sessions/${token}`)).json()
+  expect(session.checkoutRequest).toBeTruthy()
+  await customer.context().close()
+  await friend.context().close()
 })
 
 // ทดสอบ: ลูกค้าเผลอแตะปุ่มส่งเข้าครัวสองครั้งติด ต้องได้ออเดอร์เดียว ไม่คิดเงินซ้ำ
