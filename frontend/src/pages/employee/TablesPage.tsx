@@ -3,6 +3,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ErrorNote } from '@/components/ui/ErrorNote'
 import { LoadError } from '@/components/ui/LoadError'
 import { Modal } from '@/components/ui/Modal'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { button } from '@/components/ui/styles'
 import { pageRoles } from '@/features/auth/permissions'
 import { useAuth } from '@/features/auth/use-auth'
@@ -82,16 +83,17 @@ export function TablesPage() {
       )}
       <ErrorNote error={openSession.error} />
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-gray-600">
-          เปิดโต๊ะเพื่อสร้าง QR ให้ลูกค้าสแกนสั่งอาหาร · ปิดโต๊ะเมื่อลูกค้ากลับแล้ว
-        </p>
-        {canManageTables && (
-          <button type="button" onClick={() => setManaging(true)} className={button('outline', 'md')}>
-            จัดการโต๊ะ
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="โต๊ะ"
+        description="เปิดโต๊ะเพื่อสร้าง QR ให้ลูกค้าสแกนสั่งอาหาร · ปิดโต๊ะเมื่อลูกค้ากลับแล้ว"
+        action={
+          canManageTables && (
+            <button type="button" onClick={() => setManaging(true)} className={`shrink-0 ${button('outline', 'md')}`}>
+              จัดการโต๊ะ
+            </button>
+          )
+        }
+      />
 
       {managing && <ManageTablesDialog onClose={() => setManaging(false)} />}
 
@@ -125,7 +127,7 @@ export function TablesPage() {
                     <QRCodeSVG value={customerUrl(session.token)} size={120} />
                   </button>
 
-                  <p className="mt-2 truncate text-center text-xs text-gray-400">
+                  <p className="mt-2 truncate text-center text-xs text-gray-500">
                     {session.token}
                   </p>
 

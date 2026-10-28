@@ -2,7 +2,7 @@ import { ErrorNote } from '@/components/ui/ErrorNote'
 import { Modal } from '@/components/ui/Modal'
 import { NoteChips } from '@/components/ui/NoteChips'
 import { QuantityStepper } from '@/components/ui/QuantityStepper'
-import { button } from '@/components/ui/styles'
+import { button, field } from '@/components/ui/styles'
 import { useMenuItems } from '@/features/menu/hooks'
 import { useCreateOrder } from '@/features/orders/hooks'
 import { formatBaht } from '@/lib/format'
@@ -180,7 +180,7 @@ export function TakeOrderDialog({
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="ค้นหาเมนู"
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-300"
+        className={field}
       />
 
       {isPending && <p className="mt-3 text-sm text-gray-500">กำลังโหลด...</p>}
@@ -208,7 +208,7 @@ export function TakeOrderDialog({
         ))}
 
         {!isPending && available.length === 0 && (
-          <li className="py-6 text-center text-sm text-gray-400">
+          <li className="py-6 text-center text-sm text-gray-500">
             ไม่พบเมนูที่ค้นหา
           </li>
         )}
@@ -277,7 +277,7 @@ export function TakeOrderDialog({
                             type="button"
                             aria-pressed={checked}
                             onClick={() => pickOption(line, group, option.id, checked)}
-                            className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                            className={`min-h-10 rounded-full border px-3 text-xs transition ${
                               checked
                                 ? 'border-brand-500 bg-brand-500 font-bold text-white'
                                 : 'border-gray-300 bg-white text-gray-700 hover:border-brand-400'
@@ -304,7 +304,7 @@ export function TakeOrderDialog({
                   onChange={(e) => updateLine(line.key, { note: e.target.value })}
                   maxLength={200}
                   placeholder={`หมายเหตุของ ${item.name} เช่น ไม่เผ็ด`}
-                  className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-brand-300"
+                  className={`${field} mt-2 text-sm`}
                 />
 
                 {missing.length > 0 && (
@@ -331,7 +331,7 @@ export function TakeOrderDialog({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg border-2 border-gray-300 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
+          className={button('secondary')}
         >
           ยกเลิก
         </button>

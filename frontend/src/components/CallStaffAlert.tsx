@@ -40,7 +40,7 @@ export function CallStaffAlert() {
         aria-label="รับทราบ"
         disabled={resolve.isPending}
         onClick={() => resolve.mutate(current.id)}
-        className="absolute top-1 right-2 flex h-10 w-10 items-center justify-center rounded-full text-2xl leading-none text-gray-500 transition hover:bg-gray-100 hover:text-black disabled:opacity-40"
+        className="absolute top-1 right-2 flex h-11 w-11 items-center justify-center rounded-full text-2xl leading-none text-gray-500 transition hover:bg-gray-100 hover:text-black disabled:opacity-40"
       >
         ×
       </button>

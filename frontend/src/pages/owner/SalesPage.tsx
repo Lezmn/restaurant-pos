@@ -153,7 +153,7 @@ function TopItems({
               type="button"
               aria-pressed={sortBy === key}
               onClick={() => setSortBy(key)}
-              className={`min-h-9 rounded-md px-3 text-sm font-semibold transition ${
+              className={`min-h-11 rounded-md px-3 text-sm font-semibold transition ${
                 sortBy === key ? 'bg-brand-500 text-white' : 'text-gray-700 hover:bg-gray-50'
               }`}
             >

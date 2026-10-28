@@ -16,7 +16,7 @@ const buttonVariants = {
 } as const
 
 const buttonSizes = {
-  sm: 'min-h-10 px-3 text-sm',
+  sm: 'min-h-11 px-3 text-sm',
   md: 'min-h-11 px-4 text-sm',
   lg: 'min-h-12 px-5 text-base',
 } as const
@@ -30,5 +30,9 @@ export const button = (
 
 export const fieldLabel = 'text-sm font-semibold text-gray-700'
 
+/** ช่องเลือกเดือน/วัน/ตัวกรองบนแถบเครื่องมือ — ไม่เต็มแถว ไม่มี mt-1 แต่สูง 44px และโฟกัสเหมือน field */
+export const fieldCompact =
+  'min-h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-400/25'
+
 export const field =
-  'mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-base text-field-text outline-none transition placeholder:text-gray-500 focus:border-brand-400 focus:ring-2 focus:ring-brand-400/25'
+  'mt-1 min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-base text-field-text outline-none transition placeholder:text-gray-500 focus:border-brand-400 focus:ring-2 focus:ring-brand-400/25'

@@ -15,8 +15,8 @@ export function QuantityStepper({
 }>) {
   const button =
     size === 'sm'
-      ? 'h-7 w-7 text-base'
-      : 'h-9 w-9 text-lg sm:h-10 sm:w-10 sm:text-xl'
+      ? 'h-9 w-9 text-base'
+      : 'h-10 w-10 text-lg sm:h-11 sm:w-11 sm:text-xl'
 
   return (
     <div className="flex items-center gap-2.5 rounded-full bg-white px-1.5 py-1 shadow-sm">

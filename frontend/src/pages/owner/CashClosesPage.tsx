@@ -9,7 +9,7 @@ import { currentMonth } from '@/features/reports/api'
 import { formatBaht, formatTime } from '@/lib/format'
 import type { ApiCashClose } from '@/types/api'
 import { useState } from 'react'
-import { button } from '@/components/ui/styles'
+import { button, fieldCompact } from '@/components/ui/styles'
 import { CashCloseDialog } from './CashCloseDialog'
 
 const thaiDate = (ymd: string) =>
@@ -76,7 +76,7 @@ export function CashClosesPage() {
             value={month}
             max={currentMonth()}
             onChange={(e) => e.target.value && setMonth(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-800 outline-none focus:border-brand-300"
+            className={fieldCompact}
           />
         </label>
         </div>
@@ -136,14 +136,14 @@ export function CashClosesPage() {
             <tbody className="divide-y divide-gray-200">
               {isPending && (
                 <tr>
-                  <td colSpan={10} className="py-8 text-center text-gray-400">
+                  <td colSpan={10} className="py-8 text-center text-gray-500">
                     กำลังโหลด...
                   </td>
                 </tr>
               )}
               {!isPending && closes.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="py-10 text-center text-gray-400">
+                  <td colSpan={10} className="py-10 text-center text-gray-500">
                     ยังไม่มีการปิดยอดในเดือนนี้
                   </td>
                 </tr>
@@ -167,7 +167,7 @@ export function CashClosesPage() {
                   <td className="px-3 py-3 text-promptpay">{formatBaht(c.promptpaySales)}</td>
                   <td className="px-3 py-3 text-left text-gray-700">
                     {c.closedByName}{' '}
-                    <span className="text-xs text-gray-400">{formatTime(c.closedAt)}</span>
+                    <span className="text-xs text-gray-500">{formatTime(c.closedAt)}</span>
                     {c.note && <span className="block text-xs text-gray-500">{c.note}</span>}
                   </td>
                   <td className="px-3 py-3 text-center">
@@ -175,7 +175,7 @@ export function CashClosesPage() {
                       type="button"
                       onClick={() => setDeleting(c)}
                       title="ลบการปิดยอดนี้ เพื่อให้นับใหม่"
-                      className="min-h-10 rounded-lg px-3 font-semibold text-danger-ink underline-offset-4 transition hover:bg-danger/5 hover:underline"
+                      className="min-h-11 rounded-lg px-3 font-semibold text-danger-ink underline-offset-4 transition hover:bg-danger/5 hover:underline"
                     >
                       ลบ
                     </button>

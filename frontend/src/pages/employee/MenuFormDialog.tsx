@@ -337,7 +337,7 @@ function MainIngredientsPicker({
                 onClick={() =>
                   onChange(on ? value.filter((id) => id !== ing.id) : [...value, ing.id])
                 }
-                className={`min-h-10 rounded-full border-2 px-3 text-sm font-semibold ${
+                className={`min-h-11 rounded-full border-2 px-3 text-sm font-semibold ${
                   on
                     ? 'border-brand-500 bg-brand-50 text-black'
                     : 'border-gray-200 bg-white text-gray-700'

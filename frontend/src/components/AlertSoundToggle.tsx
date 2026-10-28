@@ -14,7 +14,7 @@ export function AlertSoundToggle() {
       aria-label={enabled ? 'เสียงแจ้งเตือนเปิดอยู่ (แตะเพื่อปิด)' : 'เสียงแจ้งเตือนปิดอยู่ (แตะเพื่อเปิด)'}
       title={enabled ? 'ปิดเสียงแจ้งเตือน' : 'เปิดเสียงแจ้งเตือน'}
       onClick={() => setEnabled(!enabled)}
-      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border-2 transition ${
+      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border-2 transition ${
         enabled
           ? 'border-green-500 bg-green-50 text-green-700 hover:bg-green-100'
           : 'border-gray-300 bg-gray-100 text-gray-500 hover:bg-gray-200'

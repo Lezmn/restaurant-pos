@@ -23,6 +23,13 @@ const POLL_MS = LIVE_POLL_MS
 const waitedMinutes = (iso: string) =>
   Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60_000))
 
+/** สั้นพอให้อยู่บรรทัดเดียวในคอลัมน์ iPad แนวตั้ง — เกินชั่วโมงบอกเป็นชั่วโมง ไม่ใช่ "3331 นาที" */
+const waitedLabel = (minutes: number) => {
+  if (minutes < 1) return 'เพิ่งสั่ง'
+  if (minutes < 60) return `รอ ${minutes} นาที`
+  return `รอ ${Math.floor(minutes / 60)} ชม.`
+}
+
 /** กด "ทำเสร็จแล้ว" แล้วรอเท่านี้ก่อนส่งจริง ระหว่างนั้นกด "ยกเลิก" บนตั๋วได้
  *  backend ห้ามย้อน SERVED → PREPARING จึงต้องหน่วงไว้ฝั่งนี้ ไม่ใช่ส่งแล้วค่อยย้อน */
 const UNDO_MS = 5000
@@ -54,7 +61,7 @@ function KitchenItemRow({
       {/* คอลัมน์กำลังปรุง: ทั้งแถวเป็น label แตะตรงไหนก็ติ๊กได้
           จอครัวบน iPad มือเปียก/ใส่ถุงมือ เล็ง checkbox 20px ไม่ไหว */}
       <label
-        className={`flex min-h-10 items-center justify-between gap-3 ${
+        className={`flex min-h-11 items-center justify-between gap-3 ${
           columnKey === 'cooking' ? 'cursor-pointer' : ''
         }`}
       >
@@ -373,6 +380,8 @@ export function OrderPage() {
 
   return (
     <div className="relative">
+      {/* หัวข้อสำหรับ screen reader — จอครัวเก็บพื้นที่แนวตั้งไว้ให้บอร์ด */}
+      <h1 className="sr-only">คิวครัว</h1>
       <p role="status" aria-live="polite" className="sr-only">
         {announcement}
       </p>
@@ -605,13 +614,13 @@ function KitchenTicket({
           ข้อความสั้นบรรทัดเดียว — เดิม "รอ 18 นาที · เกิน 15 นาที" ตัดเป็น 2 บรรทัดในคอลัมน์แคบ */}
       {!done && (
         <p
-          className={`mt-2 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full text-base tabular-nums ${
+          className={`mt-2 inline-flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-full text-base tabular-nums ${
             late ? 'bg-danger-ink px-3 py-1 font-bold text-white' : 'font-semibold text-gray-700'
           }`}
         >
           {late ? <AlertIcon /> : <ClockIcon />}
-          {/* นาทีแรกขึ้น "เพิ่งสั่ง" — "รอมาแล้ว 0 นาที" อ่านแล้วแปลก */}
-          {waited < 1 ? 'เพิ่งสั่ง' : `รอมาแล้ว ${waited} นาที`}
+          {/* นาทีแรกขึ้น "เพิ่งสั่ง" — "รอ 0 นาที" อ่านแล้วแปลก */}
+          {waitedLabel(waited)}
           {late && <span className="sr-only"> เกินเวลา {LATE_MINUTES} นาที</span>}
         </p>
       )}

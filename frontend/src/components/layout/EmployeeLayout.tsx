@@ -144,7 +144,7 @@ export function EmployeeLayout() {
             {user?.role === Role.ADMIN && (
               <Link
                 to="/owner"
-                className="hidden whitespace-nowrap rounded-lg border-2 border-brand-400 px-3 py-2 text-sm font-bold text-brand-500 transition hover:bg-brand-50 sm:block"
+                className="hidden min-h-11 items-center whitespace-nowrap rounded-lg border-2 border-brand-400 px-3 py-2 text-sm font-bold text-brand-500 transition hover:bg-brand-50 sm:flex"
               >
                 Dashboard
               </Link>
@@ -156,7 +156,7 @@ export function EmployeeLayout() {
                 navigate('/login')
               }}
               // แดงแบบ danger-outline แยกจากปุ่มส้มอื่นบนหัวจอ · ใช้คำว่า Logout ให้ตรงกับฝั่งเจ้าของร้าน
-              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border-2 border-danger bg-white px-3 py-2 text-sm font-bold text-danger-ink transition hover:bg-danger/5"
+              className="flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-lg border-2 border-danger bg-white px-3 py-2 text-sm font-bold text-danger-ink transition hover:bg-danger/5"
             >
               <span aria-hidden className="[&>svg]:h-5 [&>svg]:w-5">
                 <IconLogout />

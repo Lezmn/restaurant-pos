@@ -15,7 +15,7 @@ export function NoteChips({
   maxLength?: number
   size?: 'sm' | 'md'
 }>) {
-  const pad = size === 'sm' ? 'min-h-8 px-2.5 text-xs' : 'min-h-9 px-3 text-sm'
+  const pad = size === 'sm' ? 'min-h-10 px-2.5 text-xs' : 'min-h-11 px-3 text-sm'
 
   const chip = (tag: string) => {
     const on = hasNoteTag(value, tag)
