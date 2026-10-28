@@ -7,6 +7,15 @@ import { getSales } from '@/features/reports/api'
 import type { SalesData } from '@/types/reports'
 import { SalesPage } from '@/pages/owner/SalesPage'
 
+// เวลาเปิดร้าน (VITE_OPEN_HOUR/CLOSE_HOUR) — null = ตัดตามข้อมูล, เทสต์ไหนอยากล็อกช่วงก็ตั้งเอง
+const config = vi.hoisted(() => ({ businessHours: null as number[] | null }))
+vi.mock('@/lib/config', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/config')>()),
+  get BUSINESS_HOURS() {
+    return config.businessHours
+  },
+}))
+
 vi.mock('@/features/reports/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/reports/api')>()),
   getSales: vi.fn(),
@@ -53,7 +62,10 @@ function renderPage() {
   )
 }
 
-beforeEach(() => vi.mocked(getSales).mockReset())
+beforeEach(() => {
+  vi.mocked(getSales).mockReset()
+  config.businessHours = null
+})
 
 describe('SalesPage (เมนูขายดี)', () => {
   it('เรียงตามจำนวนออเดอร์ก่อน สลับเป็นยอดเงินแล้วอันดับเปลี่ยน', async () => {
@@ -93,6 +105,25 @@ describe('SalesPage (เมนูขายดี)', () => {
     expect(kitchen).toHaveTextContent('7.2 นาที')
     expect(kitchen).toHaveTextContent('10% ของออเดอร์')
     expect(kitchen).toHaveTextContent('ต้มยำกุ้ง')
+  })
+
+  it('ตั้งเวลาเปิดร้าน → heatmap แสดงเฉพาะช่วงนั้น ยอดรวมไม่นับออเดอร์นอกเวลา', async () => {
+    config.businessHours = [10, 11, 12, 13]
+    vi.mocked(getSales).mockResolvedValue({
+      ...data,
+      byWeekdayHour: Array.from({ length: 7 }, (_, day) =>
+        Array.from({ length: 24 }, (_, hour) => (day === 5 && hour === 12 ? 6 : day === 1 && hour === 2 ? 3 : 0)),
+      ),
+    })
+    renderPage()
+
+    const heatmap = (await screen.findByRole('heading', { name: 'วันไหน ชั่วโมงไหนยุ่ง' })).closest('section')!
+    const table = within(heatmap).getByRole('table')
+    const columns = within(table).getAllByRole('columnheader').map((th) => th.textContent)
+    expect(columns).toEqual(['วัน', '10:00', '11:00', '12:00', '13:00', 'รวม'])
+    // ยอดรวมมุมขวาล่าง = 6 (ไม่รวม 3 ออเดอร์ตอนตีสอง)
+    expect(within(table).getAllByRole('row').at(-1)).toHaveTextContent(/6$/)
+    expect(heatmap).toHaveTextContent('ไม่รวม 3 ออเดอร์นอกเวลาเปิดร้าน (10:00–14:00)')
   })
 
   it('เดือนที่ยังไม่มีบิล → บอกตรง ๆ ไม่โชว์กราฟเปล่า', async () => {

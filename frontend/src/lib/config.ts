@@ -26,5 +26,24 @@ export const IS_DEMO_PROMPTPAY = !import.meta.env.VITE_PROMPTPAY_ID
 export const LOGIN_EMAIL_DOMAIN =
   import.meta.env.VITE_LOGIN_EMAIL_DOMAIN || 'restaurant.local'
 
+/**
+ * ชั่วโมงที่ร้านเปิด เรียงตามเวลาจริง — ใช้ตัดคอลัมน์ heatmap หน้ายอดขาย
+ * open = ชั่วโมงแรก, close = ชั่วโมงสุดท้ายที่ยังรับออเดอร์ (22 = คอลัมน์ 22:00–23:00)
+ * เปิดข้ามเที่ยงคืนได้ เช่น 17 ถึง 2 → [17, 18, …, 23, 0, 1, 2]
+ * ค่าว่าง/ผิดรูป → null = ไม่ล็อก ให้ heatmap ตัดตามข้อมูลเอง
+ */
+export function parseBusinessHours(open?: string, close?: string): number[] | null {
+  const isHour = (s?: string) => !!s && /^\d{1,2}$/.test(s.trim()) && Number(s) <= 23
+  if (!isHour(open) || !isHour(close)) return null
+  const first = Number(open)
+  const length = ((Number(close) - first + 24) % 24) + 1
+  return Array.from({ length }, (_, i) => (first + i) % 24)
+}
+
+export const BUSINESS_HOURS = parseBusinessHours(
+  import.meta.env.VITE_OPEN_HOUR,
+  import.meta.env.VITE_CLOSE_HOUR,
+)
+
 /** ตรงกับ @Max ของ quantity ฝั่ง backend (order-item-input.dto.ts) — เกินนี้ backend ตอบ 400 */
 export const MAX_ITEM_QUANTITY = 99

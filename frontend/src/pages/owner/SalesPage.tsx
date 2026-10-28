@@ -2,6 +2,7 @@ import { LoadError } from '@/components/ui/LoadError'
 import { StatCard } from '@/components/ui/StatCard'
 import { currentMonth } from '@/features/reports/api'
 import { useSales } from '@/features/reports/hooks'
+import { BUSINESS_HOURS } from '@/lib/config'
 import { formatBaht } from '@/lib/format'
 import type { KitchenStats, SalesData, SalesHour, SalesItem } from '@/types/reports'
 import { useState } from 'react'
@@ -12,8 +13,8 @@ const TOP_N = 5
 
 type SortKey = 'quantity' | 'revenue'
 
-const hourRange = (hour: number) =>
-  `${String(hour).padStart(2, '0')}:00–${String(hour + 1).padStart(2, '0')}:00`
+const clock = (hour: number) => `${String(hour).padStart(2, '0')}:00`
+const hourRange = (hour: number) => `${clock(hour)}–${clock(hour + 1)}`
 
 const monthLabel = (month: string) => {
   const [year, m] = month.split('-').map(Number)
@@ -364,21 +365,26 @@ const heatClass = (value: number, max: number) =>
 
 /**
  * heatmap วัน × ชั่วโมง — ใช้วางกะพนักงาน/เตรียมของ ว่าวันไหนชั่วโมงไหนยุ่ง
- * ตัดชั่วโมงหัว/ท้ายที่ไม่มีออเดอร์ทั้งสัปดาห์ออก (ร้านไม่เปิดตีสาม)
+ * ตั้ง VITE_OPEN_HOUR/VITE_CLOSE_HOUR = แสดงเฉพาะเวลาเปิดร้าน
+ * ไม่ตั้ง = ตัดชั่วโมงหัว/ท้ายที่ไม่มีออเดอร์ทั้งสัปดาห์ออก (ร้านไม่เปิดตีสาม)
  */
 function WeekHeatmap({ grid }: Readonly<{ grid: number[][] }>) {
   const hourTotals = Array.from({ length: 24 }, (_, h) => grid.reduce((n, day) => n + (day[h] ?? 0), 0))
   const firstActive = hourTotals.findIndex((n) => n > 0)
   if (firstActive === -1) return null
   const lastActive = 23 - [...hourTotals].reverse().findIndex((n) => n > 0)
-  const hours = Array.from({ length: lastActive - firstActive + 1 }, (_, i) => firstActive + i)
-  const max = Math.max(...grid.flat(), 1)
+  const hours =
+    BUSINESS_HOURS ?? Array.from({ length: lastActive - firstActive + 1 }, (_, i) => firstActive + i)
+  const max = Math.max(...grid.flatMap((day) => hours.map((h) => day[h] ?? 0)), 1)
 
   // ยอดรวมขอบตาราง — เจ้าของร้านมักถามแยกกัน "วันไหนยุ่ง" กับ "ชั่วโมงไหนยุ่ง"
-  const dayTotals = grid.map((day) => day.reduce((n, c) => n + c, 0))
+  // นับเฉพาะชั่วโมงที่แสดง ตัวเลขรวมจะได้ตรงกับช่องที่เห็น
+  const dayTotals = grid.map((day) => hours.reduce((n, h) => n + (day[h] ?? 0), 0))
   const topDay = Math.max(...dayTotals)
-  const topHour = Math.max(...hourTotals)
+  const topHour = Math.max(...hours.map((h) => hourTotals[h]))
   const grandTotal = dayTotals.reduce((n, c) => n + c, 0)
+  // ออเดอร์นอกเวลาเปิดร้าน (เช่น ทดสอบระบบตอนดึก) — ไม่โชว์ในตาราง แต่บอกไว้ไม่ให้ยอดหายเงียบ ๆ
+  const outsideTotal = hourTotals.reduce((n, c) => n + c, 0) - grandTotal
 
   let busiest = { day: 0, hour: 0, count: 0 }
   for (const day of WEEK_ORDER) {
@@ -392,13 +398,15 @@ function WeekHeatmap({ grid }: Readonly<{ grid: number[][] }>) {
     <section className="rounded-xl border-2 border-gray-200 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-base font-bold text-black">วันไหน ชั่วโมงไหนยุ่ง</h2>
-        <p className="text-sm text-gray-600">
-          ยุ่งสุด:{' '}
-          <span className="font-semibold text-black">
-            {DAY_FULL[busiest.day]} {hourRange(busiest.hour)}
-          </span>{' '}
-          ({busiest.count.toLocaleString('th-TH')} ออเดอร์ทั้งเดือน)
-        </p>
+        {busiest.count > 0 && (
+          <p className="text-sm text-gray-600">
+            ยุ่งสุด:{' '}
+            <span className="font-semibold text-black">
+              {DAY_FULL[busiest.day]} {hourRange(busiest.hour)}
+            </span>{' '}
+            ({busiest.count.toLocaleString('th-TH')} ออเดอร์ทั้งเดือน)
+          </p>
+        )}
       </div>
 
       {/* เต็มความกว้างกรอบ — จอแคบเกิน (มือถือ) เลื่อนเฉพาะในกรอบ หน้าไม่เลื่อนข้าง */}
@@ -416,7 +424,7 @@ function WeekHeatmap({ grid }: Readonly<{ grid: number[][] }>) {
                   scope="col"
                   className="min-w-11 pb-1 font-normal whitespace-nowrap text-gray-600 tabular-nums"
                 >
-                  {String(hour).padStart(2, '0')}:00
+                  {clock(hour)}
                 </th>
               ))}
               <th scope="col" className="pb-1 pl-2 font-semibold text-gray-700">
@@ -479,6 +487,12 @@ function WeekHeatmap({ grid }: Readonly<{ grid: number[][] }>) {
         <span>
           <b className="text-black">ตัวหนา</b> ในแถว/คอลัมน์ “รวม” = วันหรือชั่วโมงที่ยุ่งสุด
         </span>
+        {outsideTotal > 0 && (
+          <span>
+            ไม่รวม {outsideTotal.toLocaleString('th-TH')} ออเดอร์นอกเวลาเปิดร้าน ({clock(hours[0])}–
+            {clock(hours.at(-1)! + 1)})
+          </span>
+        )}
       </div>
     </section>
   )
