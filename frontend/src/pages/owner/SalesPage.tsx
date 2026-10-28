@@ -88,8 +88,8 @@ export function SalesPage() {
             />
           </div>
 
-          {/* items-start: การ์ดกราฟไม่ยืดตามความสูงรายการอันดับจนมีที่ว่างโล่งท้ายการ์ด */}
-          <div className="grid items-start gap-5 lg:grid-cols-2">
+          {/* การ์ดสูงเท่ากัน กราฟยืดเต็มการ์ด ไม่เหลือที่โล่งใต้กราฟ (ยืดได้ถึง max-h ของการ์ดกราฟ) */}
+          <div className="grid gap-5 lg:grid-cols-2">
             <TopItems items={data.topItems} unsold={data.unsoldItems} />
             <HourChart hours={data.byHour} peakHour={peak?.hour ?? null} />
           </div>
@@ -320,13 +320,15 @@ function HourChart({
   const labelEvery = shown.length > 12 ? 2 : 1
 
   return (
-    <section className="rounded-xl border-2 border-gray-200 p-4">
+    // สูงตามการ์ดอันดับเมนูข้าง ๆ แต่ไม่เกิน max-h — กางรายชื่อเมนูยาว ๆ แล้วการ์ดกราฟหยุดยืด
+    // (grid item ที่ stretch แต่ติด max-h จะชิดบน) ไม่เป็นกล่องโล่งยาวลงไป
+    <section className="flex flex-col rounded-xl border-2 border-gray-200 p-4 lg:max-h-[34rem]">
       <h2 className="text-base font-bold text-black">ออเดอร์ตามช่วงเวลา</h2>
       <p className="text-sm text-gray-600">รวมทั้งเดือน ตามเวลาที่ลูกค้ากดสั่ง</p>
 
-      <figure className="m-0 mt-4">
-        <div className="flex gap-2">
-          <div aria-hidden className="relative h-56 w-8 shrink-0">
+      <figure className="m-0 mt-4 flex flex-1 flex-col">
+        <div className="flex min-h-56 flex-1 gap-2">
+          <div aria-hidden className="relative w-8 shrink-0">
             {ticks.map((tick) => (
               <span
                 key={tick}
@@ -338,7 +340,7 @@ function HourChart({
             ))}
           </div>
 
-          <div className="relative h-56 min-w-0 flex-1">
+          <div className="relative min-w-0 flex-1">
             {ticks.map((tick) => (
               <div
                 key={tick}
