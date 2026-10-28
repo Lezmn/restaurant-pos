@@ -88,16 +88,26 @@ export function CashClosesPage() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="วันที่ปิดยอด" value={`${closes.length} วัน`} tone="brand" />
-        <StatCard
-          label="วันที่เงินขาด"
-          value={`${shortDays} วัน`}
-          tone={shortDays > 0 ? 'red' : 'green'}
-        />
-        <StatCard
-          label="ผลต่างรวมทั้งเดือน"
-          value={differenceLabel(Math.round(totalDifference * 100) / 100)}
-          tone={totalDifference < 0 ? 'red' : 'green'}
-        />
+        {/* ยังไม่ปิดยอดสักวัน = ยังไม่รู้ว่าเงินตรงไหม — ห้ามขึ้น "ตรง" สีเขียวให้เข้าใจผิด */}
+        {closes.length === 0 ? (
+          <>
+            <StatCard label="วันที่เงินขาด" value="-" hint="ยังไม่ได้ปิดยอดในเดือนนี้" tone="neutral" />
+            <StatCard label="ผลต่างรวมทั้งเดือน" value="-" hint="ยังไม่ได้ปิดยอดในเดือนนี้" tone="neutral" />
+          </>
+        ) : (
+          <>
+            <StatCard
+              label="วันที่เงินขาด"
+              value={`${shortDays} วัน`}
+              tone={shortDays > 0 ? 'red' : 'green'}
+            />
+            <StatCard
+              label="ผลต่างรวมทั้งเดือน"
+              value={differenceLabel(Math.round(totalDifference * 100) / 100)}
+              tone={totalDifference < 0 ? 'red' : 'green'}
+            />
+          </>
+        )}
       </div>
 
       {isError && (

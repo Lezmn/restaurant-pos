@@ -36,7 +36,7 @@ export function SalesPage() {
         <div>
           <h1 className="text-xl font-bold text-black">เมนูขายดี</h1>
           <p className="text-sm text-gray-600">
-            นับเฉพาะออเดอร์ที่จ่ายเงินแล้ว · ยอดตามราคาเมนู ก่อนหักส่วนลดท้ายบิล
+            นับออเดอร์ที่จ่ายเงินในเดือนนี้ (ตรงกับรายรับ) · ยอดตามราคาเมนู ก่อนหักส่วนลดท้ายบิล
           </p>
         </div>
         <label className="text-sm">
@@ -79,10 +79,10 @@ export function SalesPage() {
               hint="ก่อนหักส่วนลดท้ายบิล"
             />
             <StatCard
-              label="ช่วงที่ลูกค้าสั่งมากที่สุด"
+              label="ชั่วโมงที่ลูกค้าสั่งมากที่สุด"
               value={peak ? hourRange(peak.hour) : '-'}
               tone="purple"
-              hint={peak ? `${peak.orderCount.toLocaleString('th-TH')} ออเดอร์ทั้งเดือน` : undefined}
+              hint={peak ? `รวมทุกวัน ${peak.orderCount.toLocaleString('th-TH')} ออเดอร์` : undefined}
             />
           </div>
 
@@ -400,11 +400,12 @@ function WeekHeatmap({ grid }: Readonly<{ grid: number[][] }>) {
         <h2 className="text-base font-bold text-black">วันไหน ชั่วโมงไหนยุ่ง</h2>
         {busiest.count > 0 && (
           <p className="text-sm text-gray-600">
-            ยุ่งสุด:{' '}
+            {/* ช่องเดียว (วัน × ชั่วโมง) — ไม่ใช่ชั่วโมงรวมทุกวันแบบการ์ดด้านบน จึงอาจไม่ตรงกัน */}
+            ช่องที่ยุ่งสุด:{' '}
             <span className="font-semibold text-black">
               {DAY_FULL[busiest.day]} {hourRange(busiest.hour)}
             </span>{' '}
-            ({busiest.count.toLocaleString('th-TH')} ออเดอร์ทั้งเดือน)
+            ({busiest.count.toLocaleString('th-TH')} ออเดอร์ รวมทุกวัน{DAY_FULL[busiest.day]}ของเดือน)
           </p>
         )}
       </div>

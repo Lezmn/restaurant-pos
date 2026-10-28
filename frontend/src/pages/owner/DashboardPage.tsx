@@ -307,7 +307,8 @@ export function DashboardPage() {
                   value={`${todayStatus.tablesInUse} จาก ${todayStatus.tablesTotal} โต๊ะ`}
                 />
                 <StatusRow
-                  label="ออเดอร์วันนี้"
+                  // นับตามเวลาที่ลูกค้าสั่ง — ต่างจากจำนวนบิลด้านบนที่นับตามเวลาจ่าย
+                  label="ออเดอร์ที่สั่งวันนี้"
                   value={`${summary.orderCount.toLocaleString('th-TH')} ออเดอร์`}
                 />
                 <StatusRow

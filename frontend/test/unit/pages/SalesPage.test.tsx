@@ -79,13 +79,13 @@ describe('SalesPage (เมนูขายดี)', () => {
     expect(within(ranking).getAllByRole('listitem')[0]).toHaveTextContent('ต้มยำกุ้ง')
   })
 
-  it('บอกช่วงที่ลูกค้าสั่งมากที่สุด และเมนูที่ไม่มีใครสั่ง', async () => {
+  it('บอกชั่วโมงที่ลูกค้าสั่งมากที่สุด (รวมทุกวัน) และเมนูที่ไม่มีใครสั่ง', async () => {
     vi.mocked(getSales).mockResolvedValue(data)
     renderPage()
 
-    const card = (await screen.findByText('ช่วงที่ลูกค้าสั่งมากที่สุด')).closest('div.rounded-xl')!
+    const card = (await screen.findByText('ชั่วโมงที่ลูกค้าสั่งมากที่สุด')).closest('div.rounded-xl')!
     expect(card).toHaveTextContent('12:00–13:00')
-    expect(card).toHaveTextContent('9 ออเดอร์ทั้งเดือน')
+    expect(card).toHaveTextContent('รวมทุกวัน 9 ออเดอร์')
     // ไม่มีใครสั่ง = ท้ายการ์ดอันดับเมนู พร้อมลิงก์ไปแก้เมนู
     const ranking = screen.getByRole('heading', { name: 'อันดับเมนู' }).closest('section')!
     const unsold = within(ranking).getByRole('list', { name: 'เมนูที่ไม่มีใครสั่ง' })
