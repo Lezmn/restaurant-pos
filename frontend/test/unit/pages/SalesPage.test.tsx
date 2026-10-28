@@ -88,12 +88,33 @@ describe('SalesPage (เมนูขายดี)', () => {
     expect(card).toHaveTextContent('รวมทุกวัน 9 ออเดอร์')
     // ไม่มีใครสั่ง = ท้ายการ์ดอันดับเมนู พร้อมลิงก์ไปแก้เมนู
     const ranking = screen.getByRole('heading', { name: 'อันดับเมนู' }).closest('section')!
-    const unsold = within(ranking).getByRole('list', { name: 'เมนูที่ไม่มีใครสั่ง' })
+    // ไม่กี่เมนู = กางรายชื่อไว้เลย ไม่มีปุ่มพับ
+    const unsold = within(ranking).getByLabelText('เมนูที่ไม่มีใครสั่ง แยกตามหมวด')
     expect(unsold).toHaveTextContent('ยำวุ้นเส้น')
+    expect(within(ranking).queryByRole('button', { name: /ดูรายชื่อ/ })).not.toBeInTheDocument()
     expect(within(ranking).getByRole('link', { name: /ไปหน้าจัดการเมนู/ })).toHaveAttribute(
       'href',
       '/employee/manage',
     )
+  })
+
+  it('เมนูที่ไม่มีใครสั่งเยอะ ๆ พับไว้ โชว์จำนวนแยกหมวด กดแล้วค่อยเห็นรายชื่อ', async () => {
+    const unsoldItems = Array.from({ length: 12 }, (_, i) => ({
+      menuItemId: `u${i}`,
+      name: `เมนูค้าง ${i + 1}`,
+      categoryName: i < 9 ? 'อาหารจานเดียว' : 'ของหวาน',
+    }))
+    vi.mocked(getSales).mockResolvedValue({ ...data, unsoldItems })
+    renderPage()
+
+    const heading = await screen.findByRole('heading', { name: 'ไม่มีใครสั่งเลย 12 เมนู' })
+    const section = heading.closest('div.border-t') as HTMLElement
+    expect(section).toHaveTextContent('อาหารจานเดียว 9 · ของหวาน 3')
+    expect(within(section).queryByText('เมนูค้าง 1')).not.toBeInTheDocument()
+
+    await userEvent.click(within(section).getByRole('button', { name: 'ดูรายชื่อทั้ง 12 เมนู' }))
+    expect(within(section).getByLabelText('เมนูที่ไม่มีใครสั่ง แยกตามหมวด')).toHaveTextContent('เมนูค้าง 12')
+    expect(within(section).getByRole('button', { name: 'ซ่อนรายชื่อ' })).toHaveAttribute('aria-expanded', 'true')
   })
 
   it('แสดง heatmap วันที่ยุ่งสุด และความเร็วครัว', async () => {
