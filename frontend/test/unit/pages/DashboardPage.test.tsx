@@ -24,7 +24,7 @@ const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString(
 
 const note = (i: number, method: PaymentMethod = PaymentMethod.CASH): Notification => ({
   id: `p${i}`,
-  tableName: String(i),
+  placeLabel: `โต๊ะ ${i}`,
   method,
   amount: 100 + i,
   createdAt: minutesAgo(i),

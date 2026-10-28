@@ -229,6 +229,32 @@ describe('CheckPage — การ์ดโต๊ะ', () => {
     expect(tileHeadings()).toEqual(['โต๊ะ 30', 'โต๊ะ 9', 'โต๊ะ 10', 'โต๊ะ 2', 'โต๊ะ 1'])
   })
 
+  // ทดสอบ: ลูกค้าขอเช็คบิลตอนยังเสิร์ฟไม่ครบ → แคชเชียร์ต้องเห็นทันที แต่ยังรับเงินไม่ได้ (backend ไม่ยอม)
+  // วิธี: mock โต๊ะรอเสิร์ฟที่ขอบิล + โต๊ะรอเสิร์ฟเฉย ๆ + โต๊ะเสิร์ฟครบ → เช็กป้ายสองอัน ไม่มีปุ่มรับเงิน ตัวนับหัวเพจ และลำดับการ์ด
+  it('ขอเช็คบิลตอนยังรอเสิร์ฟ: ขึ้นป้ายขอเช็คบิล + รอเสิร์ฟ, นับในหัวเพจ, ขึ้นก่อนโต๊ะรอเสิร์ฟอื่น แต่ยังรับเงินไม่ได้', () => {
+    setup({
+      sessions: [session('cook', '1', 50), session('ready', '2', 50), session('wait', '3', 60)],
+      orders: [
+        order('cook', OrderStatus.PREPARING),
+        order('ready', OrderStatus.SERVED),
+        order('wait', OrderStatus.SERVED),
+        order('wait', OrderStatus.PENDING),
+      ],
+      requests: [checkout('wait', null)],
+    })
+
+    expect(tile('3')).toHaveTextContent('ขอเช็คบิล')
+    expect(tile('3')).toHaveTextContent('รอเสิร์ฟ 1 ออเดอร์')
+    expect(tile('3')).toHaveTextContent('รับเงินได้เมื่อเสิร์ฟครบ')
+    expect(within(tile('3')).queryByRole('button', { name: /^รับเงิน/ })).not.toBeInTheDocument()
+    expect(tile('1')).not.toHaveTextContent('ขอเช็คบิล')
+
+    const header = screen.getByRole('heading', { name: 'เช็คบิล' }).parentElement as HTMLElement
+    expect(header).toHaveTextContent('ขอเช็คบิล 1 โต๊ะ')
+    // ลูกค้ารอจ่ายอยู่ ขึ้นก่อนโต๊ะที่พร้อมเก็บแต่ไม่มีใครขอ — เรียงแค่การ์ดหน้านี้ ไม่ใช่คิวครัว
+    expect(tileHeadings()).toEqual(['โต๊ะ 3', 'โต๊ะ 2', 'โต๊ะ 1'])
+  })
+
   // ทดสอบ: คำขอเช็คบิลเก่าที่ยังมีวิธีจ่ายติดมา (ก่อนเลิกให้ลูกค้าเลือก) ต้องไม่มีผล กล่องรับเงินเริ่มที่เงินสดเสมอ
   // วิธี: mock คำขอเช็คบิลที่มี paymentMethod เป็น PROMPTPAY และ CARD → เปิดกล่องรับเงิน → เช็กว่าปุ่มเงินสดถูกเลือก และไม่มีคำว่า "ลูกค้าเลือก"
   it.each([PaymentMethod.PROMPTPAY, 'CARD'])(

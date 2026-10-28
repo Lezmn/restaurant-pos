@@ -68,7 +68,7 @@ const sessionDue = (s: TableSession) =>
  * สถานะของโต๊ะในมุมแคชเชียร์ เรียงตามความเร่งด่วน (เลขน้อยขึ้นก่อน)
  * - checkout: ลูกค้ากดขอเช็คบิลแล้ว และเสิร์ฟครบ — มีคนรออยู่
  * - ready:    เสิร์ฟครบ เก็บเงินได้
- * - serving:  ยังเสิร์ฟไม่ครบ — backend ไม่ยอมให้จ่าย
+ * - serving:  ยังเสิร์ฟไม่ครบ — backend ไม่ยอมให้จ่าย (ถ้าลูกค้าขอบิลแล้ว ดู checkoutRequested)
  * - settled:  ไม่มียอดให้เก็บ (จ่ายครบ/ยกเลิกหมด/ยังไม่สั่ง) — ปิดโต๊ะได้
  */
 type TileState = 'checkout' | 'ready' | 'serving' | 'settled'
@@ -79,9 +79,18 @@ const stateOrder: Record<TileState, number> = {
   settled: 3,
 }
 
+/**
+ * ลำดับบนจอ — โต๊ะที่ขอเช็คบิลแต่ยังรอเสิร์ฟ ขึ้นต่อจาก checkout (ลูกค้ารอจ่ายอยู่)
+ * เรียงแค่การ์ดในหน้านี้ ไม่ได้เปลี่ยนคิวครัว
+ */
+const urgency = (row: TableRow) =>
+  row.state === 'serving' && row.checkoutRequested ? 0.5 : stateOrder[row.state]
+
 interface TableRow {
   session: TableSession
   state: TileState
+  /** ลูกค้ากด "แจ้งชำระเงิน" แล้ว — รวมโต๊ะที่ยังรอเสิร์ฟด้วย (state เป็น serving แต่ต้องให้แคชเชียร์เห็น) */
+  checkoutRequested: boolean
   notServed: Order[]
   cancelled: Order[]
   neverOrdered: boolean
@@ -148,6 +157,7 @@ export function CheckPage() {
         return {
           session,
           state,
+          checkoutRequested: Boolean(checkout) && state !== 'settled',
           notServed,
           cancelled,
           // เปิดโต๊ะไว้แต่ยังไม่มีออเดอร์เลย (หรือโดนยกเลิกหมด) — คนละเรื่องกับจ่ายครบแล้ว
@@ -156,7 +166,7 @@ export function CheckPage() {
       })
       .sort(
         (a, b) =>
-          stateOrder[a.state] - stateOrder[b.state] ||
+          urgency(a) - urgency(b) ||
           a.session.tableName.localeCompare(b.session.tableName, 'th', {
             numeric: true,
           }),
@@ -169,7 +179,8 @@ export function CheckPage() {
     : rows
 
   const totalOutstanding = rows.reduce((sum, r) => sum + sessionDue(r.session), 0)
-  const waitingCount = rows.filter((r) => r.state === 'checkout').length
+  // นับทุกโต๊ะที่ลูกค้าแจ้งแล้ว แม้ยังรอเสิร์ฟ — ลูกค้าเห็นว่า "แจ้งพนักงานแล้ว" ตั้งแต่กด
+  const waitingCount = rows.filter((r) => r.checkoutRequested).length
 
   const toPayTarget = (row: TableRow): PayTarget => ({
     sessionId: row.session.id,
@@ -209,7 +220,8 @@ export function CheckPage() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-8">
+      {/* แถวที่ 3 (1fr) รับความสูงส่วนเกินของแถบข้าง — ไม่งั้นเกลี่ยไปแถวการ์ด/ตาราง เกิดช่องว่างคั่น */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:grid-rows-[auto_auto_1fr] lg:items-start lg:gap-x-8">
         <section aria-labelledby="check-heading">
           <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
             <div>
@@ -322,14 +334,17 @@ export function CheckPage() {
           </div>
         </section>
 
-        <aside className="mt-10 space-y-6 lg:sticky lg:top-4 lg:mt-0">
+        {/* แถบข้างคร่อมทุกแถว (การ์ดโต๊ะ + บิลที่เก็บแล้ว) — สูงแค่ไหนก็ไม่ดันตารางบิลลง */}
+        <aside className="mt-10 space-y-6 lg:sticky lg:top-4 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:mt-0">
           <CashDrawerBar />
           {/* บิล PromptPay ที่ยังยืนยันเงินเข้าไม่ได้ (ทุกวัน) — ซ่อนเองถ้าไม่มี */}
           <SlipIssues />
         </aside>
-      </div>
 
-      <PaidBills />
+        <div className="lg:col-start-1">
+          <PaidBills />
+        </div>
+      </div>
 
       {closing && (
         <ConfirmDialog
@@ -426,6 +441,18 @@ const stateBadge: Record<TileState, { dot: string; box: string }> = {
   settled: { dot: 'bg-gray-400', box: 'bg-gray-100 text-gray-700' },
 }
 
+function StateBadge({ state, children }: Readonly<{ state: TileState; children: string }>) {
+  const badge = stateBadge[state]
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-sm font-semibold ${badge.box}`}
+    >
+      <span aria-hidden className={`h-2 w-2 rounded-full ${badge.dot}`} />
+      {children}
+    </span>
+  )
+}
+
 /** บิลโต๊ะหนึ่งใบ แบบกะทัดรัด — หัวโต๊ะ+สถานะ แล้วยอดกับปุ่มเดียวอยู่แถวเดียวกัน */
 function TableTile({
   row,
@@ -438,8 +465,7 @@ function TableTile({
   onCharge: () => void
   onClose: () => void
 }>) {
-  const { session, state, notServed, cancelled, neverOrdered } = row
-  const badge = stateBadge[state]
+  const { session, state, checkoutRequested, notServed, cancelled, neverOrdered } = row
   const due = sessionDue(session)
   const split = session.split
 
@@ -457,7 +483,7 @@ function TableTile({
   return (
     <article
       className={`w-full rounded-xl border-2 bg-white px-4 py-3 ${
-        state === 'checkout' ? 'border-brand-400' : 'border-gray-200'
+        checkoutRequested ? 'border-brand-400' : 'border-gray-200'
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -469,12 +495,13 @@ function TableTile({
               ' · รับเงินก่อนได้'}
           </p>
         </div>
-        <span
-          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-sm font-semibold ${badge.box}`}
-        >
-          <span aria-hidden className={`h-2 w-2 rounded-full ${badge.dot}`} />
-          {badgeText}
-        </span>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          {/* ขอบิลมาแล้วแต่ยังเสิร์ฟไม่ครบ — ป้ายขอเช็คบิลอยู่บน ป้ายรอเสิร์ฟบอกว่าทำไมยังรับเงินไม่ได้ */}
+          {checkoutRequested && state === 'serving' && (
+            <StateBadge state="checkout">ขอเช็คบิล</StateBadge>
+          )}
+          <StateBadge state={state}>{badgeText}</StateBadge>
+        </div>
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-3">

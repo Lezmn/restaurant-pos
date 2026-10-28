@@ -125,8 +125,20 @@ test('เรียกพนักงาน/แจ้งชำระเงิน�
   await alert.getByRole('button', { name: 'รับทราบ' }).click()
   await expect(alert).toHaveCount(0)
 
-  // ลูกค้ามักขอบิลหลังได้ของครบ — ครัวเสิร์ฟน้ำก่อนผ่าน API
-  // (ถ้ายังมีของค้างเสิร์ฟ หน้า Check ให้ "รอเสิร์ฟ" มาก่อน การ์ดจะไม่ขึ้น "ขอเช็คบิล")
+  // ลูกค้ากด "แจ้งชำระเงิน" + ยืนยัน ตอนน้ำยังไม่เสิร์ฟ → ปุ่มหายไป กดซ้ำไม่ได้
+  await customer.getByRole('link', { name: 'เช็คบิลอาหาร' }).click()
+  await expect(customer.getByText('รวมสุทธิ')).toBeVisible()
+  await customer.getByRole('button', { name: 'แจ้งชำระเงิน' }).click()
+  await customer.getByRole('dialog').getByRole('button', { name: 'ยืนยัน' }).click()
+  await expect(customer.getByText('แจ้งพนักงานแล้วว่าต้องการชำระเงิน')).toBeVisible()
+  await expect(customer.getByRole('button', { name: 'แจ้งชำระเงิน' })).toHaveCount(0)
+
+  // ยังรอเสิร์ฟ → แคชเชียร์ต้องเห็น "ขอเช็คบิล" ทันที แต่ยังรับเงินไม่ได้
+  await expect(tile.getByText('ขอเช็คบิล')).toBeVisible({ timeout: 10_000 })
+  await expect(tile.getByText('รอเสิร์ฟ 1 ออเดอร์')).toBeVisible()
+  await expect(tile.getByRole('button', { name: /^รับเงิน/ })).toHaveCount(0)
+
+  // ครัวเสิร์ฟน้ำผ่าน API → การ์ดยังขึ้นขอเช็คบิล และรับเงินได้แล้ว
   const kitchen = await loginViaApi(request, 'kitchen', SEED_PASSWORD)
   const [waterOrder] = await (await request.get(`${API_URL}/public/sessions/${token}/orders`)).json()
   for (const status of ['PREPARING', 'SERVED']) {
@@ -136,15 +148,8 @@ test('เรียกพนักงาน/แจ้งชำระเงิน�
     })
     expect(res.ok()).toBe(true)
   }
-
-  // ลูกค้ากด "แจ้งชำระเงิน" + ยืนยัน → การ์ดโต๊ะที่หน้า Check ขึ้นว่าขอเช็คบิล · ปุ่มหายไป กดซ้ำไม่ได้
-  await customer.getByRole('link', { name: 'เช็คบิลอาหาร' }).click()
-  await expect(customer.getByText('รวมสุทธิ')).toBeVisible()
-  await customer.getByRole('button', { name: 'แจ้งชำระเงิน' }).click()
-  await customer.getByRole('dialog').getByRole('button', { name: 'ยืนยัน' }).click()
-  await expect(customer.getByText('แจ้งพนักงานแล้วว่าต้องการชำระเงิน')).toBeVisible()
-  await expect(customer.getByRole('button', { name: 'แจ้งชำระเงิน' })).toHaveCount(0)
-  await expect(tile.getByText('ขอเช็คบิล')).toBeVisible({ timeout: 10_000 })
+  await expect(tile.getByRole('button', { name: /^รับเงิน/ })).toBeVisible({ timeout: 10_000 })
+  await expect(tile.getByText('ขอเช็คบิล')).toBeVisible()
   await expect(tile.getByText('฿10')).toBeVisible()
   await customer.context().close()
 })
