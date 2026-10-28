@@ -155,8 +155,33 @@ const columns: {
   },
 ]
 
-/** รอเกินนี้ (นาที) ตัวเลขเวลารอเปลี่ยนเป็นสีแดง — ครัวเห็นว่าตั๋วไหนค้างนาน */
+/** รอเกินนี้ (นาที) ป้ายเวลารอเป็นขอบแดง — เริ่มช้า */
 const LATE_MINUTES = 15
+/** รอเกินนี้ (นาที) ป้ายเป็นแดงทึบ — ช้ามาก แยกขั้นไว้ไม่ให้ทุกใบแดงเท่ากันจนแดงไม่มีความหมาย */
+const VERY_LATE_MINUTES = 30
+
+/** อันที่รอนานสุดขึ้นก่อน — ครัวทำตามคิว ไม่ต้องไล่หาใบเก่าที่ตกท้ายคอลัมน์ */
+const byOldest = (a: Order, b: Order) =>
+  new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+
+/**
+ * iPad แนวตั้ง 3 คอลัมน์แคบเกินไป (ตั๋วเหลือ ~190px ชื่อโต๊ะตัด 3 บรรทัด)
+ * จึงแสดงแค่รอคิว + กำลังปรุง และย่อเสร็จแล้วเป็นแถบการ์ดเล็กด้านบน — แนวนอน/จอใหญ่ยังเป็น 3 คอลัมน์
+ */
+const PORTRAIT_TABLET = '(min-width: 768px) and (max-width: 1023px) and (orientation: portrait)'
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(() => window.matchMedia?.(query).matches ?? false)
+  useEffect(() => {
+    const mq = window.matchMedia?.(query)
+    if (!mq) return
+    const update = () => setMatches(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [query])
+  return matches
+}
 
 /** โครงตั๋วระหว่างโหลดครั้งแรก — ให้รูปทรงเหมือนบอร์ดจริง ไม่ใช่ข้อความลอย ๆ */
 function BoardSkeleton() {
@@ -363,6 +388,13 @@ export function OrderPage() {
   )
 
   const [boardRef, boardHeight] = useFillScreen<HTMLDivElement>()
+  const portrait = useMediaQuery(PORTRAIT_TABLET)
+  // ตั๋วที่รอเลิกทำ แสดงเหมือนเสร็จแล้ว ให้ครัวเห็นผลทันทีที่กด
+  const listOf = (status: OrderStatus) =>
+    visible
+      .filter((o) => (deferred.has(o.id) ? OrderStatus.SERVED : o.status) === status)
+      .sort(byOldest)
+  const doneColumn = columns[2]
 
   const toggleItem = (itemId: string, isChecked: boolean) => {
     setChecked((prev) => ({ ...prev, [itemId]: isChecked }))
@@ -406,17 +438,25 @@ export function OrderPage() {
         </>
       )}
 
+      {!isPending && !unknown && portrait && (
+        <DoneStrip
+          column={doneColumn}
+          orders={listOf(doneColumn.status)}
+          inFlight={inFlight}
+          deferred={deferred}
+          onAdvance={(order) => handleAdvance(order, 'done')}
+          onUndo={undoServe}
+        />
+      )}
+
       {!isPending && !unknown && (
         <div
           ref={boardRef}
           style={boardHeight ? { height: boardHeight } : undefined}
-          className="grid gap-4 md:grid-cols-3 md:divide-x md:divide-gray-200"
+          className={`grid gap-4 md:divide-x md:divide-gray-200 ${portrait ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}
         >
-          {columns.map((column) => {
-            // ตั๋วที่รอเลิกทำ แสดงเหมือนเสร็จแล้ว ให้ครัวเห็นผลทันทีที่กด
-            const list = visible.filter(
-              (o) => (deferred.has(o.id) ? OrderStatus.SERVED : o.status) === column.status,
-            )
+          {(portrait ? columns.filter((c) => c.key !== 'done') : columns).map((column) => {
+            const list = listOf(column.status)
 
             return (
               <section
@@ -556,42 +596,62 @@ function KitchenTicket({
   const done = column.key === 'done'
   const waited = waitedMinutes(order.createdAt)
   const late = !done && waited >= LATE_MINUTES
+  const veryLate = !done && waited >= VERY_LATE_MINUTES
   const fresh = column.key === 'queue' && waited < NEW_MINUTES
   const busy = sending || awaitingUndo
 
   return (
     <article aria-busy={busy} className={`rounded-xl border-2 bg-white p-3 ${column.border}`}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="flex flex-wrap items-center gap-2 text-xl font-bold text-black lg:text-2xl">
-            {order.placeLabel}
-            {fresh && (
-              <span className="rounded-full bg-status-queue-ink px-2 py-0.5 text-xs font-bold text-white">
-                ใหม่
-              </span>
-            )}
-            {/* เห็นตั้งแต่หัวตั๋ว ก่อนไล่อ่านทีละจาน */}
-            {!done && order.items.some((item) => isAllergyNote(item.note)) && (
-              <span className="rounded-full bg-danger-ink px-2 py-0.5 text-xs font-bold text-white">
-                แพ้อาหาร
-              </span>
-            )}
-          </p>
-          {/* แค่ "#เลข" — คอลัมน์ iPad แนวตั้งแคบ มีคำว่า "ออเดอร์" นำหน้าแล้วตัดเป็น 2 บรรทัด */}
-          <p className="whitespace-nowrap text-sm font-semibold text-gray-700">
-            <span className="sr-only">ออเดอร์ </span>#{order.orderRef}
-          </p>
-        </div>
+      {/* ชื่อโต๊ะได้ความกว้างเต็มตั๋ว — เดิมปุ่มยกเลิกอยู่ข้าง ๆ แย่งที่จน "กลับบ้าน #1" ตัด 3 บรรทัด */}
+      <p className="flex flex-wrap items-center gap-2 text-xl font-bold text-black lg:text-2xl">
+        {order.placeLabel}
+        {fresh && (
+          <span className="rounded-full bg-status-queue-ink px-2 py-0.5 text-xs font-bold text-white">
+            ใหม่
+          </span>
+        )}
+        {/* เห็นตั้งแต่หัวตั๋ว ก่อนไล่อ่านทีละจาน */}
+        {!done && order.items.some((item) => isAllergyNote(item.note)) && (
+          <span className="rounded-full bg-danger-ink px-2 py-0.5 text-xs font-bold text-white">
+            แพ้อาหาร
+          </span>
+        )}
+      </p>
+      {/* แค่ "#เลข" — คอลัมน์ iPad แนวตั้งแคบ มีคำว่า "ออเดอร์" นำหน้าแล้วตัดเป็น 2 บรรทัด */}
+      <p className="whitespace-nowrap text-sm font-semibold text-gray-700">
+        <span className="sr-only">ออเดอร์ </span>#{order.orderRef}
+      </p>
 
-        {/* ยกเลิกอยู่หัวตั๋ว ห่างจากปุ่มหลักล่างตั๋ว — มือเปียก/ใส่ถุงมือกดพลาดยาก
-            คอลัมน์เสร็จแล้วไม่มี: ของเสิร์ฟไปแล้ว จะไม่คิดเงินเป็นเรื่องของแคชเชียร์ */}
-        {!done && (
+      {/* เวลารอ + ยกเลิก ซ่อนในคอลัมน์เสร็จแล้ว — ของออกไปแล้ว ไม่ได้ "รอ" อะไรอีก
+          และจะไม่คิดเงินเป็นเรื่องของแคชเชียร์ */}
+      {!done && (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          {/* เกินเวลาบอก 2 ขั้น: ขอบแดง (15 นาที) → แดงทึบ (30 นาที) + ไอคอนเตือน
+              (รูปทรงเปลี่ยน ไม่ได้บอกด้วยสีอย่างเดียว) ข้อความสั้นบรรทัดเดียว */}
+          <p
+            className={`inline-flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-full text-base tabular-nums ${
+              veryLate
+                ? 'bg-danger-ink px-3 py-1 font-bold text-white'
+                : late
+                  ? 'border-2 border-danger px-3 py-0.5 font-bold text-danger-ink'
+                  : 'font-semibold text-gray-700'
+            }`}
+          >
+            {late ? <AlertIcon /> : <ClockIcon />}
+            {/* นาทีแรกขึ้น "เพิ่งสั่ง" — "รอ 0 นาที" อ่านแล้วแปลก */}
+            {waitedLabel(waited)}
+            {late && (
+              <span className="sr-only"> เกินเวลา {veryLate ? VERY_LATE_MINUTES : LATE_MINUTES} นาที</span>
+            )}
+          </p>
+
+          {/* ยกเลิกอยู่บนตั๋ว ห่างจากปุ่มหลักล่างตั๋ว — มือเปียก/ใส่ถุงมือกดพลาดยาก */}
           <button
             type="button"
             aria-label="ยกเลิกออเดอร์"
             disabled={busy}
             onClick={onCancel}
-            className="flex min-h-11 shrink-0 items-center gap-1 rounded-lg border-2 border-gray-300 px-3 text-sm font-semibold text-danger-ink transition hover:border-danger hover:bg-danger/5 disabled:cursor-not-allowed disabled:opacity-60"
+            className="ml-auto flex min-h-11 shrink-0 items-center gap-1 rounded-lg border-2 border-gray-300 px-3 text-sm font-semibold text-danger-ink transition hover:border-danger hover:bg-danger/5 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <svg
               viewBox="0 0 24 24"
@@ -606,23 +666,7 @@ function KitchenTicket({
             </svg>
             ยกเลิก
           </button>
-        )}
-      </div>
-
-      {/* เวลารอซ่อนในคอลัมน์เสร็จแล้ว — ของออกไปแล้ว ไม่ได้ "รอ" อะไรอีก
-          เกินเวลา = ป้ายทึบ + ไอคอนเตือน (รูปทรงเปลี่ยน ไม่ได้บอกด้วยสีอย่างเดียว)
-          ข้อความสั้นบรรทัดเดียว — เดิม "รอ 18 นาที · เกิน 15 นาที" ตัดเป็น 2 บรรทัดในคอลัมน์แคบ */}
-      {!done && (
-        <p
-          className={`mt-2 inline-flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-full text-base tabular-nums ${
-            late ? 'bg-danger-ink px-3 py-1 font-bold text-white' : 'font-semibold text-gray-700'
-          }`}
-        >
-          {late ? <AlertIcon /> : <ClockIcon />}
-          {/* นาทีแรกขึ้น "เพิ่งสั่ง" — "รอ 0 นาที" อ่านแล้วแปลก */}
-          {waitedLabel(waited)}
-          {late && <span className="sr-only"> เกินเวลา {LATE_MINUTES} นาที</span>}
-        </p>
+        </div>
       )}
 
       <ul className="mt-2 space-y-2">
@@ -639,35 +683,7 @@ function KitchenTicket({
 
       {awaitingUndo ? (
         // แถบเลิกทำแทนที่ปุ่มหลัก ตำแหน่งเดียวกับปุ่มที่เพิ่งกด — กดพลาดก็กดซ้ำที่เดิมเพื่อย้อน
-        <div className="mt-3">
-          <button
-            type="button"
-            onClick={onUndo}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-status-done-ink bg-white px-4 text-base font-bold text-status-done-ink transition hover:bg-status-done/10"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-              className="h-5 w-5"
-            >
-              <path d="M9 14 4 9l5-5" />
-              <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
-            </svg>
-            ยกเลิก
-          </button>
-          {/* เวลาที่เหลือก่อนส่งจริง หดจากเต็มเหลือศูนย์ */}
-          <div aria-hidden className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-status-done/20">
-            <div
-              className="undo-drain h-full origin-left rounded-full bg-status-done-ink"
-              style={{ animationDuration: `${UNDO_MS}ms` }}
-            />
-          </div>
-        </div>
+        <UndoServe onUndo={onUndo} />
       ) : (
         <button
           type="button"
@@ -679,5 +695,106 @@ function KitchenTicket({
         </button>
       )}
     </article>
+  )
+}
+
+/** ปุ่มเลิกทำ + แถบเวลาที่เหลือ หลังกด "ทำเสร็จแล้ว" — ใช้ทั้งบนตั๋วและการ์ดในแถบเสร็จแล้ว */
+function UndoServe({ onUndo }: Readonly<{ onUndo: () => void }>) {
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        onClick={onUndo}
+        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-status-done-ink bg-white px-4 text-base font-bold text-status-done-ink transition hover:bg-status-done/10"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+          className="h-5 w-5"
+        >
+          <path d="M9 14 4 9l5-5" />
+          <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+        </svg>
+        ยกเลิก
+      </button>
+      {/* เวลาที่เหลือก่อนส่งจริง หดจากเต็มเหลือศูนย์ */}
+      <div aria-hidden className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-status-done/20">
+        <div
+          className="undo-drain h-full origin-left rounded-full bg-status-done-ink"
+          style={{ animationDuration: `${UNDO_MS}ms` }}
+        />
+      </div>
+    </div>
+  )
+}
+
+/**
+ * คอลัมน์เสร็จแล้วตอน iPad แนวตั้ง — การ์ดเล็กเลื่อนแนวนอน ของออกจากครัวแล้ว ต้องการแค่
+ * โต๊ะไหน + ปุ่มเอาออก (และเลิกทำหลังกด "ทำเสร็จแล้ว") พื้นที่ที่เหลือให้คิวที่ต้องทำ
+ */
+function DoneStrip({
+  column,
+  orders,
+  inFlight,
+  deferred,
+  onAdvance,
+  onUndo,
+}: Readonly<{
+  column: (typeof columns)[number]
+  orders: Order[]
+  inFlight: ReadonlySet<string>
+  deferred: ReadonlySet<string>
+  onAdvance: (order: Order) => void
+  onUndo: (id: string) => void
+}>) {
+  return (
+    <section aria-label={column.title} className="mb-4 rounded-xl border border-gray-200 p-3">
+      <header className="flex items-center gap-2">
+        <span className={`h-3.5 w-3.5 shrink-0 rounded-full ${column.dot}`} />
+        <h2 className="text-lg font-bold text-black">{column.title}</h2>
+        <span className={`rounded-full px-3 py-0.5 text-sm font-bold ${column.badge}`}>{orders.length}</span>
+        {orders.length === 0 && <p className="text-sm text-gray-500">ไม่มีรายการ</p>}
+      </header>
+
+      {orders.length > 0 && (
+        <ul className="mt-3 flex gap-3 overflow-x-auto overscroll-x-contain pb-1">
+          {orders.map((order) => {
+            const awaitingUndo = deferred.has(order.id)
+            const sending = inFlight.has(order.id)
+            return (
+              <li
+                key={order.id}
+                aria-busy={sending || awaitingUndo}
+                className={`flex w-56 shrink-0 flex-col rounded-xl border-2 bg-white p-3 ${column.border}`}
+              >
+                <p className="truncate text-xl font-bold text-black">{order.placeLabel}</p>
+                <p className="truncate text-sm text-gray-700">
+                  {order.items.map((item) => `${item.quantity}× ${item.menuItemName}`).join(' · ')}
+                </p>
+                <div className="mt-auto pt-2">
+                  {awaitingUndo ? (
+                    <UndoServe onUndo={() => onUndo(order.id)} />
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={sending}
+                      onClick={() => onAdvance(order)}
+                      className={`min-h-12 w-full rounded-lg px-3 text-base font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${column.button}`}
+                    >
+                      {sending ? 'กำลังส่ง...' : column.buttonLabel}
+                    </button>
+                  )}
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
   )
 }
