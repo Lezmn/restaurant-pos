@@ -199,4 +199,61 @@ describe('OrderPage (จอครัว)', () => {
 
     expect(await screen.findByText(/เกินเวลา 15 นาที/)).toBeInTheDocument()
   })
+
+  it('เกิน 30 นาที → ขั้นที่สอง แดงทึบ และ screen reader ได้ยิน "เกินเวลา 30 นาที"', async () => {
+    const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString()
+    vi.mocked(getOrders).mockResolvedValue([
+      { ...order, id: 'late', orderRef: 'late20', createdAt: minutesAgo(20) },
+      { ...order, id: 'veryLate', orderRef: 'late40', createdAt: minutesAgo(40) },
+    ])
+    renderPage()
+
+    const badge = (ref: string) =>
+      within(screen.getByText(`#${ref}`).closest('article')!).getByText(/^รอ \d+ นาที/).closest('p')!
+    await screen.findByText('#late40')
+    expect(badge('late20')).toHaveClass('border-danger')
+    expect(badge('late20')).not.toHaveClass('bg-danger-ink')
+    expect(badge('late40')).toHaveClass('bg-danger-ink')
+    expect(within(badge('late40')).getByText(/เกินเวลา 30 นาที/)).toBeInTheDocument()
+  })
+
+  it('เรียงตั๋วที่รอนานสุดขึ้นก่อน', async () => {
+    const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString()
+    vi.mocked(getOrders).mockResolvedValue([
+      { ...order, id: 'new', orderRef: 'newest', createdAt: minutesAgo(2) },
+      { ...order, id: 'old', orderRef: 'oldest', createdAt: minutesAgo(9) },
+    ])
+    renderPage()
+
+    const queue = await screen.findByRole('group', { name: 'ตั๋วรอคิว' })
+    await within(queue).findByText('#newest')
+    const text = queue.textContent ?? ''
+    expect(text.indexOf('#oldest')).toBeLessThan(text.indexOf('#newest'))
+  })
+
+  describe('iPad แนวตั้ง', () => {
+    beforeEach(() => {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: query.includes('orientation: portrait'),
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+    })
+    afterEach(() => vi.unstubAllGlobals())
+
+    it('เหลือ 2 คอลัมน์ และเสร็จแล้วย่อเป็นแถบการ์ดที่ยังกดเอาออกได้', async () => {
+      vi.mocked(getOrders).mockResolvedValue([
+        order,
+        { ...order, id: 'o2', orderRef: 'srv1', placeLabel: 'โต๊ะ 7', status: OrderStatus.SERVED },
+      ])
+      renderPage()
+
+      const strip = await screen.findByRole('region', { name: 'เสร็จแล้ว' })
+      expect(within(strip).getByText('โต๊ะ 7')).toBeInTheDocument()
+      expect(within(strip).getByRole('button', { name: 'เสิร์ฟแล้ว · เอาออก' })).toBeEnabled()
+      expect(screen.getByRole('group', { name: 'ตั๋วรอคิว' })).toBeInTheDocument()
+      expect(screen.queryByRole('group', { name: 'ตั๋วเสร็จแล้ว' })).not.toBeInTheDocument()
+    })
+  })
 })
