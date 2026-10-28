@@ -614,7 +614,6 @@ function PaymentDialog({
 
   return (
     <Modal title={`รับเงิน ${target.placeLabel}`} onClose={onCancel}>
-      <ErrorNote error={error} />
       <form
         onSubmit={(e) => {
           e.preventDefault()
@@ -866,6 +865,12 @@ function PaymentDialog({
             className={`${field} resize-none`}
           />
         </label>
+
+        {/* error อยู่ติดปุ่มรับเงิน — กล่อง PromptPay ยาวเกินจอ ถ้าอยู่หัวกล่องจะเลื่อนพ้นจอไปตอนกดปุ่มล่างสุด
+            แคชเชียร์ไม่เห็นว่าสลิปไม่ผ่าน (เช่น สลิปซ้ำ) */}
+        <div className="mt-4">
+          <ErrorNote error={error} />
+        </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
           <button type="button" onClick={onCancel} className={button('secondary', 'lg')}>

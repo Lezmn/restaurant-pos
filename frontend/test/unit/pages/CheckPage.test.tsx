@@ -570,6 +570,23 @@ describe('CheckPage — กล่องรับเงิน', () => {
     expect(within(dialog).getByRole('alert')).toHaveTextContent('ยอดเปลี่ยนไปแล้ว กรุณาเปิดใหม่')
   })
 
+  // ทดสอบ: error (เช่น สลิปซ้ำ) ต้องอยู่ใต้ช่องหมายเหตุ ติดปุ่มรับเงิน — กล่อง PromptPay ยาวเกินจอ ถ้าอยู่หัวกล่องจะพ้นจอตอนกดปุ่มล่างสุด
+  // วิธี: mock useCreatePayment ให้มี error สลิปซ้ำ → เปิดกล่อง เลือก PromptPay → เช็กลำดับในหน้า: ช่องหมายเหตุ → alert → ปุ่มรับเงิน
+  it('error อยู่ใต้ช่องหมายเหตุ ติดปุ่มรับเงิน', async () => {
+    const user = userEvent.setup()
+    const dialog = await openPayment(user, {
+      ...readyTable(),
+      paymentError: new Error('ตรวจสลิปไม่ผ่าน: สลิปนี้ถูกใช้กับบิลอื่นแล้ว'),
+    })
+    await user.click(within(dialog).getByRole('button', { name: 'PromptPay' }))
+    const note = within(dialog).getByText('หมายเหตุ')
+    const alert = within(dialog).getByRole('alert')
+    const submit = within(dialog).getByRole('button', { name: /^รับเงิน/ })
+    expect(alert).toHaveTextContent('สลิปนี้ถูกใช้กับบิลอื่นแล้ว')
+    expect(note.compareDocumentPosition(alert) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(alert.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   // ทดสอบ: กด "ย้อนกลับ" ต้องปิดกล่องโดยไม่บันทึก และล้าง error เดิม
   // วิธี: เปิดกล่อง → กดย้อนกลับ → เช็กว่ากล่องหาย, reset ถูกเรียก และ mutate ไม่ถูกเรียก
   it('"ย้อนกลับ" → ปิดกล่องโดยไม่บันทึก และล้าง error เดิม', async () => {
