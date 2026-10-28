@@ -43,8 +43,6 @@ export function HourlyChart({
   const max = step * TICKS
   const ticks = Array.from({ length: TICKS + 1 }, (_, i) => step * i)
   const peakHour = peak > 0 ? hours.find((h) => byHour.get(h) === peak) : undefined
-  // จอแคบ 12+ แท่งใส่ป้ายทุกชั่วโมงไม่พอที่ — เว้นชั่วโมงเว้นชั่วโมง แต่ชั่วโมงปัจจุบันมีป้ายเสมอ
-  const labelEvery = hours.length > 10 ? 2 : 1
   const pct = (value: number) => `${(value / max) * 100}%`
 
   return (
@@ -107,19 +105,20 @@ export function HourlyChart({
         </div>
       </div>
 
-      {/* แกน X */}
-      <div aria-hidden className="ml-14 flex h-5 gap-0.5 sm:gap-1">
-        {hours.map((h, i) => {
+      {/* แกน X — ป้ายทุกชั่วโมงไม่เว้น · ชั่วโมงปัจจุบันเป็นตัวหนา มี "ตอนนี้" อีกบรรทัดข้างใต้
+          (ใส่แทนตัวเลขจะกว้างเกินช่องแล้วทับป้ายข้าง ๆ บนจอแคบ) */}
+      <div aria-hidden className={`ml-14 flex gap-0.5 sm:gap-1 ${nowHour === undefined ? 'h-5' : 'h-10'}`}>
+        {hours.map((h) => {
           const current = h === nowHour
-          const show = current || (i % labelEvery === 0 && (nowHour === undefined || Math.abs(h - nowHour) > 1))
           return (
             <span
               key={h}
-              className={`flex-1 pt-1 text-center text-xs whitespace-nowrap tabular-nums ${
+              className={`flex flex-1 flex-col items-center pt-1 text-xs whitespace-nowrap tabular-nums ${
                 current ? 'font-bold text-black' : 'text-gray-500'
               }`}
             >
-              {show ? (current ? 'ตอนนี้' : `${h}`) : ''}
+              {h}
+              {current && <span className="text-[0.625rem] leading-normal">ตอนนี้</span>}
             </span>
           )
         })}
