@@ -65,7 +65,7 @@ export async function getDashboard(): Promise<DashboardData> {
   const notifications: Notification[] = todayPayments
     .map((p: Payment) => ({
       id: p.id,
-      tableName: p.tableName,
+      placeLabel: p.placeLabel,
       method: p.method,
       amount: p.amount,
       createdAt: p.paidAt,

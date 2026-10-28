@@ -119,11 +119,25 @@ describe('getDashboard', () => {
     expect(notifications.map((n) => n.id)).toEqual(payments.map((p) => p.id))
     expect(notifications[1]).toEqual({
       id: 'p11',
-      tableName: '11',
+      placeLabel: 'โต๊ะ 11',
       method: PaymentMethod.PROMPTPAY,
       amount: 20,
       createdAt: at(11.5),
     })
+  })
+
+  // ทดสอบ: บิลกลับบ้านในการแจ้งเตือนใช้ "กลับบ้าน #N" ไม่ใช่ "โต๊ะ กลับบ้าน #N"
+  // วิธี: mock บิลโต๊ะ 1 ใบ + บิลกลับบ้าน 1 ใบ → เช็ก placeLabel ของทั้งสอง
+  it('การแจ้งเตือนบิลกลับบ้านขึ้น "กลับบ้าน #N" ไม่มีคำว่าโต๊ะนำหน้า', async () => {
+    mockApi(report, [
+      payment('p1', PaymentMethod.CASH, 100, at(1)),
+      {
+        ...payment('p2', PaymentMethod.CASH, 80, at(2)),
+        tableSession: { isTakeaway: true, takeawayNo: 2, customerName: null, table: { number: 0 } },
+      },
+    ])
+    const { notifications } = await getDashboard()
+    expect(notifications.map((n) => n.placeLabel)).toEqual(['โต๊ะ 1', 'กลับบ้าน #2'])
   })
 
   // ทดสอบ: สถานะวันนี้: โต๊ะที่ใช้งานมาจากจำนวน OCCUPIED/ทั้งหมด และสลิปค้างมาจากรายงาน

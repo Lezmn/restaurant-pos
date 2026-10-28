@@ -339,7 +339,7 @@ export function DashboardPage() {
                     return (
                       <BillRow
                         key={note.id}
-                        title={`โต๊ะ ${note.tableName}`}
+                        title={note.placeLabel}
                         method={note.method}
                         paidAt={note.createdAt}
                         hint={hint}

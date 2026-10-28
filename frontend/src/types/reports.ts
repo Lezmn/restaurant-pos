@@ -31,7 +31,8 @@ export interface TodayStatus {
 /** บิลที่รับเงินวันนี้ — ใช้เป็นรายการแจ้งเตือนบน Dashboard */
 export interface Notification {
   id: Id
-  tableName: string
+  /** "โต๊ะ 5" หรือ "กลับบ้าน #3" — มาจาก Payment.placeLabel ห้ามต่อ "โต๊ะ " เอง */
+  placeLabel: string
   method: PaymentMethod
   amount: number
   createdAt: string
