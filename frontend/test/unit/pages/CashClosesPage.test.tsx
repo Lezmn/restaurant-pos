@@ -143,13 +143,13 @@ describe('CashClosesPage — ประวัติปิดยอดเงิน
     expect(even).toHaveTextContent('฿3,379.5')
     expect(even).toHaveTextContent('฿1,800')
     expect(even).toHaveTextContent('แคชเชียร์')
-    expect(within(even).getByText('ตรง')).toHaveClass('text-success')
+    expect(within(even).getByText('ตรง')).toHaveClass('text-success-ink')
 
-    expect(within(short).getByText('-฿40')).toHaveClass('text-danger')
+    expect(within(short).getByText('-฿40')).toHaveClass('text-danger-ink')
     expect(short).toHaveTextContent('฿3,339.5')
     expect(short).toHaveTextContent('แบงก์ร้อยหาย')
 
-    expect(within(over).getByText('+฿25.5')).toHaveClass('text-brand-400')
+    expect(within(over).getByText('+฿25.5')).toHaveClass('text-brand-500')
     expect(over.querySelectorAll('td')[3]).toHaveTextContent(/^-$/)
   })
 

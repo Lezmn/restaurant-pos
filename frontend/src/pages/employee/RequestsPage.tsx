@@ -1,4 +1,5 @@
 import { Badge, type BadgeTone } from '@/components/ui/Badge'
+import { LoadError } from '@/components/ui/LoadError'
 import { PageHeader } from '@/components/ui/PageHeader'
 import {
   useResolveServiceRequest,
@@ -29,9 +30,10 @@ const statusLabel: Record<string, string> = {
 }
 
 export function RequestsPage() {
-  const { data: requests, isPending } = useServiceRequests({
+  const requestsQuery = useServiceRequests({
     refetchInterval: REQUEST_POLL_MS,
   })
+  const { data: requests, isPending } = requestsQuery
   const resolve = useResolveServiceRequest()
   const live = useLiveStatus((s) => s.connected)
 
@@ -46,6 +48,14 @@ export function RequestsPage() {
         }
       />
 
+      {requestsQuery.isError && (
+        <LoadError
+          what="คำขอจากโต๊ะ"
+          stale={Boolean(requests)}
+          error={requestsQuery.error}
+          onRetry={() => requestsQuery.refetch()}
+        />
+      )}
       {isPending && <p className="text-sm text-gray-500">กำลังโหลด...</p>}
 
       <div className="space-y-3">

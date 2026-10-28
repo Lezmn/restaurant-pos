@@ -2,6 +2,7 @@ import { ErrorNote } from '@/components/ui/ErrorNote'
 import { Modal } from '@/components/ui/Modal'
 import { NoteChips } from '@/components/ui/NoteChips'
 import { QuantityStepper } from '@/components/ui/QuantityStepper'
+import { button } from '@/components/ui/styles'
 import { useMenuItems } from '@/features/menu/hooks'
 import { useCreateOrder } from '@/features/orders/hooks'
 import { formatBaht } from '@/lib/format'
@@ -199,7 +200,7 @@ export function TakeOrderDialog({
             <button
               type="button"
               onClick={() => addLine(item.id)}
-              className="shrink-0 rounded-lg bg-brand-300 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-brand-400"
+              className={`shrink-0 ${button('primary', 'sm')}`}
             >
               + เพิ่ม
             </button>
@@ -251,7 +252,7 @@ export function TakeOrderDialog({
                       type="button"
                       onClick={() => removeLine(line.key)}
                       aria-label={`ลบ ${item.name}`}
-                      className="text-sm font-semibold text-danger"
+                      className="text-sm font-semibold text-danger-ink"
                     >
                       ลบ
                     </button>
@@ -262,7 +263,7 @@ export function TakeOrderDialog({
                   <div key={group.id} className="mt-2">
                     <p className="text-xs font-semibold text-gray-600">
                       {group.name}
-                      {group.required && <span className="ml-1 text-danger">*</span>}
+                      {group.required && <span className="ml-1 text-danger-ink">*</span>}
                     </p>
                     <div className="mt-1 flex flex-wrap gap-1.5">
                       {group.options.map((option) => {
@@ -278,8 +279,8 @@ export function TakeOrderDialog({
                             onClick={() => pickOption(line, group, option.id, checked)}
                             className={`rounded-full border px-2.5 py-1 text-xs transition ${
                               checked
-                                ? 'border-brand-300 bg-brand-300 font-bold text-white'
-                                : 'border-gray-300 bg-white text-gray-700 hover:border-brand-300'
+                                ? 'border-brand-500 bg-brand-500 font-bold text-white'
+                                : 'border-gray-300 bg-white text-gray-700 hover:border-brand-400'
                             }`}
                           >
                             {option.name}
@@ -307,7 +308,7 @@ export function TakeOrderDialog({
                 />
 
                 {missing.length > 0 && (
-                  <p className="mt-1 text-xs font-semibold text-danger">
+                  <p className="mt-1 text-xs font-semibold text-danger-ink">
                     เลือก{missing.map((g) => g.name).join(', ')}ก่อน
                   </p>
                 )}
@@ -338,7 +339,7 @@ export function TakeOrderDialog({
           type="button"
           disabled={createOrder.isPending || count === 0 || incomplete}
           onClick={submit}
-          className="rounded-lg bg-brand-300 py-2.5 text-sm font-bold text-white transition hover:bg-brand-400 disabled:bg-gray-300"
+          className={button('primary')}
         >
           {createOrder.isPending ? 'กำลังส่ง...' : 'ส่งเข้าครัว'}
         </button>

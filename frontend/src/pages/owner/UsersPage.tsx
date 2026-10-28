@@ -111,7 +111,7 @@ export function UsersPage() {
                 <span
                   className={`shrink-0 rounded-full px-2.5 py-1 text-sm font-semibold ${
                     user.role === Role.ADMIN
-                      ? 'bg-brand-100 text-brand-500'
+                      ? 'bg-brand-50 text-brand-500'
                       : 'bg-gray-100 text-gray-700'
                   }`}
                 >
