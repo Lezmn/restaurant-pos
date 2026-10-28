@@ -165,9 +165,8 @@ describe('OrdersService.getTotal', () => {
     await expect(service.getTotal('x')).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  // BUG (รายงานใน PR): getTotal บวกด้วย number ของ JS ส่วน payments/table-sessions ใช้ Decimal
-  // ราคาที่มีสตางค์ได้ยอดเพี้ยนแบบ float — เทสต์นี้ตั้งใจให้ "ล้มเหลว" จนกว่าจะแก้ (แก้แล้วให้เอา .failing ออก)
-  it.failing('BUG: ราคาสตางค์รวมกันต้องไม่เพี้ยนแบบ float (0.10 + 0.20 = 0.30)', async () => {
+  // เคยบวกด้วย number ของ JS แล้วได้ 0.30000000000000004 — ตอนนี้บวกด้วย Decimal เหมือนตอนเก็บเงิน
+  it('ราคาสตางค์รวมกันไม่เพี้ยนแบบ float (0.10 + 0.20 = 0.30)', async () => {
     const { prisma, service } = setup();
     prisma.order.findUnique.mockResolvedValue(
       stored(OrderStatus.SERVED, {

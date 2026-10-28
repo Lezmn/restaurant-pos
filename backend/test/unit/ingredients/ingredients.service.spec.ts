@@ -50,13 +50,23 @@ describe('IngredientsService', () => {
       expect(prisma.ingredient.create.mock.calls[0][0].data.isAvailable).toBe(expected);
     });
 
-    // BUG (รายงานใน PR): update() ปฏิเสธ "ยอด 0 แต่สั่งเปิด" แต่ create() ไม่ตรวจ — สร้างวัตถุดิบที่เปิดอยู่แต่ตัดสต็อกไม่ได้
-    // ลูกค้าเห็นเมนูขายได้ แต่สั่งแล้วโดน 400 "ไม่พอ" — ตั้งใจให้ "ล้มเหลว" จนกว่าจะแก้ (แก้แล้วเอา .failing ออก)
-    it.failing('BUG: สร้างด้วยยอด 0 พร้อมสั่งเปิด → ควร 400 เหมือนตอนแก้', async () => {
-      const { service } = setup();
-      await expect(service.create({ name: 'ไข่', stockQty: 0, isAvailable: true } as any)).rejects.toBeInstanceOf(
-        BadRequestException,
+    // เคยสร้างได้ (เปิดอยู่แต่ตัดสต็อกไม่ได้ ลูกค้าเห็นเมนูขายได้แต่สั่งแล้วโดน 400) — ตอนนี้ตรวจเหมือนตอนแก้
+    it('สร้างด้วยยอด 0 พร้อมสั่งเปิด → 400 เหมือนตอนแก้ และไม่บันทึก', async () => {
+      const { prisma, service } = setup();
+      await expect(service.create({ name: ' ไข่ ', stockQty: 0, isAvailable: true } as any)).rejects.toThrow(
+        new BadRequestException('"ไข่" ยอดคงเหลือเป็น 0 — ตั้งยอดคงเหลือก่อนเปิด หรือเลิกนับสต็อก'),
       );
+      expect(prisma.ingredient.create).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      [{ stockQty: 0, isAvailable: false }, false],
+      [{ stockQty: null, isAvailable: true }, true],
+      [{ isAvailable: true }, true],
+    ])('สร้าง %j ได้ตามปกติ → isAvailable = %s', async (extra, expected) => {
+      const { prisma, service } = setup();
+      await service.create({ name: 'ไข่', ...extra } as any);
+      expect(prisma.ingredient.create.mock.calls[0][0].data.isAvailable).toBe(expected);
     });
 
     it('ชื่อซ้ำ → 409 และไม่แจ้ง socket', async () => {

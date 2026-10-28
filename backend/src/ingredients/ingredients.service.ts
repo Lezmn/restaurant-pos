@@ -22,6 +22,7 @@ export class IngredientsService {
   ) {}
 
   async create(dto: CreateIngredientDto) {
+    this.assertNotOpenWithoutStock(dto.name.trim(), dto.stockQty, dto);
     try {
       const ingredient = await this.prisma.ingredient.create({
         data: {
@@ -61,12 +62,7 @@ export class IngredientsService {
   async update(id: string, dto: UpdateIngredientDto) {
     const current = await this.findOne(id);
     const stockAfter = dto.stockQty === undefined ? current.stockQty : dto.stockQty;
-    // นับสต็อกอยู่แต่ยอดเป็น 0 แล้วจะเปิด = เปิดได้แต่สั่งไม่ได้จริง (ตัดสต็อกไม่ผ่าน) ให้ตั้งยอดก่อน
-    if (stockAfter === 0 && this.availabilityFor(dto) === true) {
-      throw new BadRequestException(
-        `"${current.name}" ยอดคงเหลือเป็น 0 — ตั้งยอดคงเหลือก่อนเปิด หรือเลิกนับสต็อก`,
-      );
-    }
+    this.assertNotOpenWithoutStock(current.name, stockAfter, dto);
     try {
       const ingredient = await this.prisma.ingredient.update({
         where: { id },
@@ -123,6 +119,18 @@ export class IngredientsService {
         );
       }
       throw e;
+    }
+  }
+
+  /**
+   * นับสต็อกอยู่แต่ยอดเป็น 0 แล้วจะเปิด = เปิดได้แต่สั่งไม่ได้จริง (ตัดสต็อกไม่ผ่าน) ให้ตั้งยอดก่อน
+   * ใช้ทั้งตอนสร้างและตอนแก้ — ไม่งั้นสร้างใหม่ด้วยยอด 0 + เปิด ลูกค้าเห็นเมนูขายได้แต่สั่งแล้วโดน 400
+   */
+  private assertNotOpenWithoutStock(name: string, stockAfter: number | null | undefined, dto: UpdateIngredientDto) {
+    if (stockAfter === 0 && this.availabilityFor(dto) === true) {
+      throw new BadRequestException(
+        `"${name}" ยอดคงเหลือเป็น 0 — ตั้งยอดคงเหลือก่อนเปิด หรือเลิกนับสต็อก`,
+      );
     }
   }
 
