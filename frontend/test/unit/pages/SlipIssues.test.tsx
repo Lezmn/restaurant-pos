@@ -80,16 +80,17 @@ describe('SlipIssues — สลิป PromptPay ที่ต้องตาม',
     expect(item('2')).toHaveTextContent('ยอดไม่ตรง')
   })
 
-  // ทดสอบ: ค้างเกิน 2 ใบ → ทุกใบยังอยู่ในรายการ แต่กล่องเลื่อนได้ (จอเล็ก: สูง 2 แถว · จอ lg: เท่าที่ว่างในแถบข้าง)
-  // วิธี: mock 5 บิล → เช็กว่ามี 5 รายการ กล่องเป็น overflow-y-auto และโฟกัสด้วยคีย์บอร์ดได้
-  // (jsdom ไม่มี layout — วัดความสูงไม่ได้ และข้อความ "เลื่อนในกล่อง" ขึ้นเมื่อกล่องล้นจริงเท่านั้น จึงไม่เช็กตรงนี้)
-  it('ค้างเกิน 2 ใบ → กล่องเลื่อนได้ และทุกใบยังอยู่', () => {
+  // ทดสอบ: ค้างเกิน 2 ใบ → ทุกใบยังอยู่ในรายการ แต่กล่องเลื่อนได้ (แถบข้างแคบ ไม่ให้สูงเกิน) และบอกว่ามีอีกกี่ใบ
+  // วิธี: mock 5 บิล → เช็กว่ามี 5 รายการ กล่องเป็น overflow-y-auto โฟกัสด้วยคีย์บอร์ดได้ และขึ้น "อีก 3 ใบ"
+  // (ความสูงจริงวัดจากแถวที่ 2 — jsdom ไม่มี layout จึงเช็กแค่ว่าเลื่อนได้)
+  it('ค้างเกิน 2 ใบ → กล่องเลื่อนได้ ทุกใบยังอยู่ และบอกว่าเลื่อนดูอีกกี่ใบ', () => {
     setup(['p1', 'p2', 'p3', 'p4', 'p5'].map((id) => issue(id, SlipStatus.PENDING, 'x')))
     expect(screen.getByRole('heading', { name: 'สลิป PromptPay ที่ต้องตาม (5)' })).toBeInTheDocument()
     const list = screen.getByRole('list', { name: 'รายการสลิป 5 ใบ เลื่อนดูเพิ่มได้' })
     expect(within(list).getAllByRole('listitem')).toHaveLength(5)
     expect(list).toHaveClass('overflow-y-auto')
     expect(list).toHaveAttribute('tabindex', '0')
+    expect(screen.getByText('เลื่อนในกล่องเพื่อดูอีก 3 ใบ')).toBeInTheDocument()
   })
 
   // ทดสอบ: ไม่เกิน 2 ใบ → ไม่ต้องเลื่อน ไม่มีข้อความบอกให้เลื่อน

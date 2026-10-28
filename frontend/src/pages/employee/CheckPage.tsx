@@ -32,7 +32,7 @@ import { SlipIssues } from './SlipIssues'
 import { emptySlipInput, isSlipReady, type SlipInput } from './slip-input'
 import { SlipScanField } from './SlipScanField'
 import { QRCodeSVG } from 'qrcode.react'
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { RequiredMark } from '@/components/ui/RequiredMark'
 
@@ -215,8 +215,6 @@ export function CheckPage() {
     if (payParam) setSearchParams({}, { replace: true })
   }
 
-  const asideRef = useFitAboveBottomNav<HTMLElement>()
-
   // ไม่มีข้อมูลโต๊ะเลยเพราะโหลดไม่ขึ้น — ห้ามแสดงว่า "ไม่มีโต๊ะ"
   const sessionsFailed = sessionsQuery.isError && !sessions
 
@@ -337,10 +335,7 @@ export function CheckPage() {
         </section>
 
         {/* แถบข้างคร่อมทุกแถว (การ์ดโต๊ะ + บิลที่เก็บแล้ว) — สูงแค่ไหนก็ไม่ดันตารางบิลลง */}
-        <aside
-          ref={asideRef}
-          className="mt-10 space-y-6 lg:sticky lg:top-4 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:mt-0 lg:flex lg:flex-col lg:gap-6 lg:space-y-0 lg:overflow-y-auto"
-        >
+        <aside className="mt-10 space-y-6 lg:sticky lg:top-4 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:mt-0">
           <CashDrawerBar />
           {/* บิล PromptPay ที่ยังยืนยันเงินเข้าไม่ได้ (ทุกวัน) — ซ่อนเองถ้าไม่มี */}
           <SlipIssues />
@@ -560,41 +555,6 @@ function TableTile({
       </div>
     </article>
   )
-}
-
-/** ช่องว่างระหว่างขอบล่างแถบข้างกับแถบเมนูล่าง */
-const ASIDE_BOTTOM_GAP = 16
-
-/**
- * จอ lg ขึ้นไป: จำกัดความสูงแถบข้างให้จบเหนือแถบเมนูล่างพอดี ไม่ต้องเลื่อนทั้งหน้าเพื่อดูสลิป
- * จอเตี้ยจนรายการสลิปเหลือไม่ถึง 1 แถว — แถบข้างเลื่อนเอง (overflow-y-auto) ไม่ล้นลงใต้แถบเมนู
- * ขอบบนของแถบข้างเปลี่ยนตามการเลื่อน (ก่อน/หลัง sticky) จึงคิดใหม่ทุกครั้งที่เลื่อนหรือย่อจอ
- * ตั้ง style ตรง ๆ ไม่ผ่าน state — ไม่ต้อง render ใหม่ทุกครั้งที่เลื่อน (งานแค่อ่านตำแหน่ง + เขียน style ไม่ต้องรอ rAF)
- */
-function useFitAboveBottomNav<T extends HTMLElement>() {
-  const ref = useRef<T>(null)
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const fit = () => {
-      // lg ของ Tailwind = 1024px · จอเล็กแถบข้างอยู่ใต้การ์ดโต๊ะ ไม่ต้องจำกัดสูง
-      if (window.innerWidth < 1024) {
-        el.style.maxHeight = ''
-        return
-      }
-      const nav = document.querySelector<HTMLElement>('[data-bottom-nav]')
-      const top = el.getBoundingClientRect().top
-      el.style.maxHeight = `${window.innerHeight - top - (nav?.offsetHeight ?? 0) - ASIDE_BOTTOM_GAP}px`
-    }
-    fit()
-    window.addEventListener('scroll', fit, { passive: true })
-    window.addEventListener('resize', fit)
-    return () => {
-      window.removeEventListener('scroll', fit)
-      window.removeEventListener('resize', fit)
-    }
-  }, [])
-  return ref
 }
 
 function TileSkeleton() {

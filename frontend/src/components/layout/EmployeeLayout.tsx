@@ -183,8 +183,7 @@ export function EmployeeLayout() {
       <Toaster />
 
       {/* แถบล่าง: Order · Manage · Check · Table · Takeaway — active เป็นบล็อกส้มเต็ม */}
-      {/* data-bottom-nav: หน้า Check วัดความสูงแถบนี้ เพื่อให้แถบข้างพอดีจอ */}
-      <nav data-bottom-nav className="fixed inset-x-0 bottom-0 z-20 flex bg-white shadow-[0_-4px_16px_rgba(0,0,0,0.08)] pb-[env(safe-area-inset-bottom)]">
+      <nav className="fixed inset-x-0 bottom-0 z-20 flex bg-white shadow-[0_-4px_16px_rgba(0,0,0,0.08)] pb-[env(safe-area-inset-bottom)]">
         {orderedTabs.map((tab) => {
           const iconClass =
             '[&>svg]:h-6 [&>svg]:w-6 sm:[&>svg]:h-8 sm:[&>svg]:w-8'
