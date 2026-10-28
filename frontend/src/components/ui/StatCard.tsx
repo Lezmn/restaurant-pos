@@ -12,6 +12,8 @@ const tones = {
   olive: 'border-accent-olive text-accent-olive-ink',
   green: 'border-success text-success-ink',
   red: 'border-danger text-danger-ink',
+  /** ยังไม่มีข้อมูลให้ตัดสิน — ไม่ใช่ทั้งดีและไม่ดี */
+  neutral: 'border-gray-300 text-gray-700',
 } as const
 
 export type StatTone = keyof typeof tones

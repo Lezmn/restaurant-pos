@@ -185,7 +185,9 @@ export class ReportsService {
   /**
    * เมนูขายดี + ช่วงเวลาขายดี ของช่วงเวลาหนึ่ง (ไม่ระบุ = เดือนปัจจุบัน)
    * นับเฉพาะออเดอร์ที่จ่ายเงินแล้วและบิลไม่ถูก void — ออเดอร์ยกเลิก/ค้างจ่ายไม่ใช่ "ขายได้"
-   * ช่วงเวลาใช้เวลาที่ลูกค้าสั่ง (ไม่ใช่เวลาจ่าย) เพราะอยากรู้ว่าครัวยุ่งตอนไหน
+   * เลือกออเดอร์ตามเวลาจ่าย (paidAt) เหมือนรายรับใน Dashboard/Finance — สั่งเมื่อวานจ่ายวันนี้
+   * ต้องขึ้นเมนูขายดีของวันนี้ ไม่งั้นมีรายรับแต่ "ยังไม่มีเมนูที่ขายได้"
+   * แต่ช่องรายชั่วโมงยังใช้เวลาที่ลูกค้าสั่ง (ไม่ใช่เวลาจ่าย) เพราะอยากรู้ว่าครัวยุ่งตอนไหน
    * ยอดเป็นราคาเมนู + ตัวเลือก ก่อนส่วนลดท้ายบิล (ส่วนลดเป็นของทั้งบิล แบ่งรายเมนูไม่ได้)
    */
   async getSales(query: ReportRangeQueryDto) {
@@ -194,8 +196,7 @@ export class ReportsService {
     const [orders, menuItems] = await Promise.all([
       this.prisma.order.findMany({
         where: {
-          createdAt: range,
-          payment: { status: PaymentStatus.COMPLETED },
+          payment: { status: PaymentStatus.COMPLETED, paidAt: range },
         },
         select: {
           createdAt: true,

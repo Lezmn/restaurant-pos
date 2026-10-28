@@ -139,11 +139,15 @@ describe('ReportsService', () => {
       ]);
     });
 
-    it('นับเฉพาะออเดอร์ที่จ่ายแล้วและบิลไม่ถูก void ในช่วงที่เลือก', async () => {
+    // เลือกตามเวลาจ่าย ให้เมนูขายดีตรงกับรายรับ — สั่งเมื่อวานจ่ายวันนี้ต้องนับเป็นของวันนี้
+    it('นับออเดอร์ที่จ่ายในช่วงที่เลือกและบิลไม่ถูก void (ตามเวลาจ่าย ไม่ใช่เวลาสั่ง)', async () => {
       await service.getSales({ month: '2026-09' });
       const where = prisma.order.findMany.mock.calls[0][0].where;
-      expect(where.payment).toEqual({ status: 'COMPLETED' });
-      expect(where.createdAt).toEqual({ gte: new Date(2026, 8, 1), lt: new Date(2026, 9, 1) });
+      expect(where.payment).toEqual({
+        status: 'COMPLETED',
+        paidAt: { gte: new Date(2026, 8, 1), lt: new Date(2026, 9, 1) },
+      });
+      expect(where.createdAt).toBeUndefined();
     });
 
     it('เรียงเมนูตามจำนวนที่ขาย คิดยอดรวมราคาตัวเลือก', async () => {
