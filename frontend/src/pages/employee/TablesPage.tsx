@@ -134,7 +134,7 @@ export function TablesPage() {
                   <button
                     type="button"
                     onClick={() => setOrderTarget(session)}
-                    className={`mt-3 w-full ${button('primary')}`}
+                    className="mt-3 min-h-11 w-full rounded-lg bg-brand-300 text-sm font-bold text-white transition hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     รับออเดอร์แทนลูกค้า
                   </button>
@@ -143,7 +143,7 @@ export function TablesPage() {
                     type="button"
                     disabled={closeSession.isPending}
                     onClick={() => setCloseTarget(session)}
-                    className={`mt-2 w-full ${button('danger-outline')}`}
+                    className="mt-2 min-h-11 w-full rounded-lg border-2 border-danger text-sm font-bold text-danger transition hover:bg-danger/10 disabled:opacity-60"
                   >
                     ปิดโต๊ะ
                   </button>
@@ -159,7 +159,7 @@ export function TablesPage() {
                       onSuccess: (session) => setQrTarget(session),
                     })
                   }
-                  className={`mt-4 w-full ${button('primary')}`}
+                  className="mt-4 min-h-11 w-full rounded-lg bg-brand-300 text-sm font-bold text-white transition hover:bg-brand-400 disabled:cursor-not-allowed disabled:bg-gray-300"
                 >
                   เปิดโต๊ะ/สร้าง QR
                 </button>
@@ -261,14 +261,14 @@ function QrDialog({
           <button
             type="button"
             onClick={copy}
-            className={button('outline')}
+            className="min-h-11 rounded-lg border-2 border-brand-300 text-sm font-bold text-brand-400 transition hover:bg-brand-50"
           >
             {copied ? 'คัดลอกแล้ว' : 'คัดลอกลิงก์'}
           </button>
           <button
             type="button"
             onClick={() => window.print()}
-            className={button('primary')}
+            className="min-h-11 rounded-lg bg-brand-300 text-sm font-bold text-white transition hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
             พิมพ์
           </button>

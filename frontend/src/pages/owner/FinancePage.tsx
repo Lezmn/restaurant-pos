@@ -105,7 +105,7 @@ export function FinancePage() {
           <button
             type="button"
             onClick={() => setFormOpen((v) => !v)}
-            className={button('primary')}
+            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-danger px-4 text-sm font-bold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {formOpen ? 'ปิดฟอร์ม' : '+ รายจ่าย'}
           </button>
@@ -333,7 +333,7 @@ function ConfirmDeleteDialog({
           type="button"
           disabled={isDeleting}
           onClick={onConfirm}
-          className={button('danger')}
+          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-danger px-4 text-sm font-bold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isDeleting ? 'กำลังลบ...' : 'ลบรายการนี้'}
         </button>
@@ -446,7 +446,7 @@ function ExpenseForm({
         <button
           type="submit"
           disabled={saving.isPending}
-          className={button('primary')}
+          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-danger px-4 text-sm font-bold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitLabel}
         </button>
