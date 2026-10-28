@@ -159,7 +159,7 @@ test('ครัว: ได้ยินเสียงสั่งอาหาร
   await expect(page.getByRole('alert').filter({ hasText: 'มีการเรียกพนักงาน' })).toHaveCount(0)
 })
 
-// ทดสอบ: ครัวกดปิดเสียงที่แถบบนจอครัวแล้ว ออเดอร์ใหม่ต้องไม่ร้อง (ตั๋วยังขึ้นตามปกติ) และค่าปิดเสียงจำไว้ในเครื่องนี้ แม้ refresh
+// ทดสอบ: ครัวกดปิดเสียงที่หัวจอแล้ว ออเดอร์ใหม่ต้องไม่ร้อง (ตั๋วยังขึ้นตามปกติ) และค่าปิดเสียงจำไว้ในเครื่องนี้ แม้ refresh
 // วิธี: ดักโน้ต Web Audio ก่อนหน้าโหลด → login KITCHEN เปิดบอร์ดครัว รอโหลดรอบแรก → แตะจอปลดล็อกเสียง → กดปุ่มเสียง (เปิดอยู่ → ปิด) เช็ก aria-pressed
 //       → จดจำนวนโน้ตที่ได้ยินไปแล้ว → ลูกค้าสั่งอาหาร → รอตั๋วขึ้นในคอลัมน์รอคิว → รอต่ออีกนิด เช็กว่าไม่มีโน้ตเสียงออเดอร์เพิ่ม → reload เช็กว่าปุ่มยังเป็น "ปิดอยู่"
 test('ครัว: กดปิดเสียงแล้วออเดอร์ใหม่ไม่ร้อง (ตั๋วยังขึ้น) และ refresh แล้วยังปิดอยู่', async ({ page, request }) => {
@@ -180,6 +180,31 @@ test('ครัว: กดปิดเสียงแล้วออเดอร
   await expect(queue.locator('article', { hasText: `#${orderRef}` })).toBeVisible({ timeout: 10_000 })
   await page.waitForTimeout(2000)
   expect((await heard(page)).order - before, 'ปิดเสียงแล้วต้องไม่มีเสียงออเดอร์').toBe(0)
+
+  await page.reload()
+  await expect(muted).toBeVisible()
+})
+
+// ทดสอบ: แคชเชียร์กดปิดเสียงที่หัวจอหน้า Check ได้ (เดิมปุ่มอยู่แต่บนจอครัว) — ลูกค้าเรียกแล้วป๊อปอัปยังขึ้นแต่ไม่ร้อง และ refresh แล้วยังปิดอยู่
+// วิธี: ดักโน้ต Web Audio + ให้หน้าเห็นเฉพาะคำขอของโต๊ะนี้ → login STAFF เปิดหน้า Check รอโหลดคำขอรอบแรก → แตะจอปลดล็อกเสียง → กดปุ่มเสียงที่หัวจอ (เปิดอยู่ → ปิด)
+//       → จดจำนวนโน้ตเสียงเรียกที่ได้ยินไปแล้ว → ลูกค้ากดเรียกพนักงาน → รอป๊อปอัปของโต๊ะนี้ → รอต่ออีกนิด เช็กว่าไม่มีเสียงเรียกเพิ่ม → reload เช็กว่าปุ่มยังเป็น "ปิดอยู่"
+test('แคชเชียร์: ปิดเสียงที่หัวจอ → ลูกค้าเรียกแล้วป๊อปอัปขึ้นแต่ไม่ร้อง และ refresh แล้วยังปิดอยู่', async ({ page, request }) => {
+  const { tableName, token } = await openFreshTable(request)
+  await recordTones(page)
+  await onlyCallStaffAlertsFrom(page, tableName)
+  await loginAsCashier(page, request)
+  await openAndWaitFor(page, '/employee/check', '/service-requests')
+  await unlockSound(page)
+
+  await page.getByRole('button', { name: 'เสียงแจ้งเตือนเปิดอยู่ (แตะเพื่อปิด)' }).click()
+  const muted = page.getByRole('button', { name: 'เสียงแจ้งเตือนปิดอยู่ (แตะเพื่อเปิด)' })
+  await expect(muted).toHaveAttribute('aria-pressed', 'false')
+  const before = (await heard(page)).call
+
+  await customerCallsStaff(request, token)
+  await expect(page.getByRole('alert').filter({ hasText: `โต๊ะ ${tableName}` })).toBeVisible({ timeout: 10_000 })
+  await page.waitForTimeout(2000)
+  expect((await heard(page)).call - before, 'ปิดเสียงแล้วต้องไม่มีเสียงเรียกพนักงาน').toBe(0)
 
   await page.reload()
   await expect(muted).toBeVisible()

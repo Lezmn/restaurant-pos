@@ -244,9 +244,14 @@ export async function onlyCallStaffAlertsFrom(page: Page, tableNumber?: string |
     async (route) => {
       if (route.request().method() !== 'GET') return route.continue()
       if (tableNumber === undefined) return route.fulfill({ json: [] })
-      const res = await route.fetch()
-      const all = (await res.json()) as { table?: { number: number } }[]
-      await route.fulfill({ response: res, json: all.filter((r) => String(r.table?.number) === String(tableNumber)) })
+      // เทสต์จบ/หน้าปิดระหว่างที่ request ยังค้าง → fetch โยน error ออกไปโผล่ในเทสต์ถัดไปของ worker เดียวกัน — ไม่ต้องสนใจ
+      try {
+        const res = await route.fetch()
+        const all = (await res.json()) as { table?: { number: number } }[]
+        await route.fulfill({ response: res, json: all.filter((r) => String(r.table?.number) === String(tableNumber)) })
+      } catch {
+        // หน้าปิดไปแล้ว
+      }
     },
   )
 }
