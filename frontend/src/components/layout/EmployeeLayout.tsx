@@ -1,3 +1,4 @@
+import { AlertSoundToggle } from '@/components/AlertSoundToggle'
 import { CallStaffAlert } from '@/components/CallStaffAlert'
 import { Toaster } from '@/components/ui/Toaster'
 import { pageRoles } from '@/features/auth/permissions'
@@ -137,6 +138,7 @@ export function EmployeeLayout() {
             </p>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
+            <AlertSoundToggle />
             {/* ADMIN = เจ้าของร้าน มีหน้า Dashboard แยกอีกชุด (บัญชีผู้ใช้อยู่ในนั้นด้วย) */}
             {user?.role === Role.ADMIN && (
               <Link
@@ -152,13 +154,14 @@ export function EmployeeLayout() {
                 signOut()
                 navigate('/login')
               }}
-              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border-2 border-brand-400 px-3 py-2 text-sm font-bold text-brand-500 transition hover:bg-brand-50"
+              // แดงแบบ danger-outline แยกจากปุ่มส้มอื่นบนหัวจอ · ใช้คำว่า Logout ให้ตรงกับฝั่งเจ้าของร้าน
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border-2 border-danger bg-white px-3 py-2 text-sm font-bold text-danger-ink transition hover:bg-danger/5"
             >
               <span aria-hidden className="[&>svg]:h-5 [&>svg]:w-5">
                 <IconLogout />
               </span>
-              <span className="hidden sm:inline">ออกจากระบบ</span>
-              <span className="sr-only sm:hidden">ออกจากระบบ</span>
+              <span className="hidden sm:inline">Logout</span>
+              <span className="sr-only sm:hidden">Logout</span>
             </button>
             <Clock />
           </div>

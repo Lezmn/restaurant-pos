@@ -6,7 +6,7 @@ import {
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ErrorNote } from '@/components/ui/ErrorNote'
 import { LoadError } from '@/components/ui/LoadError'
-import { installAudioUnlock, playAlert, useAlertSound } from '@/lib/alert-sound'
+import { installAudioUnlock, playAlert } from '@/lib/alert-sound'
 import { isAllergyNote } from '@/lib/item-note'
 import { LIVE_POLL_MS } from '@/lib/live'
 import { useNewArrivals } from '@/lib/use-new-arrivals'
@@ -147,55 +147,6 @@ const columns: {
     buttonLabel: 'เสิร์ฟแล้ว · เอาออก',
   },
 ]
-
-/**
- * แถบบนจอครัว: เสียงแจ้งเตือนออเดอร์ใหม่ (เปิด/ปิดต่อเครื่อง) + สถานะกันจอดับ
- * แท็บเล็ตไม่ยอมเล่นเสียงจนกว่าจะแตะจอ 1 ครั้ง — แตะตรงไหนก็ได้ installAudioUnlock เปิดให้เอง
- * (เลิกมีปุ่ม "แตะเพื่อเปิดเสียง" — ครัวต้องแตะจอกดตั๋วอยู่แล้ว)
- */
-function KitchenAlertBar({ screenAwake }: Readonly<{ screenAwake: boolean }>) {
-  const { enabled, setEnabled } = useAlertSound()
-
-  return (
-    <div className="mb-4 flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
-      {/* ของหมดกดได้จากจอครัวเลย ไม่ต้องสลับไปหน้า Manage */}
-      <div className="mr-auto">
-        <KitchenSoldOutButton />
-      </div>
-      {screenAwake && <span className="text-sm text-gray-600">หน้าจอเปิดค้างไว้ระหว่างอยู่หน้านี้</span>}
-      <button
-        type="button"
-        aria-pressed={enabled}
-        aria-label={enabled ? 'เสียงแจ้งเตือนเปิดอยู่ (แตะเพื่อปิด)' : 'เสียงแจ้งเตือนปิดอยู่ (แตะเพื่อเปิด)'}
-        title={enabled ? 'ปิดเสียงแจ้งเตือน' : 'เปิดเสียงแจ้งเตือน'}
-        onClick={() => setEnabled(!enabled)}
-        className={`flex h-11 w-11 items-center justify-center rounded-lg border-2 transition ${
-          enabled
-            ? 'border-green-500 bg-green-50 text-green-700 hover:bg-green-100'
-            : 'border-gray-300 bg-gray-100 text-gray-500 hover:bg-gray-200'
-        }`}
-      >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-          className="h-6 w-6"
-        >
-          <path d="M11 5 6 9H2v6h4l5 4V5Z" />
-          {enabled ? (
-            <path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14" />
-          ) : (
-            <path d="m22 9-6 6M16 9l6 6" />
-          )}
-        </svg>
-      </button>
-    </div>
-  )
-}
 
 /** รอเกินนี้ (นาที) ตัวเลขเวลารอเปลี่ยนเป็นสีแดง — ครัวเห็นว่าตั๋วไหนค้างนาน */
 const LATE_MINUTES = 15
@@ -395,7 +346,7 @@ export function OrderPage() {
 
   // ออเดอร์ใหม่เข้าคิว → ติ๊งต่อง (ครัวไม่ได้จ้องจอตลอด) / จอไม่ดับระหว่างเปิดหน้านี้
   useEffect(installAudioUnlock, [])
-  const screenAwake = useWakeLock()
+  useWakeLock()
   useNewArrivals(
     orders && visible.filter((o) => o.status === OrderStatus.PENDING).map((o) => o.id),
     (count) => {
@@ -425,7 +376,10 @@ export function OrderPage() {
       <p role="status" aria-live="polite" className="sr-only">
         {announcement}
       </p>
-      <KitchenAlertBar screenAwake={screenAwake} />
+      {/* ของหมดกดได้จากจอครัวเลย ไม่ต้องสลับไปหน้า Manage */}
+      <div className="mb-4">
+        <KitchenSoldOutButton />
+      </div>
       {ordersQuery.isError && (
         <LoadError
           what="ออเดอร์"
