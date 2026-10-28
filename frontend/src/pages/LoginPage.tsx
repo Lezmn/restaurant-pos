@@ -10,14 +10,14 @@ import { Navigate, useNavigate } from 'react-router-dom'
 const SHOW_DEMO_LOGIN =
   import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_LOGIN === 'true'
 
-/** ช่องกรอกตามดีไซน์ Desktop-1 — ขอบเทาเข้ม มุมโค้งมาก */
+/** ช่องกรอกตามดีไซน์ Desktop-1 — ขอบเทาเข้ม มุมโค้งมาก · จอใหญ่ขยายตามสัดส่วนใน Figma */
 const inputClass =
-  'mt-2 w-full rounded-xl border border-gray-500 bg-white px-4 py-2.5 text-sm text-black outline-none transition placeholder:text-gray-400 focus:border-brand-400 focus:ring-2 focus:ring-brand-75'
+  'mt-2 w-full rounded-xl border border-gray-500 bg-white px-4 py-2.5 text-sm text-black outline-none transition placeholder:text-gray-400 focus:border-brand-400 focus:ring-2 focus:ring-brand-75 lg:py-3 lg:text-base xl:rounded-2xl xl:px-5 xl:py-4'
 
 /** ส้อม-มีดสีน้ำตาลหน้าชื่อร้าน */
 function IconCutlery() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="h-6 w-6 shrink-0">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="h-6 w-6 shrink-0 lg:h-7 lg:w-7 xl:h-8 xl:w-8">
       <path d="M6 2a.75.75 0 0 1 .75.75V7h.75V2.75a.75.75 0 0 1 1.5 0V7h.75V2.75a.75.75 0 0 1 1.5 0V8a3 3 0 0 1-2.25 2.9V21a1 1 0 1 1-2 0V10.9A3 3 0 0 1 5.25 8V2.75A.75.75 0 0 1 6 2z" />
       <path d="M17 2c-2 1.2-3 3.6-3 7v4h2v8a1 1 0 1 0 2 0V2.8A.8.8 0 0 0 17 2z" />
     </svg>
@@ -76,14 +76,15 @@ export function LoginPage({
               },
             )
           }}
-          className="w-full max-w-xs"
+          // Figma: ฟอร์มกว้าง ~30% ของจอ — max-w-xs คงไว้บนจอเล็ก จอใหญ่ขยายตาม (1440px → 448px)
+          className="w-full max-w-xs lg:max-w-sm xl:max-w-md"
         >
-          <h1 className="mb-6 flex items-center gap-2 text-xl font-bold text-brand-400">
+          <h1 className="mb-6 flex items-center gap-2 text-xl font-bold text-brand-400 lg:text-2xl xl:mb-8 xl:text-3xl">
             <IconCutlery />
             {RESTAURANT_NAME}
           </h1>
 
-          <label className="block text-base font-bold text-black">
+          <label className="block text-base font-bold text-black lg:text-lg xl:text-xl">
             <span>Username</span>
             <input
               type="text"
@@ -98,7 +99,7 @@ export function LoginPage({
             />
           </label>
 
-          <label className="mt-5 block text-base font-bold text-black">
+          <label className="mt-5 block text-base font-bold text-black lg:text-lg xl:mt-6 xl:text-xl">
             <span>Password</span>
             <input
               type="password"
@@ -125,7 +126,7 @@ export function LoginPage({
           <button
             type="submit"
             disabled={login.isPending}
-            className="mt-6 w-full rounded-lg border border-brand-400 bg-brand-100 py-2.5 text-sm font-bold text-black shadow-[0_3px_6px_rgba(0,0,0,0.2)] transition hover:bg-brand-200 disabled:opacity-50"
+            className="mt-6 w-full rounded-lg border border-brand-400 bg-brand-100 py-2.5 text-sm font-bold text-black lg:py-3 lg:text-base xl:mt-8 xl:rounded-xl xl:py-4 xl:text-lg shadow-[0_3px_6px_rgba(0,0,0,0.2)] transition hover:bg-brand-200 disabled:opacity-50"
           >
             {login.isPending ? 'กำลังเข้าสู่ระบบ...' : 'Login'}
           </button>
