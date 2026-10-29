@@ -162,7 +162,7 @@ describe('PaymentsService', () => {
       expect(result.amount.toString()).toBe('0.3');
     });
 
-    it('ส่วนลด 10%: ลดจากยอดบิล ปัดเป็นสตางค์ และเก็บ % ไว้ในใบเสร็จ', async () => {
+    it('ส่วนลด 10% เงินสด: ยอดเก็บปัดครึ่งขึ้นเป็นบาทเต็ม (211.95 → 212) และเก็บ % ไว้ในใบเสร็จ', async () => {
       prisma.order.findMany.mockResolvedValue(servedSessionOrders());
       prisma.order.updateMany.mockResolvedValue({ count: 2 });
       prisma.order.count.mockResolvedValue(0);
@@ -171,13 +171,13 @@ describe('PaymentsService', () => {
         staff,
       );
       expect(Number(result.receipt.subtotal)).toBe(235.5);
-      expect(Number(result.receipt.discount)).toBe(23.55);
+      expect(Number(result.receipt.discount)).toBe(23.5);
       expect(result.receipt.discountPercent).toBe(10);
-      expect(Number(result.receipt.total)).toBe(211.95);
-      expect(Number(result.amount)).toBe(211.95);
+      expect(Number(result.receipt.total)).toBe(212);
+      expect(Number(result.amount)).toBe(212);
     });
 
-    it('ส่วนลด %: เศษสตางค์ปัดครึ่งขึ้น (235.50 × 15% = 35.325 → 35.33)', async () => {
+    it('ส่วนลด 15% เงินสด: 235.50 − 35.33 = 200.17 → เก็บ 200 ส่วนลด 35.50', async () => {
       prisma.order.findMany.mockResolvedValue(servedSessionOrders());
       prisma.order.updateMany.mockResolvedValue({ count: 2 });
       prisma.order.count.mockResolvedValue(0);
@@ -185,8 +185,8 @@ describe('PaymentsService', () => {
         { tableSessionId: 'sess-1', method: PaymentMethod.CASH, discountPercent: 15 },
         staff,
       );
-      expect(result.receipt.discount.toString()).toBe('35.33');
-      expect(result.amount.toString()).toBe('200.17');
+      expect(result.receipt.discount.toString()).toBe('35.5');
+      expect(result.amount.toString()).toBe('200');
     });
 
     it('ส่วนลด 100% = ฟรีทั้งบิล ยอดเก็บ 0', async () => {

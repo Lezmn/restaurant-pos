@@ -632,7 +632,7 @@ function PaymentDialog({
   const percentEmpty = percent.trim() === ''
   const percentValid = percentEmpty || isValidDiscountPercent(percentNum)
   const hasDiscount = !percentEmpty && isValidDiscountPercent(percentNum)
-  const applied = applyDiscountPercent(base, hasDiscount ? percentNum : 0)
+  const applied = applyDiscountPercent(base, hasDiscount ? percentNum : 0, !isPromptPay)
   const discount = applied.discount
   /** ยอดที่เก็บครั้งนี้ — บิลที่หารค้างไว้ = ส่วนของคนถัดไป */
   const chargedNum = split ? split.nextAmount : applied.charged
