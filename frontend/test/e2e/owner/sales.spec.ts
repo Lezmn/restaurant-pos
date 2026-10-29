@@ -98,3 +98,61 @@ test('หน้าเมนูขายดี: การ์ดเดือนน
     await expect(statValue(page, `เกิน ${k.lateMinutes} นาที`)).toHaveText(`${k.lateOrderCount.toLocaleString('th-TH')} ออเดอร์`)
   })
 })
+
+// ชื่อเดือนแบบที่หน้าเว็บใช้ (monthLabel ใน SalesPage.tsx) เช่น "มกราคม 2568"
+const thaiMonth = (month: string) => {
+  const [year, m] = month.split('-').map(Number)
+  return new Date(year, m - 1, 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })
+}
+const thisMonth = () => {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
+/** เปลี่ยนช่องเดือน แล้วคืนรายงานที่หน้าเว็บโหลดมาสำหรับเดือนนั้น */
+async function pickMonth(page: Page, month: string) {
+  const res = page.waitForResponse((r) => r.url().includes(`/reports/sales?month=${month}`) && r.ok())
+  await page.getByLabel('เดือน').fill(month)
+  return (await (await res).json()) as SalesReport
+}
+
+/** การ์ด/ข้อความว่างบนจอต้องตรงกับรายงานของเดือนที่เลือก */
+async function expectReportShown(page: Page, month: string, report: SalesReport) {
+  await expect(page.getByLabel('เดือน')).toHaveValue(month)
+  const empty = page.getByText(`ยังไม่มีออเดอร์ที่จ่ายแล้วใน${thaiMonth(month)}`)
+  if (report.orderCount === 0) {
+    await expect(empty).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'อันดับเมนู' })).toHaveCount(0)
+  } else {
+    await expect(empty).toHaveCount(0)
+    await expect(statValue(page, 'ขายได้')).toHaveText(`${report.totalQuantity.toLocaleString('th-TH')} จาน`)
+    await expect(statValue(page, 'ยอดตามราคาเมนู')).toHaveText(baht(report.totalRevenue))
+  }
+}
+
+// ทดสอบ: เลือกเดือนอื่นในหน้าเมนูขายดี ต้องโหลดรายงานของเดือนนั้นและจอเปลี่ยนตาม แล้วเลือกกลับเดือนนี้ได้ / เลือกเดือนอนาคตไม่ได้
+// วิธี: admin เปิด /owner/sales → เช็กว่าช่องเดือนเป็นเดือนนี้และ max = เดือนนี้ → เลือก 2025-01 (ก่อนร้านเปิดใช้ระบบ)
+//       พร้อมดัก response ?month=2025-01 → เทียบจอกับ response (ไม่มีบิล = ข้อความว่างพร้อมชื่อเดือนไทย)
+//       → เลือกกลับเดือนนี้แล้วเทียบกับ response ตอนเปิดหน้า
+test('หน้าเมนูขายดี: เปลี่ยนเดือนแล้วโหลดรายงานเดือนนั้น และเลือกกลับเดือนนี้ได้', async ({ page, request }) => {
+  await loginAsAdmin(page, request)
+  const month = thisMonth()
+  const firstLoad = page.waitForResponse((r) => r.url().includes(`/reports/sales?month=${month}`) && r.ok())
+  await page.goto('/owner/sales')
+  const current = (await (await firstLoad).json()) as SalesReport
+  await expect(page.getByRole('heading', { name: 'เมนูขายดี', level: 1 })).toBeVisible()
+  await expect(page.getByLabel('เดือน')).toHaveValue(month)
+  await expect(page.getByLabel('เดือน')).toHaveAttribute('max', month)
+
+  await test.step('เลือกเดือนเก่า (2025-01)', async () => {
+    const old = await pickMonth(page, '2025-01')
+    expect(old.orderCount, 'ระบบเริ่มใช้หลัง 2025-01 — เดือนนั้นต้องไม่มีบิล').toBe(0)
+    await expectReportShown(page, '2025-01', old)
+  })
+
+  // เดือนนี้โหลดไว้แล้วตอนเปิดหน้า (React Query เก็บไว้) — เลือกกลับต้องแสดงรายงานเดิมได้ทันที ไม่ต้องรอยิงใหม่
+  await test.step('เลือกกลับเดือนนี้', async () => {
+    await page.getByLabel('เดือน').fill(month)
+    await expectReportShown(page, month, current)
+  })
+})

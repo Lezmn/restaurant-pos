@@ -87,7 +87,11 @@ export function CustomerStatusPage() {
                 const lineAfter =
                   index === steps.length - 1 ? 'bg-transparent' : barColor(index < current)
                 return (
-                  <li key={step.status} className="flex flex-1 flex-col items-center">
+                  <li
+                    key={step.status}
+                    aria-current={index === current ? 'step' : undefined}
+                    className="flex flex-1 flex-col items-center"
+                  >
                     <div className="flex w-full items-center">
                       <span
                         className={`h-0.5 flex-1 ${lineBefore}`}
@@ -117,7 +121,8 @@ export function CustomerStatusPage() {
               })}
             </ol>
 
-            {latest.status !== OrderStatus.SERVED && (
+            {/* เสิร์ฟแล้ว/จ่ายแล้ว = ไม่ต้องบอกเวลารอ */}
+            {stepIndex(latest) < steps.length - 1 && (
               <div className="mt-5 flex items-center justify-center gap-3 border-t border-brand-75 pt-4">
                 <span aria-hidden className="text-2xl md:text-3xl">
                   ⏱

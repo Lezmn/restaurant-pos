@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getSales } from '@/features/reports/api'
+import { currentMonth, getSales } from '@/features/reports/api'
 import type { SalesData } from '@/types/reports'
 import { SalesPage } from '@/pages/owner/SalesPage'
 
@@ -128,7 +128,9 @@ describe('SalesPage (เมนูขายดี)', () => {
     expect(kitchen).toHaveTextContent('ต้มยำกุ้ง')
   })
 
-  it('ตั้งเวลาเปิดร้าน → heatmap แสดงเฉพาะช่วงนั้น ยอดรวมไม่นับออเดอร์นอกเวลา', async () => {
+  // ข้ามใน Chrome จริง (npm run test:browser): ที่นั่น mock ของ @/lib/config อ่าน getter ครั้งเดียวตอนโหลด
+  // เปลี่ยน config.businessHours ระหว่างเทสต์จึงไม่มีผล — npm test (jsdom) ยังรันเทสต์นี้ตามปกติ
+  it.skipIf(!navigator.userAgent.includes('jsdom'))('ตั้งเวลาเปิดร้าน → heatmap แสดงเฉพาะช่วงนั้น ยอดรวมไม่นับออเดอร์นอกเวลา', async () => {
     config.businessHours = [10, 11, 12, 13]
     vi.mocked(getSales).mockResolvedValue({
       ...data,
@@ -160,5 +162,52 @@ describe('SalesPage (เมนูขายดี)', () => {
 
     expect(await screen.findByText(/ยังไม่มีออเดอร์ที่จ่ายแล้วใน/)).toBeInTheDocument()
     expect(screen.queryByText('อันดับเมนู')).not.toBeInTheDocument()
+  })
+
+  // ทดสอบ: เปิดหน้ามาต้องโหลดเดือนปัจจุบัน และช่องเลือกเดือนเลือกเดือนในอนาคตไม่ได้
+  // วิธี: render หน้า → เช็กว่า getSales ถูกเรียกด้วย currentMonth() และช่อง "เดือน" มีค่า/ค่า max เป็นเดือนนี้
+  it('เปิดหน้า → โหลดเดือนนี้ และเลือกเดือนในอนาคตไม่ได้', async () => {
+    vi.mocked(getSales).mockResolvedValue(data)
+    renderPage()
+
+    await screen.findByRole('list', { name: 'อันดับเมนู' })
+    const month = currentMonth()
+    expect(getSales).toHaveBeenCalledWith(month)
+    const input = screen.getByLabelText('เดือน')
+    expect(input).toHaveValue(month)
+    expect(input).toHaveAttribute('max', month)
+  })
+
+  // ทดสอบ: เปลี่ยนเดือนแล้วต้องดึงรายงานของเดือนใหม่ และตัวเลขบนจอเปลี่ยนตามเดือนนั้น
+  // วิธี: mock getSales ให้ตอบตามเดือน (เดือนนี้ 20 จาน / 2026-01 ไม่มีบิล) → เปลี่ยนช่องเดือนเป็น 2026-01
+  //       → เช็กว่าเรียก getSales('2026-01') และจอขึ้น "ยังไม่มีออเดอร์ที่จ่ายแล้วในมกราคม 2569" แทนการ์ดเดิม
+  it('เปลี่ยนเดือน → โหลดรายงานเดือนนั้น และจอเปลี่ยนตาม', async () => {
+    vi.mocked(getSales).mockImplementation(async (month: string) =>
+      month === '2026-01'
+        ? { ...data, month, orderCount: 0, totalQuantity: 0, totalRevenue: 0, topItems: [] }
+        : data,
+    )
+    renderPage()
+    expect(await screen.findByText('20 จาน')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('เดือน'), { target: { value: '2026-01' } })
+
+    expect(await screen.findByText('ยังไม่มีออเดอร์ที่จ่ายแล้วในมกราคม 2569')).toBeInTheDocument()
+    expect(getSales).toHaveBeenLastCalledWith('2026-01')
+    expect(screen.queryByText('20 จาน')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('เดือน')).toHaveValue('2026-01')
+  })
+
+  // ทดสอบ: ลบค่าในช่องเดือนจนว่าง (เช่นกด clear) ต้องไม่ยิงรายงานด้วยเดือนว่าง และเดือนเดิมยังอยู่
+  // วิธี: รอโหลดเสร็จ → เปลี่ยนช่องเดือนเป็น '' → เช็กว่า getSales ไม่ถูกเรียกด้วย '' และการ์ดเดิมยังแสดง
+  it('ล้างช่องเดือน → ไม่โหลดเดือนว่าง และยังแสดงเดือนเดิม', async () => {
+    vi.mocked(getSales).mockResolvedValue(data)
+    renderPage()
+    expect(await screen.findByText('20 จาน')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('เดือน'), { target: { value: '' } })
+
+    expect(getSales).not.toHaveBeenCalledWith('')
+    expect(screen.getByText('20 จาน')).toBeInTheDocument()
   })
 })
