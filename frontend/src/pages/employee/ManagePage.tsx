@@ -265,32 +265,34 @@ export function ManagePage() {
       ) : (
         <>
           {/* หมวดหมู่ + ตัวกรองเมนูที่หมด — กดเพื่อกรอง ใช้ร่วมกับช่องค้นหาได้ */}
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <Chip active={categoryId === ''} onClick={() => setCategoryId('')}>
-              ทั้งหมด <Count>{items?.length ?? 0}</Count>
-            </Chip>
-            {categories?.map((c) => (
-              <Chip
-                key={c.id}
-                active={categoryId === c.id}
-                onClick={() => setCategoryId(c.id)}
-              >
-                {c.name} <Count>{countByCategory.get(c.id) ?? 0}</Count>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              <Chip active={categoryId === ''} onClick={() => setCategoryId('')}>
+                ทั้งหมด <Count>{items?.length ?? 0}</Count>
               </Chip>
-            ))}
+              {categories?.map((c) => (
+                <Chip
+                  key={c.id}
+                  active={categoryId === c.id}
+                  onClick={() => setCategoryId(c.id)}
+                >
+                  {c.name} <Count>{countByCategory.get(c.id) ?? 0}</Count>
+                </Chip>
+              ))}
 
-            <span aria-hidden className="mx-1 hidden h-6 w-px bg-gray-300 sm:block" />
+              <span aria-hidden className="mx-1 hidden h-6 w-px bg-gray-300 sm:block" />
 
-            <Chip
-              active={onlySoldOut}
-              tone="danger"
-              onClick={() => setOnlySoldOut((v) => !v)}
-            >
-              เฉพาะที่ปิดขาย <Count>{soldOutCount}</Count>
-            </Chip>
+              <Chip
+                active={onlySoldOut}
+                tone="danger"
+                onClick={() => setOnlySoldOut((v) => !v)}
+              >
+                เฉพาะที่ปิดขาย <Count>{soldOutCount}</Count>
+              </Chip>
+            </div>
 
-            {/* ปุ่มจัดการเมนูอยู่ท้ายแถวตัวกรองด้วยกัน — ระหว่างเลือกหลายเมนูซ่อน "เพิ่มเมนู" กันกดสลับงานกลางคัน */}
-            <div className="flex gap-2 sm:ml-auto">
+            {/* ปุ่มจัดการเมนูแยกคอลัมน์ขวา ชิปหมวดยาวแค่ไหนก็ตัดบรรทัดในฝั่งตัวเอง ปุ่มไม่หลุดลงไปอยู่บรรทัดเดี่ยว — ระหว่างเลือกหลายเมนูซ่อน "เพิ่มเมนู" กันกดสลับงานกลางคัน */}
+            <div className="flex shrink-0 gap-2">
               <button
                 type="button"
                 aria-pressed={selected !== null}
