@@ -102,6 +102,21 @@ describe('SlipOkService — ต่อ SlipOK จริง', () => {
     expect(await real().check('qr', 100)).toEqual({ kind: 'rejected', code: 1012, message: 'Duplicate slip' });
   });
 
+  // ทดสอบ: ข้อความสลิปซ้ำของ SlipOK มีวันที่แบบ Date.toString() ต้องตัดเหลือถึงแค่เวลา
+  // วิธี: ดัก fetch ให้ตอบ 1012 พร้อมข้อความจริงที่มี "GMT+0700 (Indochina Time)" → check() → เช็กว่าตัดส่วน timezone ออก
+  it('วันที่ในข้อความ SlipOK ตัดเหลือถึงแค่เวลา', async () => {
+    respond(400, {
+      success: false,
+      code: 1012,
+      message: 'สลิปซ้ำ สลิปนี้เคยส่งเข้ามาในระบบเมื่อ Thu Oct 29 2026 15:59:35 GMT+0700 (Indochina Time)',
+    });
+    expect(await real().check('qr', 100)).toEqual({
+      kind: 'rejected',
+      code: 1012,
+      message: 'สลิปซ้ำ สลิปนี้เคยส่งเข้ามาในระบบเมื่อ Thu Oct 29 2026 15:59:35',
+    });
+  });
+
   // ทดสอบ: SlipOK อ่าน QR ได้แต่ไม่ใช่รายการโอน (data.success = false) ต้องได้ rejected
   // วิธี: ดัก fetch ให้ตอบ success: true แต่ data.success: false → check() → เช็กผล rejected พร้อมข้อความใน data
   it('อ่าน QR ได้แต่ไม่ใช่รายการที่ตรวจได้ (data.success = false) → rejected', async () => {
