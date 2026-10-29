@@ -80,7 +80,12 @@ export function useSubmitOrder(token: string | undefined) {
 }
 
 export function useCallStaff() {
-  return useMutation({ mutationFn: callStaff })
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: callStaff,
+    // session บอกว่าเรียกอยู่ — ปุ่มเป็น "แจ้งแล้ว" จนพนักงานกดรับทราบ (แม้รีเฟรชหน้า)
+    onSuccess: (_data, vars) => qc.invalidateQueries({ queryKey: publicKeys.session(vars.token) }),
+  })
 }
 
 export function useRequestCheckout() {

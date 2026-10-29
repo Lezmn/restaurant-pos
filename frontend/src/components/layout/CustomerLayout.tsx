@@ -4,7 +4,7 @@ import { cartCount, useCart } from '@/features/public/cart-store'
 import { ApiError } from '@/lib/api-client'
 import { RESTAURANT_NAME } from '@/lib/config'
 import { TableSessionStatus } from '@/types/enums'
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useParams } from 'react-router-dom'
 
 function IconHome() {
@@ -57,15 +57,24 @@ function IconBell() {
  * ปุ่มเรียกพนักงานอยู่บน header ทุกหน้า — ลูกค้าต้องเรียกได้ตลอด (ถามเมนู แพ้อาหาร ขอช้อนส้อม)
  * ไม่ใช่เฉพาะหน้าสถานะ กดแล้วล็อกปุ่มเป็น "แจ้งแล้ว" (backend คืนคำขอเดิมอยู่แล้วถ้ากดซ้ำ)
  */
-function CallStaffButton({ token }: Readonly<{ token: string }>) {
+function CallStaffButton({ token, pending }: Readonly<{ token: string; pending: boolean }>) {
   const callStaff = useCallStaff()
-  const done = callStaff.isSuccess
+  // "แจ้งแล้ว" = มีคำขอค้างอยู่จริงที่ backend — พนักงานกดรับทราบแล้ว (socket ดึง session ใหม่) ปุ่มกลับมากดได้
+  // ระหว่างส่ง mutation ยัง pending จนดึง session ใหม่เสร็จ (onSuccess คืน promise) ปุ่มจึงไม่กระพริบกลับ
+  const done = pending || callStaff.isPending
+  // บอก screen reader ตอนพนักงานรับเรื่องแล้ว — ตาเห็นจากปุ่มที่เปลี่ยนกลับ
+  const [acknowledged, setAcknowledged] = useState(false)
+  const [wasPending, setWasPending] = useState(pending)
+  if (pending !== wasPending) {
+    setWasPending(pending)
+    setAcknowledged(wasPending && !pending)
+  }
 
   return (
     <>
       <button
         type="button"
-        disabled={callStaff.isPending || done}
+        disabled={done}
         onClick={() => callStaff.mutate({ token })}
         className={`flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border-2 px-3 text-sm font-bold transition md:text-base ${
           done
@@ -77,7 +86,7 @@ function CallStaffButton({ token }: Readonly<{ token: string }>) {
         {done ? 'แจ้งแล้ว' : 'เรียกพนักงาน'}
       </button>
       <output className="sr-only">
-        {done ? 'แจ้งพนักงานแล้ว กรุณารอสักครู่' : ''}
+        {done ? 'แจ้งพนักงานแล้ว กรุณารอสักครู่' : acknowledged ? 'พนักงานรับทราบแล้ว' : ''}
       </output>
     </>
   )
@@ -207,7 +216,7 @@ export function CustomerLayout() {
             ))}
           </nav>
 
-          {token && isOpen && <CallStaffButton token={token} />}
+          {token && isOpen && <CallStaffButton token={token} pending={Boolean(session?.callStaffPending)} />}
         </div>
       </header>
 

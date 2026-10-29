@@ -130,6 +130,9 @@ export function useCustomerLiveEvents(sessionToken: string | undefined) {
         refetchSession()
       })
       socket.on('table-session.closed', refetchSession)
+      // พนักงานกดรับทราบเรียกพนักงาน / รับเรื่องเช็คบิล → ปุ่มฝั่งลูกค้ากลับมากดได้ทันที
+      socket.on('service-request.created', refetchSession)
+      socket.on('service-request.updated', refetchSession)
       // พนักงานย้ายโต๊ะ (เลขโต๊ะบนหัวจอเปลี่ยน) หรือรวมโต๊ะอื่นเข้ามา (มีออเดอร์เพิ่มในบิล)
       socket.on('table-session.updated', () => {
         refetchSession()

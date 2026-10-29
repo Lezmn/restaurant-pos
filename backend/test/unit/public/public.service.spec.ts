@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { OrderStatus, Prisma, ServiceRequestStatus } from '@prisma/client';
+import { OrderStatus, Prisma, ServiceRequestStatus, ServiceRequestType } from '@prisma/client';
 import { PublicService } from '../../../src/public/public.service';
 
 const D = (v: number) => new Prisma.Decimal(v);
@@ -83,17 +83,29 @@ describe('PublicService (หน้าลูกค้าสแกน QR)', () => 
     expect(menuItems.include.options.where).toEqual({ isAvailable: true });
   });
 
-  it('getSession คืนเฉพาะฟิลด์ที่ลูกค้าเห็นได้ + คำขอเช็คบิลที่ค้างอยู่', async () => {
+  it('getSession คืนเฉพาะฟิลด์ที่ลูกค้าเห็นได้ + คำขอเช็คบิล/เรียกพนักงานที่ค้างอยู่', async () => {
     const { prisma, service } = setup();
-    const pending = { id: 'req-1', createdAt: new Date() };
-    prisma.serviceRequest.findFirst.mockResolvedValue(pending);
+    const checkout = { id: 'req-1', createdAt: new Date() };
+    const call = { id: 'req-2', createdAt: new Date() };
+    prisma.serviceRequest.findFirst.mockImplementation(({ where }: any) =>
+      Promise.resolve(where.type === ServiceRequestType.CHECKOUT ? checkout : call),
+    );
     const res = await service.getSession('tok');
     expect(res.table).toEqual({ id: 'table-1', number: 7, seats: 4 });
-    expect(res.checkoutRequest).toBe(pending);
-    expect(prisma.serviceRequest.findFirst.mock.calls[0][0].where).toMatchObject({
-      tableSessionId: 'sess-1',
-      status: ServiceRequestStatus.PENDING,
-    });
+    expect(res.checkoutRequest).toBe(checkout);
+    expect(res.callStaffRequest).toBe(call);
+    for (const [{ where }] of prisma.serviceRequest.findFirst.mock.calls) {
+      expect(where).toMatchObject({ tableSessionId: 'sess-1', status: ServiceRequestStatus.PENDING });
+    }
+  });
+
+  // ทดสอบ: พนักงานรับทราบแล้ว (ไม่มีคำขอค้าง) → callStaffRequest เป็น null ปุ่มฝั่งลูกค้ากลับมากดได้
+  it('getSession ไม่มีคำขอค้าง → checkoutRequest/callStaffRequest เป็น null', async () => {
+    const { prisma, service } = setup();
+    prisma.serviceRequest.findFirst.mockResolvedValue(null);
+    const res = await service.getSession('tok');
+    expect(res.checkoutRequest).toBeNull();
+    expect(res.callStaffRequest).toBeNull();
   });
 
   it('createOrder ส่งต่อ OrdersService ด้วย token + items', async () => {

@@ -156,6 +156,8 @@ export interface ApiTableSession extends ApiTakeawayFields {
   billingStatus?: string
   /** /public/sessions ส่งมาแค่ id, paymentMethod, createdAt ของคำขอที่ยังรอ */
   checkoutRequest?: Pick<ApiServiceRequest, 'id' | 'paymentMethod' | 'createdAt'> | null
+  /** GET /public/sessions/:token เท่านั้น — เรียกพนักงานที่ยังรอพนักงานรับทราบ */
+  callStaffRequest?: Pick<ApiServiceRequest, 'id' | 'createdAt'> | null
   /** หารเท่ากันที่ยังจ่ายไม่ครบ (null = ไม่ได้หาร) */
   split?: ApiSessionSplit | null
 }
