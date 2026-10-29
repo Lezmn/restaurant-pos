@@ -146,11 +146,15 @@ export function EmployeeLayout() {
         aria-label="เมนูหลักพนักงาน"
         className="fixed inset-x-0 bottom-0 z-20 flex bg-rail pb-[env(safe-area-inset-bottom)] md:sticky md:top-0 md:h-dvh md:w-26 md:shrink-0 md:flex-col md:items-center md:gap-2 md:py-4 md:pb-4"
       >
+        {/* ร้านยังไม่มีโลโก้ — ใช้ไอคอนส้อมมีดแทน (ไม่ผูกกับชื่อร้านที่ตั้งค่าได้ผ่าน VITE_RESTAURANT_NAME) */}
         <span
           aria-hidden
-          className="mb-4 hidden h-13 w-13 items-center justify-center rounded-2xl bg-brand-300 text-xl font-bold text-rail md:flex"
+          className="mb-4 hidden h-13 w-13 items-center justify-center rounded-2xl bg-brand-300 text-rail md:flex"
         >
-          ตจ
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7">
+            <path d="M7 3v7a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V3M9 3v18" />
+            <path d="M17 21V3c-2.2 0-4 2.7-4 6v4h4" />
+          </svg>
         </span>
         {visibleTabs.map((tab) => (
           <NavLink

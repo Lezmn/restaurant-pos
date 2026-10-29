@@ -16,6 +16,7 @@ import {
 } from '@/features/table-sessions/hooks'
 import { useTables } from '@/features/tables/hooks'
 import { formatBaht, formatTime } from '@/lib/format'
+import { ago } from '@/lib/time-ago'
 import {
   ServiceRequestStatus,
   ServiceRequestType,
@@ -27,7 +28,7 @@ import { RESTAURANT_NAME } from '@/lib/config'
 import { QRCodeSVG } from 'qrcode.react'
 import { ManageTablesDialog } from './ManageTablesDialog'
 import { TakeOrderDialog } from './TakeOrderDialog'
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 const statusLabel: Record<string, string> = {
@@ -66,14 +67,6 @@ const requestLabel: Record<string, string> = {
 
 /** ลิงก์ที่ลูกค้าจะเข้าหลังสแกน — อิง origin ของหน้าที่เปิดอยู่ */
 const customerUrl = (token: string) => `${window.location.origin}/t/${token}`
-
-/** "เมื่อสักครู่" / "5 นาทีที่แล้ว" / "1 ชม.ที่แล้ว" — คำขอเก่าแค่ไหนสำคัญกว่าเวลานาฬิกา */
-function ago(iso: string) {
-  const minutes = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60_000))
-  if (minutes < 1) return 'เมื่อสักครู่'
-  if (minutes < 60) return `${minutes} นาทีที่แล้ว`
-  return `${Math.floor(minutes / 60)} ชม.ที่แล้ว`
-}
 
 export function TablesPage() {
   const user = useAuth((s) => s.user)
@@ -354,6 +347,16 @@ function RequestsInbox({
   resolvingId: string | null
   onResolve: (id: string) => void
 }>) {
+  const listRef = useRef<HTMLUListElement>(null)
+  // ยังมีคำขอซ่อนอยู่ใต้ขอบกล่อง — โชว์ขอบจางบอกว่าเลื่อนต่อได้
+  const [more, setMore] = useState(false)
+  const check = () => {
+    const el = listRef.current
+    if (el) setMore(el.scrollTop + el.clientHeight < el.scrollHeight - 1)
+  }
+  // คำขอเข้า/ออกแบบ real-time — ความสูงเปลี่ยนโดยไม่มีการเลื่อน ต้องเช็คใหม่ทุกครั้งที่รายการเปลี่ยน
+  useLayoutEffect(check, [requests.length])
+
   return (
     <section aria-labelledby="table-requests" className="flex flex-col gap-2.5 rounded-2xl border-2 border-staff-line bg-white p-4">
       <h2 id="table-requests" className="text-lg font-bold text-text">
@@ -361,44 +364,66 @@ function RequestsInbox({
         {requests.length > 0 && <span className="text-status-queue-ink tabular-nums">({requests.length})</span>}
       </h2>
       {requests.length === 0 && <p className="text-sm font-semibold text-gray-600">ไม่มีคำขอค้าง</p>}
-      {requests.map((req) => {
-        const checkout = req.type === ServiceRequestType.CHECKOUT
-        const call = req.type === ServiceRequestType.CALL_STAFF
-        return (
-          <div
-            key={req.id}
-            className={`flex items-center gap-3 rounded-xl border-2 bg-white p-3 ${
-              call ? 'border-status-queue/40' : checkout ? 'border-brand-100' : 'border-staff-line'
-            }`}
+      {/* เห็นราว 4 คำขอ ที่เหลือเลื่อนในกล่อง — กล่องรายละเอียดโต๊ะด้านล่างจะไม่ถูกดันตกจอ
+          เก่าสุดอยู่บน คำขอที่รอนานสุดจึงเห็นเสมอ */}
+      {requests.length > 0 && (
+        <div className="relative">
+          <ul
+            ref={listRef}
+            onScroll={check}
+            // tabIndex: เลื่อนด้วยคีย์บอร์ดได้
+            tabIndex={0}
+            aria-label="รายการคำขอ"
+            className="flex max-h-75 flex-col gap-2.5 overflow-y-auto overscroll-contain"
           >
-            <div className="min-w-0 flex-1">
-              <p className="text-base font-bold text-text">
-                โต๊ะ {req.tableName} ·{' '}
-                <span className={call ? 'text-status-queue-ink' : checkout ? 'text-brand-500' : 'text-gray-800'}>
-                  {requestLabel[req.type]}
-                </span>
-              </p>
-              <p className="truncate text-[13px] font-semibold text-gray-700">
-                {req.note ? `“${req.note}”` : ago(req.createdAt)}
-              </p>
-            </div>
-            {checkout ? (
-              <Link to="/employee/check" className={`shrink-0 ${button('primary', 'sm')}`}>
-                ไปที่บิล
-              </Link>
-            ) : (
-              <button
-                type="button"
-                disabled={resolvingId === req.id}
-                onClick={() => onResolve(req.id)}
-                className={`shrink-0 ${button('primary', 'sm')} disabled:opacity-60`}
-              >
-                รับทราบ
-              </button>
-            )}
-          </div>
-        )
-      })}
+            {requests.map((req) => {
+              const checkout = req.type === ServiceRequestType.CHECKOUT
+              const call = req.type === ServiceRequestType.CALL_STAFF
+              return (
+                <li
+                  key={req.id}
+                  className={`flex shrink-0 items-center gap-3 rounded-xl border-2 bg-white p-3 ${
+                    call ? 'border-status-queue/40' : checkout ? 'border-brand-100' : 'border-staff-line'
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base font-bold text-text">
+                      โต๊ะ {req.tableName} ·{' '}
+                      <span className={call ? 'text-status-queue-ink' : checkout ? 'text-brand-500' : 'text-gray-800'}>
+                        {requestLabel[req.type]}
+                      </span>
+                    </p>
+                    <p className="truncate text-[13px] font-semibold text-gray-700">
+                      {req.note ? `“${req.note}”` : ago(req.createdAt)}
+                    </p>
+                  </div>
+                  {checkout ? (
+                    <Link to="/employee/check" className={`shrink-0 ${button('primary', 'sm')}`}>
+                      ไปที่บิล
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={resolvingId === req.id}
+                      onClick={() => onResolve(req.id)}
+                      className={`shrink-0 ${button('primary', 'sm')} disabled:opacity-60`}
+                    >
+                      รับทราบ
+                    </button>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+          {more && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-white to-transparent"
+            />
+          )}
+        </div>
+      )}
+      {more && <p className="text-xs font-semibold text-gray-600">เลื่อนในกล่องเพื่อดูคำขอที่เหลือ</p>}
     </section>
   )
 }

@@ -198,8 +198,11 @@ function BoardSkeleton() {
   )
 }
 
-/** ที่เว้นไว้ใต้บอร์ดให้แถบเมนูล่าง — เท่ากับ pb-28 ของ <main> ใน EmployeeLayout */
-const BOTTOM_NAV_SPACE = 112
+/**
+ * ที่เว้นไว้ใต้บอร์ด — เท่ากับ md:pb-6 ของ <main> ใน EmployeeLayout
+ * (แท็บเล็ตขึ้นไปเมนูย้ายไปแถบซ้ายแล้ว ไม่มีแถบล่างให้เว้นที่ — hook นี้ทำงานเฉพาะ md ขึ้นไป)
+ */
+const BOTTOM_NAV_SPACE = 24
 /** บอร์ดเตี้ยกว่านี้ (จอเตี้ยมาก) ให้ทั้งหน้าเลื่อนแทน — คอลัมน์สั้นเกินเลื่อนดูไม่ไหว */
 const MIN_BOARD_HEIGHT = 360
 const TABLET_UP = '(min-width: 768px)'
