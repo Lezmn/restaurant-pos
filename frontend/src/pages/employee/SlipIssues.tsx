@@ -1,12 +1,13 @@
 import { ErrorNote } from '@/components/ui/ErrorNote'
 import { button } from '@/components/ui/styles'
+import { pageRoles } from '@/features/auth/permissions'
 import { useAuth } from '@/features/auth/use-auth'
 import {
   useRecheckSlip,
   useSlipIssuePayments,
 } from '@/features/payments/hooks'
 import { formatBaht } from '@/lib/format'
-import { Role, SlipStatus } from '@/types/enums'
+import { SlipStatus } from '@/types/enums'
 import type { Payment } from '@/types/models'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { AttachSlipDialog } from './AttachSlipDialog'
@@ -29,7 +30,8 @@ const VISIBLE_ROWS = 2
 export function SlipIssues() {
   const { data: payments } = useSlipIssuePayments()
   const recheck = useRecheckSlip()
-  const isAdmin = useAuth((s) => s.user?.role === Role.ADMIN)
+  // ยืนยันเองได้ทั้งเจ้าของและหน้าร้าน (ต้องใส่เหตุผล เก็บใน audit log)
+  const canConfirm = useAuth((s) => Boolean(s.user && pageRoles.confirmSlip.includes(s.user.role)))
   const [confirming, setConfirming] = useState<Payment | null>(null)
   const [attaching, setAttaching] = useState<Payment | null>(null)
   const listRef = useRef<HTMLUListElement>(null)
@@ -47,7 +49,7 @@ export function SlipIssues() {
     // หมุนจอ/ย่อหน้าต่าง = ข้อความตัดบรรทัดใหม่ แถวสูงเปลี่ยน
     window.addEventListener('resize', measure)
     return () => window.removeEventListener('resize', measure)
-  }, [scrolls, payments, isAdmin])
+  }, [scrolls, payments, canConfirm])
 
   if (!payments?.length) return null
 
@@ -66,7 +68,7 @@ export function SlipIssues() {
         <p className="pb-2 text-gray-700">
           ยังยืนยันไม่ได้ว่าเงินเข้าบัญชีร้านจริง — "รอสลิป" กดตรวจสลิปเมื่อลูกค้ายื่นสลิป ·
           "รอตรวจ" ระบบตรวจซ้ำให้เอง ·
-          "ไม่ผ่าน" ให้เช็คแอปธนาคาร แล้ว{isAdmin ? 'ยืนยันเอง' : 'แจ้งเจ้าของร้าน'}หรือยกเลิกบิล
+          "ไม่ผ่าน" ให้เช็คแอปธนาคาร แล้ว{canConfirm ? 'ยืนยันเอง' : 'แจ้งเจ้าของร้าน'}หรือยกเลิกบิล
         </p>
       </details>
 
@@ -116,7 +118,7 @@ export function SlipIssues() {
                   {recheck.isPending && recheck.variables === p.id ? 'กำลังตรวจ...' : 'ตรวจอีกครั้ง'}
                 </button>
               )}
-              {isAdmin && (
+              {canConfirm && (
                 <button
                   type="button"
                   onClick={() => setConfirming(p)}

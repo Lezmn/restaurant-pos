@@ -108,7 +108,7 @@ export async function attachSlip(vars: { id: Id; slipPayload: string }): Promise
   return mapPayment(data)
 }
 
-/** PATCH /payments/:id/slip/confirm @Roles(ADMIN) — ยืนยันรับเงินเอง (ต้องมีเหตุผล) */
+/** PATCH /payments/:id/slip/confirm @Roles(ADMIN, STAFF) — ยืนยันรับเงินเอง (ต้องมีเหตุผล) */
 export async function confirmSlip(vars: { id: Id; reason: string }): Promise<Payment> {
   const reason = vars.reason.trim()
   if (!reason) throw new Error('ต้องระบุเหตุผลที่ยืนยันเอง')

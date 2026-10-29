@@ -62,7 +62,7 @@ const MATRIX: [new (...a: any[]) => any, Record<string, Access>][] = [
     updateStatus: [A, K], markCleared: [A, K], addItem: [A, S], removeItem: [A, S],
   }],
   [PaymentsController, {
-    create: [A, S], voidPayment: [A, S], findAll: [A, S], findOne: [A, S], recheckSlip: [A, S], attachSlip: [A, S], confirmSlip: [A],
+    create: [A, S], voidPayment: [A, S], findAll: [A, S], findOne: [A, S], recheckSlip: [A, S], attachSlip: [A, S], confirmSlip: [A, S],
   }],
   [TableSessionsController, {
     create: [A, S], findAll: [A, S], findOne: [A, S], setGuestCount: [A, S], move: [A, S], merge: [A, S],

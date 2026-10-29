@@ -27,13 +27,17 @@ export async function getPublicCategories() {
   }))
 }
 
-/** session ฝั่งลูกค้า — checkoutRequested = แจ้งชำระเงินแล้ว พนักงานยังไม่ได้รับเรื่อง */
-export type PublicSession = TableSession & { checkoutRequested: boolean }
+/**
+ * session ฝั่งลูกค้า — checkoutRequested = แจ้งชำระเงินแล้ว พนักงานยังไม่ได้รับเรื่อง
+ * callStaffPending = เรียกพนักงานแล้ว พนักงานยังไม่กดรับทราบ
+ */
+export type PublicSession = TableSession & { checkoutRequested: boolean; callStaffPending: boolean }
 
 export async function getSessionByToken(token: string): Promise<PublicSession> {
   const data = await apiClient<ApiTableSession>(`/public/sessions/${token}`)
   return {
     checkoutRequested: Boolean(data.checkoutRequest),
+    callStaffPending: Boolean(data.callStaffRequest),
     id: data.id,
     tableId: data.tableId ?? data.table?.id ?? '',
     tableName: data.table ? String(data.table.number) : '-',

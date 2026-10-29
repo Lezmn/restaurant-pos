@@ -29,6 +29,7 @@ type PageKey =
   | 'openTable'
   | 'manageTables'
   | 'owner'
+  | 'confirmSlip'
 
 // ประกาศ type ตรง ๆ แทน satisfies เพราะ satisfies จะแคบค่าเป็น literal tuple
 // ทำให้ .includes(role) ฟ้อง error เวลา role เป็นตัวที่ไม่ได้อยู่ในลิสต์นั้น
@@ -50,6 +51,8 @@ export const pageRoles: Record<PageKey, Role[]> = {
   manageTables: [Role.ADMIN],
   /** ฝั่งเจ้าของร้าน — backend ไม่มี role OWNER แยก ใช้ ADMIN แทน */
   owner: [Role.ADMIN],
+  /** ยืนยันรับเงินเองหลังเก็บเงินแล้ว (ไม่มีสลิป/ตรวจไม่ได้) — PATCH /payments/:id/slip/confirm @Roles(ADMIN, STAFF) */
+  confirmSlip: [Role.ADMIN, Role.STAFF],
 }
 
 /** หน้าแรกหลัง login ของแต่ละ role — ต้องเป็นหน้าที่ role นั้นเข้าได้จริง ไม่งั้น redirect วนลูป */

@@ -100,7 +100,7 @@ export function CustomerCartPage() {
               }`}
             >
               <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-white">
-                <FoodImage src={line.imageUrl} alt={line.name} />
+                <FoodImage src={line.imageUrl} alt={line.name} width={80} />
               </div>
 
               <div className="flex min-w-0 flex-1 flex-col justify-between gap-2">
