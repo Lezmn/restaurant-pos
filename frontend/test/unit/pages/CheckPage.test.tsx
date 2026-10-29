@@ -38,11 +38,16 @@ vi.mock('@/pages/employee/CashDrawerBar', () => ({ CashDrawerBar: () => null }))
 vi.mock('@/pages/employee/PaidBills', () => ({ PaidBills: () => null }))
 vi.mock('@/pages/employee/SlipIssues', () => ({ SlipIssues: () => null }))
 vi.mock('@/pages/employee/ReceiptDialog', () => ({
-  ReceiptDialog: ({ payment, tendered }: { payment: Payment; tendered: number | null }) => (
+  ReceiptDialog: ({ payment, tendered, onPrinted }: { payment: Payment; tendered: number | null; onPrinted?: () => void }) => (
     <p>
       ใบเสร็จ {payment.id} รับมา {String(tendered)}
+      {/* แทนการสั่งพิมพ์อัตโนมัติจบ */}
+      {onPrinted && <button onClick={onPrinted}>พิมพ์เสร็จ</button>}
     </p>
   ),
+}))
+vi.mock('@/pages/employee/AttachSlipDialog', () => ({
+  AttachSlipDialog: ({ payment }: { payment: Payment }) => <p>ตรวจสลิปของ {payment.id}</p>,
 }))
 
 // jsdom ยังไม่มี showModal ของ <dialog>
@@ -585,7 +590,7 @@ describe('CheckPage — กล่องรับเงิน', () => {
   })
 
   // ทดสอบ: PromptPay: แสดง QR พร้อมยอดและป้ายโหมดเดโม ไม่มีช่องสแกนสลิปในกล่องแล้ว — ปุ่มเป็น "พิมพ์ใบเสร็จ" ส่ง slipLater
-  // วิธี: ล็อก config เป็นโหมดเดโมไว้ด้านบนไฟล์ → เปิดกล่อง PromptPay เช็ก QR (svg) ป้ายเดโม และไม่มีช่องสแกนสลิป → กดพิมพ์ใบเสร็จ ฿120 → เช็ก payload มี slipLater ไม่มี slipPayload → onSuccess แล้วขึ้นใบเสร็จ
+  // วิธี: ล็อก config เป็นโหมดเดโมไว้ด้านบนไฟล์ → เปิดกล่อง PromptPay เช็ก QR (svg) ป้ายเดโม และไม่มีช่องสแกนสลิป → กดพิมพ์ใบเสร็จ → เช็ก payload มี slipLater ไม่มี slipPayload → onSuccess แล้วขึ้นใบเสร็จ
   it('PromptPay: QR พร้อมยอด + คำเตือนโหมดเดโม · ไม่ต้องสแกนสลิป · "พิมพ์ใบเสร็จ" ส่ง slipLater', async () => {
     const user = userEvent.setup()
     const dialog = await openPromptPay(user)
@@ -595,12 +600,17 @@ describe('CheckPage — กล่องรับเงิน', () => {
     expect(within(dialog).queryByPlaceholderText(/ยิงเครื่องสแกน/)).not.toBeInTheDocument()
     expect(within(dialog).queryByRole('button', { name: /^รับเงิน/ })).not.toBeInTheDocument()
 
-    await user.click(within(dialog).getByRole('button', { name: 'พิมพ์ใบเสร็จ ฿120' }))
+    await user.click(within(dialog).getByRole('button', { name: 'พิมพ์ใบเสร็จ' }))
     const payload = createPayment.mutate.mock.calls[0][0]
     expect(payload).toMatchObject({ method: PaymentMethod.PROMPTPAY, slipLater: true, expectedTotal: 120 })
     expect(payload).not.toHaveProperty('slipPayload')
     createPayment.mutate.mock.calls[0][1].onSuccess({ id: 'pay-pp' })
     expect(await screen.findByText('ใบเสร็จ pay-pp รับมา null')).toBeInTheDocument()
+
+    // พิมพ์ใบเสร็จ (QR) เสร็จ → ไปหน้าตรวจสลิปของบิลนี้ต่อเลย
+    await user.click(screen.getByRole('button', { name: 'พิมพ์เสร็จ' }))
+    expect(screen.getByText('ตรวจสลิปของ pay-pp')).toBeInTheDocument()
+    expect(screen.queryByText(/ใบเสร็จ pay-pp/)).not.toBeInTheDocument()
   })
 
   // ทดสอบ: เงินสดไม่ส่ง slipLater (backend จะได้ไม่ตั้งสถานะสลิปให้บิลเงินสด)

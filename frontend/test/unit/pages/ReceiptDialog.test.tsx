@@ -101,9 +101,12 @@ describe('ReceiptDialog — PromptPay พิมพ์ใบเสร็จพร
 
   // ทดสอบ: กด "พิมพ์ใบเสร็จ" มาจากกล่องรับเงิน → สั่งพิมพ์ทันที แม้เครื่องนี้ไม่ได้ตั้งพิมพ์ทันทีไว้
   // วิธี: ปิด autoPrint → render พร้อม printNow → รอ print ถูกเรียก 1 ครั้ง
-  it('printNow → สั่งพิมพ์ทันทีแม้ไม่ได้ตั้งพิมพ์ทันที', async () => {
+  it('printNow → สั่งพิมพ์ทันทีแม้ไม่ได้ตั้งพิมพ์ทันที แล้วเรียก onPrinted', async () => {
     printSettings.setAutoPrintReceipt(false)
-    render(<ReceiptDialog payment={promptPay(SlipStatus.AWAITING)} justPaid printNow onClose={() => {}} />)
+    const onPrinted = vi.fn()
+    render(<ReceiptDialog payment={promptPay(SlipStatus.AWAITING)} justPaid printNow onPrinted={onPrinted} onClose={() => {}} />)
     await waitFor(() => expect(print).toHaveBeenCalledTimes(1))
+    // พิมพ์จบแล้วบอกหน้ารับเงินให้ไปหน้าตรวจสลิปต่อ
+    expect(onPrinted).toHaveBeenCalledTimes(1)
   })
 })

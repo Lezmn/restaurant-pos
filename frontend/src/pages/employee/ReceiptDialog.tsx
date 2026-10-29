@@ -26,6 +26,7 @@ export function ReceiptDialog({
   tendered = null,
   justPaid = false,
   printNow = false,
+  onPrinted,
   onClose,
 }: Readonly<{
   payment: Payment
@@ -35,6 +36,8 @@ export function ReceiptDialog({
   justPaid?: boolean
   /** สั่งพิมพ์ทันทีที่เปิด ไม่ว่าเครื่องนี้ตั้ง "พิมพ์ทันที" ไว้หรือไม่ (PromptPay: กดปุ่ม "พิมพ์ใบเสร็จ" มา) */
   printNow?: boolean
+  /** หลังสั่งพิมพ์อัตโนมัติเสร็จ (window.print() คืนค่าเมื่อปิดหน้าต่างพิมพ์ หรือทันทีใน kiosk-printing) */
+  onPrinted?: () => void
   onClose: () => void
 }>) {
   const receipt = payment.receipt
@@ -56,11 +59,17 @@ export function ReceiptDialog({
   // ตั้ง ref ตอนพิมพ์จริง: StrictMode รัน effect 2 รอบ รอบแรกถูก clear ไป — ref กันพิมพ์ซ้ำ 2 ใบ
   // Chrome ที่เปิด --kiosk-printing จะพิมพ์ออกเครื่องพิมพ์หลักเลยโดยไม่ถาม (docs/PRINTING.md)
   const printedRef = useRef(false)
+  // ค่าล่าสุดของ onPrinted — ไม่ใส่ใน deps ของ effect พิมพ์ ไม่งั้น parent render ใหม่แล้วตั้ง timer ใหม่ทุกรอบ
+  const onPrintedRef = useRef(onPrinted)
+  useEffect(() => {
+    onPrintedRef.current = onPrinted
+  }, [onPrinted])
   useEffect(() => {
     if (!printOnOpen || !receipt || printedRef.current) return
     const timer = setTimeout(() => {
       printedRef.current = true
       window.print()
+      onPrintedRef.current?.()
     })
     return () => clearTimeout(timer)
   }, [printOnOpen, receipt])

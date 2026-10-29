@@ -25,6 +25,7 @@ import {
 } from '@/types/enums'
 import type { Id, Order, Payment, SessionSplit, TableSession } from '@/types/models'
 import { CashDrawerBar } from './CashDrawerBar'
+import { AttachSlipDialog } from './AttachSlipDialog'
 import { PaidBills } from './PaidBills'
 import { ReceiptDialog } from './ReceiptDialog'
 import { SlipIssues } from './SlipIssues'
@@ -116,6 +117,8 @@ export function CheckPage() {
     /** PromptPay: กด "พิมพ์ใบเสร็จ" มา = สั่งพิมพ์ทันที (ใบเสร็จมี QR ให้ลูกค้าสแกน) */
     printNow: boolean
   } | null>(null)
+  /** PromptPay: พิมพ์ใบเสร็จ (QR) เสร็จแล้วไปหน้าตรวจสลิปต่อเลย — ลูกค้ายืนสแกนจ่ายอยู่ที่เคาน์เตอร์ */
+  const [slipTarget, setSlipTarget] = useState<Payment | null>(null)
   /** โต๊ะที่กำลังจะปิด — ยืนยันใน popup แบบเดียวกับหน้าอื่น (เดิมใช้ confirm() ของเบราว์เซอร์) */
   const [closing, setClosing] = useState<{
     session: TableSession
@@ -399,9 +402,15 @@ export function CheckPage() {
           tendered={receipt.tendered}
           justPaid
           printNow={receipt.printNow}
+          onPrinted={receipt.printNow ? () => {
+            setSlipTarget(receipt.payment)
+            setReceipt(null)
+          } : undefined}
           onClose={() => setReceipt(null)}
         />
       )}
+
+      {slipTarget && <AttachSlipDialog payment={slipTarget} onClose={() => setSlipTarget(null)} />}
 
       {activeTarget && (
         <PaymentDialog
@@ -636,7 +645,6 @@ function PaymentDialog({
   // ลดราคาต้องมีเหตุผลเสมอ เหมือนยกเลิกบิล
   const canSubmit = percentValid && (!hasDiscount || discountReason.trim() !== '')
   const change = receivedNum - chargedNum
-  const chargeAmount = chargedNum
 
   // QR ผูกยอดเงินไว้ด้วย ลูกค้าจึงไม่ต้องกรอกยอดเอง
   const qrPayload =
@@ -948,7 +956,7 @@ function PaymentDialog({
             {isSaving
               ? 'กำลังบันทึก...'
               : isPromptPay
-                ? `พิมพ์ใบเสร็จ ${formatBaht(chargeAmount)}`
+                ? 'พิมพ์ใบเสร็จ'
                 : 'รับเงิน'}
           </button>
         </div>
