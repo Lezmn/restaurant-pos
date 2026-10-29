@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCashClosePreview, useCreateCashClose } from '@/features/cash-closes/hooks'
@@ -156,5 +156,80 @@ describe('CashDrawerBar — ลิ้นชักวันนี้', () => {
     setup(preview(), { isError: true, error: new Error('down') })
     expect(screen.getByRole('alert')).toHaveTextContent('อัปเดตยอดไม่ได้ ตัวเลขอาจไม่ใช่ล่าสุด')
     expect(ledger('รับเงินสด')).toBe('฿1,250.5')
+  })
+
+  // ทดสอบ: กำลังโหลดครั้งแรกโชว์ skeleton / ไม่มีข้อมูลและไม่ error ไม่ต้องโชว์อะไร
+  it('กำลังโหลด → skeleton, ไม่มีข้อมูลและไม่ error → ไม่แสดงแถบ', () => {
+    const { container, unmount } = setup(undefined)
+    expect(container.querySelector('.animate-pulse')).toBeInTheDocument()
+    unmount()
+    const { container: empty } = setup(undefined, { isPending: false })
+    expect(empty).toBeEmptyDOMElement()
+  })
+})
+
+describe('CashDrawerBar — กล่องหยิบเงินออก', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const open = async () => {
+    const user = userEvent.setup()
+    setup(preview())
+    await user.click(screen.getByRole('button', { name: 'หยิบเงินออก' }))
+    const dialog = screen.getByRole('dialog', { name: 'หยิบเงินออกจากลิ้นชัก' })
+    return { user, dialog }
+  }
+
+  // ทดสอบ: ยังไม่กรอกยอดหรือรายละเอียด / ยอด 0 ต้องกดบันทึกไม่ได้
+  it('ต้องมีทั้งยอด > 0 และรายละเอียด ถึงกดบันทึกได้', async () => {
+    const { user, dialog } = await open()
+    const save = within(dialog).getByRole('button', { name: 'บันทึก' })
+    expect(save).toBeDisabled()
+    await user.type(within(dialog).getByPlaceholderText('เช่น น้ำแข็ง 2 ถุง'), 'น้ำแข็ง')
+    expect(save).toBeDisabled()
+    await user.type(within(dialog).getByRole('spinbutton'), '0')
+    expect(save).toBeDisabled()
+    await user.clear(within(dialog).getByRole('spinbutton'))
+    await user.type(within(dialog).getByRole('spinbutton'), '35.5')
+    expect(save).toBeEnabled()
+  })
+
+  // ทดสอบ: บันทึกส่งยอด/รายละเอียด/หมวดที่เลือก และปิดกล่องเมื่อสำเร็จ
+  it('บันทึก → ส่งยอด รายละเอียด หมวดที่เลือก แล้วปิดกล่องเมื่อสำเร็จ', async () => {
+    const { user, dialog } = await open()
+    const mutate = vi.mocked(useAddDrawerExpense).mock.results[0].value.mutate as ReturnType<typeof vi.fn>
+    expect(within(dialog).getByRole('button', { name: 'วัตถุดิบ' })).toHaveAttribute('aria-pressed', 'true')
+    await user.type(within(dialog).getByRole('spinbutton'), '120')
+    await user.type(within(dialog).getByPlaceholderText('เช่น น้ำแข็ง 2 ถุง'), 'ถ่านเตา')
+    await user.click(within(dialog).getByRole('button', { name: 'อุปกรณ์' }))
+    expect(within(dialog).getByRole('button', { name: 'อุปกรณ์' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(within(dialog).getByRole('button', { name: 'บันทึก' }))
+
+    expect(mutate).toHaveBeenCalledWith({ detail: 'ถ่านเตา', amount: 120, category: 'EQUIPMENT' }, expect.anything())
+    const { onSuccess } = mutate.mock.calls[0][1] as { onSuccess: () => void }
+    act(() => onSuccess())
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  // ทดสอบ: กดย้อนกลับปิดกล่องโดยไม่บันทึก
+  it('ย้อนกลับ → ปิดกล่อง ไม่บันทึก', async () => {
+    const { user, dialog } = await open()
+    await user.click(within(dialog).getByRole('button', { name: 'ย้อนกลับ' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(vi.mocked(useAddDrawerExpense).mock.results[0].value.mutate).not.toHaveBeenCalled()
+  })
+
+  // ทดสอบ: กำลังบันทึกปุ่มเปลี่ยนข้อความและกดซ้ำไม่ได้ / บันทึกไม่ผ่านโชว์ error ในกล่อง
+  it('กำลังบันทึก → ปุ่ม "กำลังบันทึก..." กดไม่ได้ และ error โชว์ในกล่อง', async () => {
+    const user = userEvent.setup()
+    setup(preview())
+    vi.mocked(useAddDrawerExpense).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: true,
+      error: new Error('บันทึกไม่สำเร็จ'),
+    } as never)
+    await user.click(screen.getByRole('button', { name: 'หยิบเงินออก' }))
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByRole('button', { name: 'กำลังบันทึก...' })).toBeDisabled()
+    expect(dialog).toHaveTextContent('บันทึกไม่สำเร็จ')
   })
 })
