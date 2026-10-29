@@ -39,7 +39,7 @@ const preview = async (request: Parameters<typeof tokens>[0]) =>
 
 // @totals-billing: เทียบยอดขายทั้งวัน — รันแยกหลังเทสอื่นจบ (playwright.config.ts) ไม่ให้บิลของเทสอื่นปนยอด
 // ทดสอบ: เงินทั้งเส้นต้องตรงกัน: ยอดบิลรวมตัวเลือก ส่วนลด ใบเสร็จ ยอดใน Dashboard และยอดปิดลิ้นชัก พอยกเลิกบิลแล้วยอดต้องหายคืน และเก็บใหม่ได้
-// วิธี: จดยอด Dashboard/ปิดยอดก่อน → เปิดโต๊ะ สั่งข้าวผัด+ตัวเลือก และน้ำ (รวม 190) → เช็กว่ายังไม่เสิร์ฟเก็บเงินไม่ได้ ยอดบนจอผิดได้ 409 เก็บเกินได้ 400 → เก็บ 180.5 แล้วเช็กใบเสร็จ โต๊ะว่าง ยอดเพิ่ม 180.5 → ยกเลิกบิล ยอดกลับเท่าเดิม โต๊ะกลับมาค้างจ่าย → เก็บใหม่เต็ม 190 ได้เลขใบเสร็จใหม่ (รันแยกหลังชุดหลัก แท็ก @totals-billing)
+// วิธี: จดยอด Dashboard/ปิดยอดก่อน → เปิดโต๊ะ สั่งข้าวผัด+ตัวเลือก และน้ำ (รวม 190) → เช็กว่ายังไม่เสิร์ฟเก็บเงินไม่ได้ ยอดบนจอผิดได้ 409 เก็บเกินได้ 400 → เก็บเงินสดลด 5% ได้ 181 (180.50 ปัดครึ่งขึ้น) แล้วเช็กใบเสร็จ โต๊ะว่าง ยอดเพิ่ม 181 → ยกเลิกบิล ยอดกลับเท่าเดิม โต๊ะกลับมาค้างจ่าย → เก็บใหม่เต็ม 190 ได้เลขใบเสร็จใหม่ (รันแยกหลังชุดหลัก แท็ก @totals-billing)
 test('ยอดบิล ส่วนลด ใบเสร็จ และยอดใน dashboard/ปิดยอด ตรงกัน แล้วยกเลิกบิลยอดต้องหายคืน', { tag: '@totals-billing' }, async ({ request }) => {
   const before = await dashboard(request)
   const beforeClose = await preview(request)
@@ -71,12 +71,12 @@ test('ยอดบิล ส่วนลด ใบเสร็จ และย�
   const payment = await ok(
     await call(request, 'POST', '/payments', {
       token: t.STAFF,
-      // ลด 5%: 190 × 5% = 9.50 → เก็บ 180.50
+      // ลด 5%: 190 × 5% = 9.50 → 180.50 → เงินสดปัดเป็น 181 (ส่วนลดเหลือ 9)
       data: { tableSessionId: session.id, method: 'CASH', expectedTotal: 190, discountPercent: 5, note: 'ลูกค้าประจำ' },
     }),
   )
-  expect(payment.amount).toBe(180.5)
-  expect(payment.receipt).toMatchObject({ subtotal: 190, discount: 9.5, discountPercent: 5, total: 180.5, note: 'ลูกค้าประจำ' })
+  expect(payment.amount).toBe(181)
+  expect(payment.receipt).toMatchObject({ subtotal: 190, discount: 9, discountPercent: 5, total: 181, note: 'ลูกค้าประจำ' })
   expect(payment.receipt.number).toMatch(/^RCPT-\d{8}-\d{4}$/)
   const lineTotals = payment.receipt.items.map((i: { lineTotal: number }) => i.lineTotal).sort((a: number, b: number) => a - b)
   expect(lineTotals).toEqual([30, 160])
@@ -88,11 +88,11 @@ test('ยอดบิล ส่วนลด ใบเสร็จ และย�
 
   // ตัวเลขเจ้าของร้าน = ยอดที่เก็บจริง (หลังส่วนลด)
   const after = await dashboard(request)
-  expect(after.revenue - before.revenue).toBeCloseTo(180.5, 2)
+  expect(after.revenue - before.revenue).toBeCloseTo(181, 2)
   expect(after.paymentCount - before.paymentCount).toBe(1)
-  expect(after.revenueByMethod.CASH - before.revenueByMethod.CASH).toBeCloseTo(180.5, 2)
+  expect(after.revenueByMethod.CASH - before.revenueByMethod.CASH).toBeCloseTo(181, 2)
   const afterClose = await preview(request)
-  expect(afterClose.cashSales - beforeClose.cashSales).toBeCloseTo(180.5, 2)
+  expect(afterClose.cashSales - beforeClose.cashSales).toBeCloseTo(181, 2)
 
   // ใบเสร็จดูซ้ำได้ (พิมพ์ซ้ำ)
   const again = await ok(await call(request, 'GET', `/payments/${payment.id}`, { token: t.STAFF }))

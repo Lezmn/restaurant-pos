@@ -14,7 +14,6 @@ import { useWakeLock } from '@/lib/use-wake-lock'
 import { OrderStatus } from '@/types/enums'
 import type { Order, OrderItem } from '@/types/models'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { KitchenSoldOutButton } from './KitchenSoldOut'
 
 // socket สั่ง refetch ให้อยู่แล้ว — poll นี้เป็นตัวสำรองตอน socket หลุด
 const POLL_MS = LIVE_POLL_MS
@@ -418,10 +417,6 @@ export function OrderPage() {
       <p role="status" aria-live="polite" className="sr-only">
         {announcement}
       </p>
-      {/* ของหมดกดได้จากจอครัวเลย ไม่ต้องสลับไปหน้า Manage */}
-      <div className="mb-4">
-        <KitchenSoldOutButton />
-      </div>
       {ordersQuery.isError && (
         <LoadError
           what="ออเดอร์"

@@ -42,7 +42,27 @@ const CODE_MESSAGES: Record<number, string> = {
   1014: 'ไม่ได้โอนเข้าบัญชีของร้าน',
 };
 
-const DEFAULT_BASE_URL = 'https://api.slipok.com/api/line/apikey';
+/**
+ * SlipOK ใส่วันที่แบบ Date.toString() มาในข้อความ (เช่น 1012 "…เคยส่งเข้ามาในระบบเมื่อ Thu Oct 29 2026 15:59:35 GMT+0700 (Indochina Time)")
+ * แปลงเป็นวันที่แบบไทยเหมือนใบเสร็จ ("29 ต.ค. 2569 15:59 น.") — แคชเชียร์อ่านง่ายกว่า
+ */
+const SLIPOK_DATE = /[A-Z][a-z]{2} [A-Z][a-z]{2} \d{1,2} \d{4} \d{2}:\d{2}:\d{2} GMT[+-]\d{4}(?: \([^)]*\))?/g;
+const tidy = (message: string) =>
+  message.replace(SLIPOK_DATE, (raw) => {
+    const date = new Date(raw.replace(/ \(.*\)$/, ''));
+    if (Number.isNaN(date.getTime())) return raw;
+    const thai = date.toLocaleString('th-TH', {
+      timeZone: 'Asia/Bangkok',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    return `${thai} น.`;
+  });
+
+const DEFAULT_BASE_URL ='https://api.slipok.com/api/line/apikey';
 const TIMEOUT_MS = 10_000;
 
 /**
@@ -124,15 +144,16 @@ export class SlipOkService {
     }
 
     const code = typeof body?.code === 'number' ? body.code : null;
-    const message =
-      body?.message || (code !== null ? CODE_MESSAGES[code] : undefined) || `SlipOK ตอบกลับผิดปกติ (HTTP ${httpStatus})`;
+    const message = tidy(
+      body?.message || (code !== null ? CODE_MESSAGES[code] : undefined) || `SlipOK ตอบกลับผิดปกติ (HTTP ${httpStatus})`,
+    );
 
     if (code !== null && REJECTED_CODES.has(code)) {
       return { kind: 'rejected', code, message };
     }
     // QR อ่านได้แต่ไม่ใช่รายการที่ตรวจได้ (data.success = false) ก็ถือว่าสลิปใช้ไม่ได้
     if (body?.success && data?.success === false) {
-      return { kind: 'rejected', code, message: data.message || 'สลิปไม่ถูกต้อง' };
+      return { kind: 'rejected', code, message: tidy(data.message || 'สลิปไม่ถูกต้อง') };
     }
     return { kind: 'unavailable', code, message };
   }

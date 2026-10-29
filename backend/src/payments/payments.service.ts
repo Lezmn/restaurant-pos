@@ -104,7 +104,7 @@ export class PaymentsService {
       // ยอดบนจอ/QR ที่ลูกค้าจ่ายไปแล้ว ต้องตรงกับยอดที่จะบันทึก ไม่งั้นบันทึกเงินผิดเงียบ ๆ
       this.assertTotalUnchanged(subtotal, dto.expectedTotal);
       // แคชเชียร์ลดราคาเป็น % ได้ (ลูกค้าประจำ/ของมีตำหนิ) — คิดยอดที่นี่ ไม่เชื่อยอดจากหน้าจอ
-      const { charged: amount, discount } = this.applyDiscountPercent(subtotal, dto.discountPercent);
+      const { charged: amount, discount } = this.applyDiscountPercent(subtotal, dto.discountPercent, dto.method);
       this.assertSlipAmount(slip, amount);
 
       return this.recordPayment(tx, dto, slip, {
@@ -215,7 +215,7 @@ export class PaymentsService {
       const orders = await this.resolveUnpaidSessionOrders(tx, sessionId);
       const subtotal = this.calculateOrdersTotal(orders);
       this.assertTotalUnchanged(subtotal, dto.expectedTotal);
-      const { charged: total, discount } = this.applyDiscountPercent(subtotal, dto.discountPercent);
+      const { charged: total, discount } = this.applyDiscountPercent(subtotal, dto.discountPercent, dto.method);
       const draft = {
         id: '',
         parts,
@@ -405,7 +405,7 @@ export class PaymentsService {
     if (dto.items?.length) {
       const { subtotal, tableSessionId } = await previewSelection(this.prisma, dto.items);
       this.assertTotalUnchanged(subtotal, dto.expectedTotal);
-      return { charged: this.applyDiscountPercent(subtotal, dto.discountPercent).charged, sessionId: tableSessionId };
+      return { charged: this.applyDiscountPercent(subtotal, dto.discountPercent, dto.method).charged, sessionId: tableSessionId };
     }
     const orders = dto.orderIds?.length
       ? await this.resolveOrdersByIds(this.prisma, dto.orderIds)
@@ -413,7 +413,7 @@ export class PaymentsService {
     const subtotal = this.calculateOrdersTotal(orders);
     this.assertTotalUnchanged(subtotal, dto.expectedTotal);
     return {
-      charged: this.applyDiscountPercent(subtotal, dto.discountPercent).charged,
+      charged: this.applyDiscountPercent(subtotal, dto.discountPercent, dto.method).charged,
       sessionId: orders[0].tableSessionId!,
     };
   }
@@ -766,11 +766,17 @@ export class PaymentsService {
     }
   }
 
-  private applyDiscountPercent(subtotal: Prisma.Decimal, percent?: number) {
-    const discount = percent
-      ? subtotal.mul(percent).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP)
-      : new Prisma.Decimal(0);
-    return { charged: subtotal.minus(discount), discount };
+  /**
+   * เงินสดที่มีส่วนลด: ปัดยอดเก็บเป็นบาทเต็ม (เศษสตางค์ทอนไม่ได้) แบบปัดครึ่งขึ้น — .50 ขึ้นไปปัดขึ้น ต่ำกว่านั้นปัดลง
+   * ต้องตรงกับ frontend lib/discount.ts
+   */
+  private applyDiscountPercent(subtotal: Prisma.Decimal, percent?: number, method?: PaymentMethod) {
+    if (!percent) return { charged: subtotal, discount: new Prisma.Decimal(0) };
+    let charged = subtotal.minus(
+      subtotal.mul(percent).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
+    );
+    if (method === PaymentMethod.CASH) charged = charged.toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP);
+    return { charged, discount: subtotal.minus(charged) };
   }
 
   private calculateOrdersTotal(orders: PayableOrder[]) {

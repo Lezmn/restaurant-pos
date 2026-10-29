@@ -8,7 +8,8 @@ import { useTables } from '@/features/tables/hooks'
 import { RESTAURANT_NAME } from '@/lib/config'
 import { Role, TableStatus } from '@/types/enums'
 import { useEffect, useState, type ReactNode } from 'react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { KitchenSoldOutButton } from '@/pages/employee/KitchenSoldOut'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 function IconChef() {
   return (
@@ -113,6 +114,7 @@ export function EmployeeLayout() {
   const user = useAuth((s) => s.user)
   const signOut = useAuth((s) => s.signOut)
   const navigate = useNavigate()
+  const onOrderPage = useLocation().pathname.startsWith('/employee/order')
   const { data: tables } = useTables()
   // ต่อ socket ที่ layout จึงได้ event ทุกหน้าของพนักงาน (ครัว / Check / โต๊ะ / คำขอ)
   useStaffLiveEvents()
@@ -168,13 +170,18 @@ export function EmployeeLayout() {
           </div>
         </div>
 
-        <div className="mt-3 text-right text-base font-bold text-black sm:text-xl">
-          จำนวนโต๊ะที่ว่าง {tables ? available : '—'} โต๊ะ
-          {user && (
-            <span className="ml-3 text-sm font-normal text-gray-600">
-              ({user.name} · {user.role})
-            </span>
-          )}
+        {/* ปุ่มของหมด (เฉพาะหน้า Order) อยู่แถวเดียวกับจำนวนโต๊ะ — ไม่กินอีกแถวเหนือบอร์ดครัว */}
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          {onOrderPage ? <KitchenSoldOutButton /> : <span />}
+          <div className="ml-auto text-right text-base font-bold text-black sm:text-xl">
+            จำนวนโต๊ะที่ว่าง {tables ? available : '—'} โต๊ะ
+            {user && (
+              // มือถือขึ้นบรรทัดใหม่ — ไม่งั้นแถวยาวเกินจนปุ่มของหมดตกไปอยู่อีกแถว
+            <span className="block text-sm font-normal text-gray-600 sm:ml-3 sm:inline">
+                ({user.name} · {user.role})
+              </span>
+            )}
+          </div>
         </div>
       </header>
 

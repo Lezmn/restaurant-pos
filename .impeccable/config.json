@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "tahoma",
+        "createdAt": "2026-10-29T08:38:10.519Z",
+        "reason": "Claude: print-only font for thermal receipt (.print-receipt in @media print); screen type unchanged"
+      }
+    ]
+  }
+}

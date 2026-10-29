@@ -10,6 +10,15 @@ describe('applyDiscountPercent', () => {
     expect(applyDiscountPercent(235.5, 15)).toEqual({ discount: 35.33, charged: 200.17 })
   })
 
+  it('เงินสด: ยอดเก็บปัดครึ่งขึ้นเป็นบาทเต็ม (211.95 → 212, 200.17 → 200)', () => {
+    expect(applyDiscountPercent(235.5, 10, true)).toEqual({ discount: 23.5, charged: 212 })
+    expect(applyDiscountPercent(235.5, 15, true)).toEqual({ discount: 35.5, charged: 200 })
+  })
+
+  it('เงินสดแต่ไม่ลด = ไม่ปัด (ยอดบิลมีสตางค์ก็เก็บตามจริง)', () => {
+    expect(applyDiscountPercent(99.5, 0, true)).toEqual({ discount: 0, charged: 99.5 })
+  })
+
   it('100% = ฟรี', () => {
     expect(applyDiscountPercent(120, 100)).toEqual({ discount: 120, charged: 0 })
   })

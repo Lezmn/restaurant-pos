@@ -488,6 +488,22 @@ describe('CheckPage — กล่องรับเงิน', () => {
     )
   })
 
+  // ทดสอบ: เงินสดที่มีส่วนลด ยอดเก็บปัดครึ่งขึ้นเป็นบาทเต็ม (ทอนสตางค์ไม่ได้) แต่ PromptPay เก็บตามสตางค์จริง
+  // วิธี: โต๊ะยอด 120 ลด 7% (= 8.40 เก็บ 111.60) → เงินสดต้องเห็น "ลด ฿8" / "รับเงิน ฿112" → เปลี่ยนเป็น PromptPay ต้องเห็น ฿111.60
+  it('ส่วนลด % เงินสด: ปัดยอดเก็บครึ่งขึ้นเป็นบาทเต็ม PromptPay ไม่ปัด', async () => {
+    const user = userEvent.setup()
+    const dialog = await openPayment(user)
+    await user.click(within(dialog).getByRole('button', { name: 'ให้ส่วนลด' }))
+    await user.type(within(dialog).getByLabelText(/ลดกี่ %/), '7')
+
+    expect(dialog).toHaveTextContent('ลด ฿8')
+    expect(within(dialog).getByRole('button', { name: 'รับเงิน ฿112' })).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: 'PromptPay' }))
+    expect(dialog).toHaveTextContent('ลด ฿8.4')
+    expect(within(dialog).getByRole('button', { name: 'รับเงิน ฿111.6' })).toBeInTheDocument()
+  })
+
   // ทดสอบ: ปุ่ม % ที่ใช้บ่อย กดทีเดียวได้ส่วนลดเลย และปุ่มที่เลือกอยู่ถูกกดค้าง
   // วิธี: กดให้ส่วนลด → กด "10%" → เช็กช่อง % เป็น 10, ปุ่ม aria-pressed และ "ลด ฿12"
   it('ปุ่ม % ด่วน: กด 10% แล้วได้ส่วนลด 10% ทันที', async () => {
