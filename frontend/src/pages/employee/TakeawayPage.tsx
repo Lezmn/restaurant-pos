@@ -11,6 +11,7 @@ import { LIVE_POLL_MS } from '@/lib/live'
 import { useSlashFocus } from '@/lib/use-slash-focus'
 import { OrderStatus, PaymentMethod } from '@/types/enums'
 import type { Id, MenuItem, MenuOptionGroup, Order } from '@/types/models'
+import { sizedImageUrl } from '@/lib/image-url'
 import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { isOrderable, orderableGroups } from './orderable'
@@ -297,7 +298,8 @@ export function TakeawayPage() {
                       <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-brand-50">
                         {showImage ? (
                           <img
-                            src={item.imageUrl ?? undefined}
+                            // ขอรูปขนาดพอดีการ์ด — ลิงก์ Unsplash ต้นฉบับ ~3.5 MB/รูป ทำให้เปิดหน้านี้แล้วค้าง
+                            src={item.imageUrl ? sizedImageUrl(item.imageUrl, 240) : undefined}
                             alt=""
                             loading="lazy"
                             decoding="async"
