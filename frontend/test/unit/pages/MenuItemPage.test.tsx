@@ -34,7 +34,7 @@ function renderPage() {
       <MemoryRouter initialEntries={['/t/tok/menu/m1']}>
         <Routes>
           <Route path="/t/:token/menu/:menuItemId" element={<CustomerMenuItemPage />} />
-          <Route path="/t/:token/cart" element={<p>หน้าตะกร้า</p>} />
+          <Route path="/t/:token" element={<p>หน้าเมนู</p>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -62,7 +62,7 @@ describe('CustomerMenuItemPage', () => {
   })
 
   // ทดสอบ: ราคาบนปุ่ม = (เมนู + เนื้อสัตว์ + ท็อปปิ้ง) × จำนวน และสิ่งที่ลงตะกร้าตรงกับที่เลือก (โน้ตตัดช่องว่างหัวท้าย)
-  // วิธี: เลือกกุ้ง + ไข่ดาว กดเพิ่มจำนวนเป็น 2 → เช็กราคา ฿180 → พิมพ์โน้ตแล้วกดเพิ่ม → เช็กว่าไปหน้าตะกร้า และบรรทัดในตะกร้ามีจำนวน โน้ต ราคา และตัวเลือกถูก
+  // วิธี: เลือกกุ้ง + ไข่ดาว กดเพิ่มจำนวนเป็น 2 → เช็กราคา ฿180 → พิมพ์โน้ตแล้วกดเพิ่ม → เช็กว่ากลับหน้าเมนู และบรรทัดในตะกร้ามีจำนวน โน้ต ราคา และตัวเลือกถูก
   it('ราคาบนปุ่ม = (เมนู + เนื้อสัตว์ + ท็อปปิ้ง) × จำนวน และลงตะกร้าตรง', async () => {
     const user = userEvent.setup()
     renderPage()
@@ -76,7 +76,7 @@ describe('CustomerMenuItemPage', () => {
     await user.click(screen.getByRole('button', { name: 'ไม่เผ็ด' }))
     await user.click(add)
 
-    expect(await screen.findByText('หน้าตะกร้า')).toBeInTheDocument()
+    expect(await screen.findByText('หน้าเมนู')).toBeInTheDocument()
     const [line] = useCart.getState().lines
     expect(line).toMatchObject({ menuItemId: 'm1', quantity: 2, note: 'ข้าวน้อย, ไม่เผ็ด', basePrice: 60 })
     expect(line.options.map((o) => o.id).sort()).toEqual(['egg', 'shrimp'])

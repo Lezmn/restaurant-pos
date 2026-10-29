@@ -8,6 +8,15 @@
         "value": "tahoma",
         "createdAt": "2026-10-29T08:38:10.519Z",
         "reason": "Claude: print-only font for thermal receipt (.print-receipt in @media print); screen type unchanged"
+      },
+      {
+        "rule": "border-accent-on-rounded",
+        "value": "*",
+        "files": [
+          "frontend/src/pages/customer/MenuItemPage.tsx"
+        ],
+        "createdAt": "2026-10-29T15:39:07.867Z",
+        "reason": "Claude triage: L139 order bar uses border-t-2 as a full-width top divider on mobile (no radius) and a uniform lg:border-2 box on desktop; the detector combines the two breakpoints, so it is not a one-side accent on a rounded card"
       }
     ]
   }

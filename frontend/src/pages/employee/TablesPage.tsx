@@ -5,7 +5,10 @@ import { Modal } from '@/components/ui/Modal'
 import { button } from '@/components/ui/styles'
 import { pageRoles } from '@/features/auth/permissions'
 import { useAuth } from '@/features/auth/use-auth'
-import { useServiceRequests } from '@/features/service-requests/hooks'
+import {
+  useResolveServiceRequest,
+  useServiceRequests,
+} from '@/features/service-requests/hooks'
 import {
   useCloseSession,
   useOpenSession,
@@ -19,12 +22,13 @@ import {
   TableSessionStatus,
   TableStatus,
 } from '@/types/enums'
-import type { RestaurantTable, TableSession } from '@/types/models'
+import type { RestaurantTable, ServiceRequest, TableSession } from '@/types/models'
 import { RESTAURANT_NAME } from '@/lib/config'
 import { QRCodeSVG } from 'qrcode.react'
 import { ManageTablesDialog } from './ManageTablesDialog'
 import { TakeOrderDialog } from './TakeOrderDialog'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 const statusLabel: Record<string, string> = {
   [TableStatus.AVAILABLE]: 'ว่าง',
@@ -35,26 +39,41 @@ const statusLabel: Record<string, string> = {
 /**
  * สภาพของการ์ดโต๊ะ — ว่าง (ขอบประ) / มีลูกค้า / ขอเช็คบิล / เรียกพนักงาน
  * เรียกพนักงานสำคัญกว่าขอบิล (ลูกค้ารออยู่) จึงชนะเมื่อมีทั้งสองอย่าง
- * แยกด้วยรูปทรงขอบ + ป้ายข้อความ ไม่ได้บอกด้วยสีอย่างเดียว
+ * แยกด้วยรูปทรงขอบ + ข้อความ + ไอคอนกระดิ่ง ไม่ได้บอกด้วยสีอย่างเดียว
  */
 type TileState = 'free' | 'busy' | 'bill' | 'call'
 
 const tileTone: Record<TileState, string> = {
-  free: 'border-dashed border-gray-300 bg-staff-ground',
-  busy: 'border-brand-100 bg-white',
-  bill: 'border-brand-500 bg-brand-50',
-  call: 'border-status-queue-ink bg-status-queue/5',
+  free: 'border-dashed border-gray-300 bg-staff-ground text-gray-700',
+  busy: 'border-brand-100 bg-brand-50 text-text',
+  bill: 'border-brand-500 bg-brand-50 text-text',
+  call: 'border-status-queue-ink bg-status-queue/10 text-text',
 }
 
-const stateInk: Record<TileState, string> = {
-  free: 'text-gray-700',
-  busy: 'text-brand-500',
-  bill: 'text-brand-500',
-  call: 'text-status-queue-ink',
+const stateText: Record<TileState, [label: string | null, ink: string]> = {
+  // null = ใช้สถานะของโต๊ะเอง (ว่าง / มีลูกค้า / จองแล้ว)
+  free: [null, 'text-gray-700'],
+  busy: [null, 'text-brand-500'],
+  bill: ['ขอเช็คบิล', 'text-brand-500'],
+  call: ['เรียกพนักงาน', 'text-status-queue-ink'],
+}
+
+const requestLabel: Record<string, string> = {
+  [ServiceRequestType.CALL_STAFF]: 'เรียกพนักงาน',
+  [ServiceRequestType.CHECKOUT]: 'ขอเช็คบิล',
+  [ServiceRequestType.OTHER]: 'อื่น ๆ',
 }
 
 /** ลิงก์ที่ลูกค้าจะเข้าหลังสแกน — อิง origin ของหน้าที่เปิดอยู่ */
 const customerUrl = (token: string) => `${window.location.origin}/t/${token}`
+
+/** "เมื่อสักครู่" / "5 นาทีที่แล้ว" / "1 ชม.ที่แล้ว" — คำขอเก่าแค่ไหนสำคัญกว่าเวลานาฬิกา */
+function ago(iso: string) {
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60_000))
+  if (minutes < 1) return 'เมื่อสักครู่'
+  if (minutes < 60) return `${minutes} นาทีที่แล้ว`
+  return `${Math.floor(minutes / 60)} ชม.ที่แล้ว`
+}
 
 export function TablesPage() {
   const user = useAuth((s) => s.user)
@@ -63,12 +82,15 @@ export function TablesPage() {
   const { data: tables, isPending } = tablesQuery
   const { data: sessions } = sessionsQuery
   const { data: requests } = useServiceRequests()
+  const resolve = useResolveServiceRequest()
   const openSession = useOpenSession()
   const closeSession = useCloseSession()
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [qrTarget, setQrTarget] = useState<TableSession | null>(null)
   const [orderTarget, setOrderTarget] = useState<TableSession | null>(null)
   // ปิดโต๊ะย้อนกลับไม่ได้ (QR ใช้ไม่ได้อีก) — ถามก่อนเหมือนหน้า Check
   const [closeTarget, setCloseTarget] = useState<TableSession | null>(null)
+  const panelRef = useRef<HTMLElement>(null)
 
   // เปิดโต๊ะได้เฉพาะ ADMIN/STAFF ตาม @Roles ของ POST /table-sessions
   const canOpen = Boolean(user && pageRoles.openTable.includes(user.role))
@@ -83,8 +105,12 @@ export function TablesPage() {
   const openSessionOf = (table: RestaurantTable) =>
     openTableSessions.find((s) => s.tableId === table.id)
 
-  // คำขอที่ยังค้างของแต่ละบิล — ใช้ระบายการ์ด (ตัวรับเรื่องจริงยังเป็นป๊อปอัปเรียกพนักงาน / หน้า Check)
-  const pending = (requests ?? []).filter((r) => r.status === ServiceRequestStatus.PENDING)
+  // คำขอที่ยังค้าง เก่าสุดก่อน — ใช้ทั้งระบายการ์ดและกล่องคำขอด้านขวา
+  // เฉพาะของบิลโต๊ะที่ยังเปิดอยู่ — คำขอค้างของบิลที่ปิดไปแล้วไม่มีใครต้องไปหา
+  const openIds = new Set(openTableSessions.map((s) => s.id))
+  const pending = (requests ?? [])
+    .filter((r) => r.status === ServiceRequestStatus.PENDING && openIds.has(r.tableSessionId))
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
   const stateOf = (table: RestaurantTable, session: TableSession | undefined): TileState => {
     if (!session) return table.status === TableStatus.AVAILABLE ? 'free' : 'busy'
     const mine = pending.filter((r) => r.tableSessionId === session.id)
@@ -98,6 +124,15 @@ export function TablesPage() {
     return { table, session, state: stateOf(table, session) }
   })
   const count = (state: TileState) => tiles.filter((t) => t.state === state).length
+  const selected = tiles.find((t) => t.table.id === selectedId)
+
+  const select = (id: string) => {
+    setSelectedId(id)
+    // จอแคบกล่องรายละเอียดอยู่ใต้ผังโต๊ะ — เลื่อนลงไปให้เห็นปุ่มทันที
+    if (!window.matchMedia?.('(min-width: 1024px)').matches) {
+      panelRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+    }
+  }
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -124,7 +159,7 @@ export function TablesPage() {
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
         <ul aria-label="สรุปสถานะโต๊ะ" className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <Legend swatch="border-dashed border-gray-400 bg-staff-ground" label="ว่าง" n={count('free')} />
-          <Legend swatch="border-brand-100 bg-white" label="มีลูกค้า" n={count('busy')} />
+          <Legend swatch="border-brand-100 bg-brand-50" label="มีลูกค้า" n={count('busy')} />
           <Legend swatch="border-brand-500 bg-brand-50" label="ขอเช็คบิล" n={count('bill')} />
           <Legend swatch="border-status-queue-ink bg-status-queue/10" label="เรียกพนักงาน" n={count('call')} />
         </ul>
@@ -134,93 +169,140 @@ export function TablesPage() {
           </button>
         )}
       </div>
-      <p className="mt-2 text-sm text-gray-600">
-        เปิดโต๊ะเพื่อพิมพ์ QR ให้ลูกค้าสแกนสั่งเอง · ปิดโต๊ะเมื่อลูกค้ากลับและจ่ายครบแล้ว
-      </p>
 
       {managing && <ManageTablesDialog onClose={() => setManaging(false)} />}
 
       {isPending && <p className="mt-4 text-sm text-gray-600">กำลังโหลด...</p>}
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {tiles.map(({ table, session, state }) => (
-          <article
-            key={table.id}
-            // min-w-0: ชื่อโต๊ะยาวไม่ดันการ์ดจนล้นจอมือถือ
-            className={`flex min-w-0 flex-col gap-3 rounded-2xl border-2 p-4 ${tileTone[state]}`}
-          >
-            <div className="flex items-start justify-between gap-2">
-              {/* p.text-xl = หัวการ์ดที่ E2E ใช้หาโต๊ะแบบตรงตัว (helpers.tablesPageCard) */}
-              <p className="text-xl font-bold leading-tight text-text sm:text-2xl">โต๊ะ {table.name}</p>
-              {state === 'call' && (
-                <span className="flex shrink-0 items-center gap-1 rounded-full bg-status-queue-ink px-2.5 py-1 text-xs font-bold text-white">
-                  <BellIcon />
-                  เรียกพนักงาน
-                </span>
-              )}
-              {state === 'bill' && (
-                <span className="shrink-0 rounded-full bg-brand-500 px-2.5 py-1 text-xs font-bold text-white">
-                  ขอเช็คบิล
-                </span>
-              )}
-            </div>
-
-            <div>
-              <span className={`text-base font-bold ${stateInk[state]}`}>{statusLabel[table.status]}</span>
-              {session && (
-                <p className="text-sm font-semibold text-gray-700 tabular-nums">
-                  เปิด {formatTime(session.openedAt)} · {formatBaht(session.total)}
-                </p>
-              )}
-            </div>
-
-            {session ? (
-              <div className="mt-auto flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={() => setOrderTarget(session)}
-                  className={`w-full ${button('primary', 'md')}`}
-                >
-                  รับออเดอร์แทนลูกค้า
-                </button>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setQrTarget(session)}
-                    className={`gap-1.5 ${button('outline', 'sm')}`}
-                  >
-                    <QrIcon />
-                    ดู QR
-                  </button>
-                  <button
-                    type="button"
-                    disabled={closeSession.isPending}
-                    onClick={() => setCloseTarget(session)}
-                    className={`${button('danger-outline', 'sm')} disabled:opacity-60`}
-                  >
-                    ปิดโต๊ะ
-                  </button>
-                </div>
-              </div>
-            ) : (
+      <div className="mt-4 flex flex-wrap items-start gap-5">
+        {/* ผังโต๊ะ — การ์ดเป็นปุ่มเลือกโต๊ะ ปุ่มทำงานจริงอยู่ในกล่องรายละเอียดด้านขวา */}
+        <section aria-label="ผังโต๊ะ" className="grid min-w-0 flex-[999_1_560px] grid-cols-2 gap-3.5 sm:grid-cols-3 xl:grid-cols-4">
+          {tiles.map(({ table, session, state }) => {
+            const [label, ink] = stateText[state]
+            const isSelected = table.id === selectedId
+            return (
               <button
+                key={table.id}
                 type="button"
-                disabled={!canOpen || openSession.isPending}
-                title={canOpen ? undefined : 'ต้องเป็น ADMIN หรือ STAFF'}
-                onClick={() =>
-                  openSession.mutate(table.id, {
-                    // เปิดโต๊ะเสร็จเด้ง QR ขึ้นมาเลย จะได้กดพิมพ์ต่อได้ทันที
-                    onSuccess: (session) => setQrTarget(session),
-                  })
-                }
-                className={`mt-auto w-full gap-2 ${button('primary', 'lg')} disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-600`}
+                aria-pressed={isSelected}
+                onClick={() => select(table.id)}
+                className={`relative flex min-h-33 flex-col items-start justify-between rounded-2xl border-2 p-3.5 text-left transition hover:brightness-[0.98] ${tileTone[state]} ${
+                  isSelected ? 'ring-4 ring-brand-75' : ''
+                }`}
               >
-                <QrIcon />
-                เปิดโต๊ะ/สร้าง QR
+                <span className="text-3xl font-bold leading-none tabular-nums">
+                  <span className="sr-only">โต๊ะ </span>
+                  {table.name}
+                </span>
+                <span className="flex flex-col gap-0.5">
+                  <span className={`text-[15px] font-bold ${ink}`}>{label ?? statusLabel[table.status]}</span>
+                  <span className="text-[13px] font-semibold text-gray-700 tabular-nums">
+                    {session
+                      ? `เปิด ${formatTime(session.openedAt)} · ${formatBaht(session.total)}`
+                      : 'แตะเพื่อเปิดโต๊ะ'}
+                  </span>
+                </span>
+                {state === 'call' && (
+                  <span
+                    aria-hidden
+                    className="absolute top-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-status-queue-ink text-white"
+                  >
+                    <BellIcon />
+                  </span>
+                )}
               </button>
+            )
+          })}
+        </section>
+
+        <aside className="flex w-full flex-col gap-3.5 lg:w-95 lg:shrink-0">
+          <RequestsInbox
+            requests={pending}
+            resolvingId={resolve.isPending ? (resolve.variables ?? null) : null}
+            onResolve={(id) => resolve.mutate(id)}
+          />
+
+          <section
+            ref={panelRef}
+            aria-label={selected ? `โต๊ะ ${selected.table.name}` : 'รายละเอียดโต๊ะ'}
+            className={`flex scroll-mt-24 flex-col gap-3 rounded-2xl border-2 bg-white p-4 ${
+              selected ? 'border-brand-500' : 'border-staff-line'
+            }`}
+          >
+            {!selected ? (
+              <p className="py-6 text-center text-sm font-semibold text-gray-600">
+                แตะโต๊ะในผังเพื่อเปิดโต๊ะ ดู QR หรือรับออเดอร์
+              </p>
+            ) : (
+              <>
+                <div className="flex items-baseline gap-2.5">
+                  <h2 className="text-2xl font-bold text-text">โต๊ะ {selected.table.name}</h2>
+                  <span className="text-sm font-semibold text-gray-700">
+                    {statusLabel[selected.table.status]}
+                    {selected.session && ` · เปิด ${formatTime(selected.session.openedAt)}`}
+                  </span>
+                </div>
+
+                {selected.session ? (
+                  <>
+                    <div className="flex items-baseline justify-between rounded-xl bg-staff-ground px-3 py-2">
+                      <span className="text-sm font-bold text-gray-700">ยอดค้างชำระ</span>
+                      <span className="text-2xl font-bold text-price tabular-nums">
+                        {formatBaht(selected.session.total)}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setOrderTarget(selected.session ?? null)}
+                      className={`w-full ${button('primary', 'lg')} min-h-14 text-lg`}
+                    >
+                      รับออเดอร์แทนลูกค้า
+                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setQrTarget(selected.session ?? null)}
+                        className={`gap-1.5 ${button('outline', 'md')}`}
+                      >
+                        <QrIcon />
+                        ดู QR
+                      </button>
+                      <button
+                        type="button"
+                        disabled={closeSession.isPending}
+                        onClick={() => setCloseTarget(selected.session ?? null)}
+                        className={`${button('danger-outline', 'md')} disabled:opacity-60`}
+                      >
+                        ปิดโต๊ะ
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      disabled={!canOpen || openSession.isPending}
+                      title={canOpen ? undefined : 'ต้องเป็น ADMIN หรือ STAFF'}
+                      onClick={() =>
+                        openSession.mutate(selected.table.id, {
+                          // เปิดโต๊ะเสร็จเด้ง QR ขึ้นมาเลย จะได้กดพิมพ์ต่อได้ทันที
+                          onSuccess: (session) => setQrTarget(session),
+                        })
+                      }
+                      className={`w-full gap-2.5 ${button('primary', 'lg')} min-h-15 text-lg disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-600`}
+                    >
+                      <QrIcon />
+                      เปิดโต๊ะ/สร้าง QR
+                    </button>
+                    <p className="text-[13px] text-gray-700">
+                      ลูกค้าสแกน QR สั่งเองได้ทันที ไม่ต้อง login · QR หมดอายุเมื่อปิดโต๊ะ
+                    </p>
+                  </>
+                )}
+              </>
             )}
-          </article>
-        ))}
+          </section>
+        </aside>
       </div>
 
       {qrTarget && (
@@ -259,6 +341,68 @@ export function TablesPage() {
   )
 }
 
+/**
+ * คำขอที่ค้างจากโต๊ะ — ขอเช็คบิลไปจบที่หน้ารับเงิน (เก็บเงินแล้วคำขอปิดเอง)
+ * ส่วนเรียกพนักงาน/อื่น ๆ กดรับทราบได้ที่นี่เลย
+ */
+function RequestsInbox({
+  requests,
+  resolvingId,
+  onResolve,
+}: Readonly<{
+  requests: ServiceRequest[]
+  resolvingId: string | null
+  onResolve: (id: string) => void
+}>) {
+  return (
+    <section aria-labelledby="table-requests" className="flex flex-col gap-2.5 rounded-2xl border-2 border-staff-line bg-white p-4">
+      <h2 id="table-requests" className="text-lg font-bold text-text">
+        คำขอจากโต๊ะ{' '}
+        {requests.length > 0 && <span className="text-status-queue-ink tabular-nums">({requests.length})</span>}
+      </h2>
+      {requests.length === 0 && <p className="text-sm font-semibold text-gray-600">ไม่มีคำขอค้าง</p>}
+      {requests.map((req) => {
+        const checkout = req.type === ServiceRequestType.CHECKOUT
+        const call = req.type === ServiceRequestType.CALL_STAFF
+        return (
+          <div
+            key={req.id}
+            className={`flex items-center gap-3 rounded-xl border-2 bg-white p-3 ${
+              call ? 'border-status-queue/40' : checkout ? 'border-brand-100' : 'border-staff-line'
+            }`}
+          >
+            <div className="min-w-0 flex-1">
+              <p className="text-base font-bold text-text">
+                โต๊ะ {req.tableName} ·{' '}
+                <span className={call ? 'text-status-queue-ink' : checkout ? 'text-brand-500' : 'text-gray-800'}>
+                  {requestLabel[req.type]}
+                </span>
+              </p>
+              <p className="truncate text-[13px] font-semibold text-gray-700">
+                {req.note ? `“${req.note}”` : ago(req.createdAt)}
+              </p>
+            </div>
+            {checkout ? (
+              <Link to="/employee/check" className={`shrink-0 ${button('primary', 'sm')}`}>
+                ไปที่บิล
+              </Link>
+            ) : (
+              <button
+                type="button"
+                disabled={resolvingId === req.id}
+                onClick={() => onResolve(req.id)}
+                className={`shrink-0 ${button('primary', 'sm')} disabled:opacity-60`}
+              >
+                รับทราบ
+              </button>
+            )}
+          </div>
+        )
+      })}
+    </section>
+  )
+}
+
 function Legend({ swatch, label, n }: Readonly<{ swatch: string; label: string; n: number }>) {
   return (
     <li className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
@@ -279,7 +423,7 @@ function QrIcon() {
 
 function BellIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden className="h-3.5 w-3.5">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden className="h-4.5 w-4.5">
       <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" strokeLinejoin="round" />
       <path d="M10.3 21a1.9 1.9 0 0 0 3.4 0" />
     </svg>

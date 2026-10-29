@@ -86,20 +86,13 @@ export function CustomerStatusPage() {
             ))}
           </ul>
 
-          <div className="mt-4 flex gap-3">
-            <Link
-              to={`/t/${token}`}
-              className="flex min-h-14 flex-1 items-center justify-center rounded-2xl border-2 border-brand-500 bg-white text-base font-bold text-brand-500 hover:bg-brand-50"
-            >
-              สั่งเพิ่ม
-            </Link>
-            <Link
-              to={`/t/${token}/bill`}
-              className="flex min-h-14 flex-[1.4] items-center justify-center rounded-2xl bg-brand-500 text-base font-bold text-white"
-            >
-              เช็คบิล
-            </Link>
-          </div>
+          {/* เช็คบิลไปทางแท็บ "เช็คบิลอาหาร" ในเมนูล่าง */}
+          <Link
+            to={`/t/${token}`}
+            className="mt-4 flex min-h-14 items-center justify-center rounded-2xl border-2 border-brand-500 bg-white text-base font-bold text-brand-500 hover:bg-brand-50"
+          >
+            สั่งเพิ่ม
+          </Link>
         </>
       )}
     </div>
