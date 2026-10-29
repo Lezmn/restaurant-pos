@@ -101,15 +101,39 @@ interface Tab {
   title: string
   icon: ReactNode
   roles: Role[]
+  /** โหลดไฟล์ของหน้านั้นล่วงหน้า — ชี้ module เดียวกับ lazy() ใน routes.tsx จึงได้ chunk เดียวกัน */
+  preload: () => Promise<unknown>
 }
 
 const tabs: Tab[] = [
-  { to: '/employee/order', label: 'คิวครัว', title: 'คิวครัว', icon: <IconChef />, roles: pageRoles.order },
-  { to: '/employee/manage', label: 'เมนู/ของหมด', title: 'เมนูและของหมด', icon: <IconFolder />, roles: pageRoles.manage },
-  { to: '/employee/check', label: 'รับเงิน', title: 'รับเงิน', icon: <IconReceipt />, roles: pageRoles.check },
-  { to: '/employee/tables', label: 'โต๊ะ', title: 'โต๊ะ', icon: <IconTable />, roles: pageRoles.tables },
-  { to: '/employee/takeaway', label: 'กลับบ้าน', title: 'สั่งกลับบ้าน', icon: <IconBag />, roles: pageRoles.takeaway },
+  { to: '/employee/order', label: 'คิวครัว', title: 'คิวครัว', icon: <IconChef />, roles: pageRoles.order, preload: () => import('@/pages/employee/OrderPage') },
+  { to: '/employee/manage', label: 'เมนู/ของหมด', title: 'เมนูและของหมด', icon: <IconFolder />, roles: pageRoles.manage, preload: () => import('@/pages/employee/ManagePage') },
+  { to: '/employee/check', label: 'รับเงิน', title: 'รับเงิน', icon: <IconReceipt />, roles: pageRoles.check, preload: () => import('@/pages/employee/CheckPage') },
+  { to: '/employee/tables', label: 'โต๊ะ', title: 'โต๊ะ', icon: <IconTable />, roles: pageRoles.tables, preload: () => import('@/pages/employee/TablesPage') },
+  { to: '/employee/takeaway', label: 'กลับบ้าน', title: 'สั่งกลับบ้าน', icon: <IconBag />, roles: pageRoles.takeaway, preload: () => import('@/pages/employee/TakeawayPage') },
 ]
+
+/**
+ * โหลดไฟล์ของทุกแท็บที่ role นี้เปิดได้ตอนเครื่องว่าง — บนเซิร์ฟเวอร์จริง chunk ของแต่ละหน้าใช้เวลาดาวน์โหลด ~0.4s
+ * ถ้ารอจนกดแท็บครั้งแรก จอจะขึ้น "กำลังโหลด..." ทุกหน้าที่ยังไม่เคยเปิด (รู้สึกว่าแท็บค้าง)
+ * โหลดแล้ว browser cache ไว้ (immutable) กดครั้งต่อไปไม่ต้องรอ — โหลดพลาดก็ไม่เป็นไร กดแท็บจะโหลดใหม่เอง
+ */
+function usePreloadTabs(list: Tab[]) {
+  const key = list.map((t) => t.to).join(',')
+  useEffect(() => {
+    const run = () => {
+      for (const tab of list) tab.preload().catch(() => {})
+    }
+    const idle = window.requestIdleCallback
+    if (idle) {
+      const id = idle(run, { timeout: 3000 })
+      return () => window.cancelIdleCallback(id)
+    }
+    const id = window.setTimeout(run, 1500)
+    return () => window.clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- key แทนรายการแท็บ (array ใหม่ทุก render)
+  }, [key])
+}
 
 const roleAccount: Record<Role, string> = {
   [Role.ADMIN]: 'เจ้าของร้าน',
@@ -133,6 +157,7 @@ export function EmployeeLayout() {
   // แสดงเฉพาะหน้าที่ role นี้เข้าได้ — UI ไม่พาไปเจอสิ่งที่ทำไม่ได้ (เดิมโชว์ปุ่มจางที่กดไม่ได้ปนอยู่)
   const visibleTabs = tabs.filter((tab) => Boolean(user && tab.roles.includes(user.role)))
   const title = tabs.find((tab) => pathname.startsWith(tab.to))?.title ?? ''
+  usePreloadTabs(visibleTabs)
 
   const logout = () => {
     signOut()

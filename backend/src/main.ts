@@ -44,7 +44,10 @@ async function bootstrap() {
   const corsOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:5173')
     .split(',')
     .map((o) => o.trim());
-  app.enableCors({ origin: corsOrigins, credentials: true });
+  // maxAge: ให้ browser จำผล preflight (OPTIONS) ไว้ — ไม่ตั้งจะยิง OPTIONS ก่อนทุก request ที่มี Authorization
+  // บนเซิร์ฟเวอร์จริงเท่ากับเสียไปอีกหนึ่ง round trip (~0.16s) ทุกครั้ง หน้าที่โหลดหลาย API พร้อมกันจึงช้าตอนสลับแท็บ
+  // Chrome จำได้สูงสุด 2 ชม. (ค่ามากกว่านี้ถูกตัดเหลือ 7200)
+  app.enableCors({ origin: corsOrigins, credentials: true, maxAge: 7200 });
 
   // WebSocket (socket.io) ใช้ origin ชุดเดียวกัน — ดู events/events.gateway.ts
   app.useWebSocketAdapter(new SocketIoAdapter(app, corsOrigins));
