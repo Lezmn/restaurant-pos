@@ -80,7 +80,8 @@ export function CustomerMenuItemPage() {
       {/* รูป */}
       <div className="relative -mx-4 lg:mx-0 lg:self-start">
         <div className="aspect-[4/3] w-full overflow-hidden lg:rounded-2xl">
-          <FoodImage src={item.imageUrl} alt={item.name} />
+          {/* มือถือเต็มจอ ~430px / จอใหญ่ครึ่งคอลัมน์ ~560px */}
+          <FoodImage src={item.imageUrl} alt={item.name} width={600} />
         </div>
         <button
           type="button"

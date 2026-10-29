@@ -404,7 +404,7 @@ function MenuImagePicker({
       <legend className={fieldLabel}>รูปภาพ (ไม่ใส่ก็ได้)</legend>
       <div className="mt-1 flex flex-wrap items-center gap-3">
         <div className="aspect-[4/3] w-32 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-brand-50">
-          <FoodImage src={/^https?:\/\//.test(url) ? url : null} alt={url ? `รูป ${name || 'เมนู'}` : ''} />
+          <FoodImage src={/^https?:\/\//.test(url) ? url : null} width={128} alt={url ? `รูป ${name || 'เมนู'}` : ''} />
         </div>
         <div className="flex flex-wrap gap-2">
           <label
