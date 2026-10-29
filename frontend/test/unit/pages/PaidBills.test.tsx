@@ -186,6 +186,25 @@ describe('PaidBills — บิลที่เก็บแล้ววันน�
     expect(screen.queryByRole('dialog', { name: 'ยกเลิกบิล' })).not.toBeInTheDocument()
   })
 
+  // ทดสอบ: ปุ่มลัดเหตุผลยกเลิกบิล — แตะแล้วส่งได้ทันที กดซ้ำเอาออกจนปุ่มยืนยันกดไม่ได้อีก
+  it('ยกเลิกบิล: แตะเหตุผลสำเร็จรูปได้ กดซ้ำเอาออก', async () => {
+    const user = userEvent.setup()
+    setup([bill('p9', { amount: 120 })])
+    await user.click(within(row('RCPT-p9')).getByRole('button', { name: 'ยกเลิกบิล' }))
+
+    const dialog = screen.getByRole('dialog', { name: 'ยกเลิกบิล' })
+    const confirm = within(dialog).getByRole('button', { name: 'ยืนยันยกเลิกบิล' })
+    const chip = within(dialog).getByRole('button', { name: 'กดจ่ายผิดโต๊ะ' })
+    await user.click(chip)
+    expect(within(dialog).getByLabelText(/เหตุผล/)).toHaveValue('กดจ่ายผิดโต๊ะ')
+    await user.click(chip)
+    expect(confirm).toBeDisabled()
+
+    await user.click(chip)
+    await user.click(confirm)
+    expect(voidPayment.mutate).toHaveBeenCalledWith({ id: 'p9', reason: 'กดจ่ายผิดโต๊ะ' }, expect.anything())
+  })
+
   // ทดสอบ: ในกล่องยกเลิกบิล กด "กลับ" ต้องปิดโดยไม่ยกเลิก และ error จาก backend ต้องเห็นในกล่อง
   // วิธี: mock useVoidPayment ให้มี error → เปิดกล่อง เช็กข้อความ alert → กดกลับ → เช็กว่า reset ถูกเรียก, mutate ไม่ถูกเรียก และกล่องปิด
   it('ยกเลิกบิล: กด "กลับ" ปิดกล่องโดยไม่ยกเลิก และ error จาก backend เห็นในกล่อง', async () => {

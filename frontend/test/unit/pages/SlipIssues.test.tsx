@@ -159,6 +159,28 @@ describe('SlipIssues — สลิป PromptPay ที่ต้องตาม',
     expect(screen.queryByRole('dialog', { name: 'ยืนยันรับเงินเอง' })).not.toBeInTheDocument()
   })
 
+  // ทดสอบ: ปุ่มลัดเหตุผล — แตะแทนพิมพ์ แล้วพิมพ์รายละเอียดต่อได้ กดซ้ำเอาออก
+  // วิธี: เปิดกล่องยืนยันเอง → แตะ "เช็คยอดในแอปธนาคารแล้ว" → ปุ่มยืนยันกดได้ → พิมพ์เวลาเพิ่ม → ส่งเหตุผลรวมกัน
+  it('ADMIN ยืนยันเอง: แตะเหตุผลสำเร็จรูปได้ แล้วพิมพ์รายละเอียดต่อ', async () => {
+    const user = userEvent.setup()
+    setup([issue('p3', SlipStatus.FAILED, 'ยอดไม่ตรง')], Role.ADMIN)
+    await user.click(within(item('3')).getByRole('button', { name: 'ยืนยันเอง' }))
+
+    const dialog = screen.getByRole('dialog', { name: 'ยืนยันรับเงินเอง' })
+    const submit = within(dialog).getByRole('button', { name: 'ยืนยันว่าเงินเข้าแล้ว' })
+    const chip = within(dialog).getByRole('button', { name: 'เช็คยอดในแอปธนาคารแล้ว' })
+    await user.click(chip)
+    expect(chip).toHaveAttribute('aria-pressed', 'true')
+    expect(submit).toBeEnabled()
+
+    await user.type(within(dialog).getByLabelText(/เหตุผล/), ', ยอดเข้า 19:42')
+    await user.click(submit)
+    expect(confirm.mutate).toHaveBeenCalledWith(
+      { id: 'p3', reason: 'เช็คยอดในแอปธนาคารแล้ว, ยอดเข้า 19:42' },
+      expect.anything(),
+    )
+  })
+
   // ทดสอบ: ADMIN กด "กลับ" ในกล่องยืนยัน ต้องปิดโดยไม่บันทึก
   // วิธี: render เป็น ADMIN → เปิดกล่องยืนยันเอง → กดกลับ → เช็กว่า mutate ไม่ถูกเรียก และกล่องปิด
   it('ADMIN กด "กลับ" ในกล่องยืนยัน → ปิดโดยไม่บันทึก', async () => {

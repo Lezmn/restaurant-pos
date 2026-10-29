@@ -2,6 +2,7 @@ import { ErrorNote } from '@/components/ui/ErrorNote'
 import { LoadError } from '@/components/ui/LoadError'
 import { Modal } from '@/components/ui/Modal'
 import { Pagination } from '@/components/ui/Pagination'
+import { ReasonChips } from '@/components/ui/ReasonChips'
 import { button, field, fieldLabel } from '@/components/ui/styles'
 import { useAuth } from '@/features/auth/use-auth'
 import { useCashClosePreview } from '@/features/cash-closes/hooks'
@@ -267,6 +268,9 @@ export function PaidBills() {
   )
 }
 
+/** เหตุผลยกเลิกบิลที่พบบ่อย — แตะแทนพิมพ์ แล้วพิมพ์รายละเอียดเพิ่มได้ */
+const VOID_REASONS = ['กดจ่ายผิดโต๊ะ', 'ลูกค้าเปลี่ยนวิธีจ่าย', 'ยอดเงินผิด', 'ลูกค้ายกเลิก'] as const
+
 function VoidDialog({
   payment,
   isSaving,
@@ -317,10 +321,17 @@ function VoidDialog({
             maxLength={200}
             onChange={(e) => setReason(e.target.value)}
             rows={2}
-            placeholder="เช่น กดจ่ายผิดโต๊ะ / ลูกค้าเปลี่ยนวิธีจ่าย"
+            placeholder="พิมพ์เอง หรือแตะตัวเลือกด้านล่าง"
             className={`${field} resize-none`}
           />
         </label>
+        {/* ปุ่มลัดอยู่นอก <label> — ปุ่มซ้อนใน label ทำให้ชื่อช่องกรอกเพี้ยน */}
+        <ReasonChips
+          presets={VOID_REASONS}
+          value={reason}
+          onChange={setReason}
+          label="ตัวเลือกที่พบบ่อย"
+        />
 
         <div className="mt-5 grid grid-cols-2 gap-3">
           <button

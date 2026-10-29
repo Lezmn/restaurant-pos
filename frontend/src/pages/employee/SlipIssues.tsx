@@ -1,5 +1,6 @@
 import { ErrorNote } from '@/components/ui/ErrorNote'
 import { Modal } from '@/components/ui/Modal'
+import { ReasonChips } from '@/components/ui/ReasonChips'
 import { button, field, fieldLabel } from '@/components/ui/styles'
 import { useAuth } from '@/features/auth/use-auth'
 import {
@@ -132,6 +133,13 @@ export function SlipIssues() {
   )
 }
 
+/** เหตุผลที่พบบ่อยตอนยืนยันสลิปเอง — แตะแทนพิมพ์ แล้วพิมพ์เวลา/ยอดเพิ่มได้ */
+const CONFIRM_REASONS = [
+  'เช็คยอดในแอปธนาคารแล้ว',
+  'ระบบตรวจสลิปใช้ไม่ได้',
+  'สลิปอ่านไม่ออก แต่ยอดเข้าแล้ว',
+] as const
+
 /** ADMIN ยืนยันว่าเงินเข้าแล้ว (เช็คในแอปธนาคารเอง) — ต้องมีเหตุผล เก็บไว้ตรวจย้อนหลัง */
 function ConfirmSlipDialog({
   payment,
@@ -169,10 +177,17 @@ function ConfirmSlipDialog({
             rows={2}
             maxLength={200}
             required
-            placeholder="เช่น เช็คแอปธนาคารแล้ว ยอดเข้า 19:42"
+            placeholder="พิมพ์เอง หรือแตะตัวเลือกด้านล่าง เช่น ยอดเข้า 19:42"
             className={`${field} resize-none`}
           />
         </label>
+        {/* ปุ่มลัดอยู่นอก <label> — ปุ่มซ้อนใน label ทำให้ชื่อช่องกรอกเพี้ยน */}
+        <ReasonChips
+          presets={CONFIRM_REASONS}
+          value={reason}
+          onChange={setReason}
+          label="ตัวเลือกที่พบบ่อย"
+        />
         <div className="mt-5 grid grid-cols-2 gap-3">
           <button
             type="button"
