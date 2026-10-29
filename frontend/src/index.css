@@ -226,6 +226,41 @@ body {
     border-color: #000 !important;
   }
 
+  /* ลองพิมพ์จริงแล้วจางและเล็ก — หัวความร้อนวาดเส้นบางของตัวอักษรขนาด 12–14px ขาด ๆ หาย ๆ
+     ขยายทุกขนาด (เฉพาะตอนพิมพ์ จอยังเหมือนเดิม) + ตัวหนาทั้งใบ + Tahoma ที่เส้นหนาและคมบนกระดาษความร้อน */
+  .print-receipt {
+    font-family: Tahoma, 'Leelawadee UI', sans-serif;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+  .print-receipt * {
+    font-weight: 700 !important;
+  }
+  .print-receipt .text-xs {
+    font-size: 11pt;
+  }
+  .print-receipt .text-sm {
+    font-size: 12pt;
+  }
+  .print-receipt .text-base {
+    font-size: 14pt;
+  }
+  .print-receipt .text-lg {
+    font-size: 16pt;
+  }
+  /* ชื่อร้านกับยอดสุทธิใหญ่กว่าส่วนอื่นอีกขั้น — กวาดตาเจอทันที */
+  .print-receipt .text-lg,
+  .print-receipt .text-base {
+    font-weight: 800 !important;
+  }
+  .print-receipt .border-y {
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+  }
+  .print-receipt .border-t {
+    border-top-width: 2px;
+  }
+
   /* กันหน้าเปล่าท้ายกระดาษ */
   html,
   body {
