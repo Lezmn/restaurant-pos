@@ -125,9 +125,10 @@ const columns: {
     border: 'border-status-queue',
     // หัวใบสั่ง = พื้นอ่อนของสีสถานะ — ทึบไม่ได้ ป้ายเกินเวลาสีแดงจะกลืนกับหัวรอคิวที่เป็นแดงอิฐ
     band: 'bg-status-queue/10',
-    badge: 'bg-status-queue/15 text-status-queue-ink',
+    badge: 'bg-status-queue-ink text-white',
+    // สีปุ่ม = สีของขั้นถัดไป (กดแล้วตั๋วไปไหน) — ปุ่มเริ่มปรุงเป็นน้ำตาลแบรนด์ ไม่ใช่แดงที่อ่านเป็นปุ่มอันตราย
     // พื้นปุ่มตัวขาวใช้ -ink — สีสถานะปกติคอนทราสต์ไม่ถึง 4.5:1
-    button: 'bg-status-queue-ink',
+    button: 'bg-brand-500',
     buttonLabel: 'เริ่มปรุง',
   },
   {
@@ -137,8 +138,8 @@ const columns: {
     dot: 'bg-status-cooking',
     border: 'border-status-cooking',
     band: 'bg-status-cooking/10',
-    badge: 'bg-status-cooking/15 text-status-cooking-ink',
-    button: 'bg-status-cooking-ink',
+    badge: 'bg-status-cooking-ink text-white',
+    button: 'bg-status-done-ink',
     buttonLabel: 'ทำเสร็จแล้ว',
   },
   {
@@ -148,8 +149,8 @@ const columns: {
     dot: 'bg-status-done',
     border: 'border-status-done',
     band: 'bg-status-done/10',
-    badge: 'bg-status-done/15 text-status-done-ink',
-    button: 'bg-status-done-ink',
+    badge: 'bg-status-done-ink text-white',
+    button: 'bg-success-ink',
     // กดแล้วตั๋วหายจากบอร์ด — ชื่อปุ่มบอกตรง ๆ ไม่ซ้ำกับ "ทำเสร็จแล้ว" ของคอลัมน์ก่อนหน้า
     buttonLabel: 'เสิร์ฟแล้ว · เอาออก',
   },
@@ -186,11 +187,11 @@ function useMediaQuery(query: string) {
 /** โครงตั๋วระหว่างโหลดครั้งแรก — ให้รูปทรงเหมือนบอร์ดจริง ไม่ใช่ข้อความลอย ๆ */
 function BoardSkeleton() {
   return (
-    <div aria-hidden className="grid gap-4 md:grid-cols-3 md:divide-x md:divide-gray-200">
+    <div aria-hidden className="grid gap-4 md:grid-cols-3">
       {columns.map((column) => (
-        <div key={column.key} className="space-y-4 md:px-3">
+        <div key={column.key} className="space-y-4 rounded-2xl bg-staff-column p-3">
           <div className="h-7 w-32 animate-pulse rounded bg-gray-200" />
-          <div className="h-44 animate-pulse rounded-xl bg-gray-100" />
+          <div className="h-44 animate-pulse rounded-2xl bg-white/70" />
         </div>
       ))}
     </div>
@@ -267,14 +268,14 @@ function ColumnScroll({ label, children }: Readonly<{ label: string; children: R
         role="group"
         aria-label={`ตั๋ว${label}`}
         // relative: ข้อความ sr-only (absolute) ในตั๋วต้องอยู่ในกล่องเลื่อนนี้ ไม่งั้นหลุดออกไปดันหน้าให้ยาว
-        className="relative space-y-4 md:h-full md:overflow-y-auto md:overscroll-contain md:pr-1 md:pb-4"
+        className="relative space-y-3 md:h-full md:overflow-y-auto md:overscroll-contain md:pr-1 md:pb-4"
       >
         {children}
       </div>
       {more && (
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 hidden h-16 bg-gradient-to-t from-white to-transparent md:block"
+          className="pointer-events-none absolute inset-x-0 bottom-0 hidden h-16 bg-gradient-to-t from-staff-column to-transparent md:block"
         />
       )}
     </div>
@@ -449,7 +450,7 @@ export function OrderPage() {
         <div
           ref={boardRef}
           style={boardHeight ? { height: boardHeight } : undefined}
-          className={`grid gap-4 md:divide-x md:divide-gray-200 ${portrait ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}
+          className={`grid gap-4 ${portrait ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}
         >
           {(portrait ? columns.filter((c) => c.key !== 'done') : columns).map((column) => {
             const list = listOf(column.status)
@@ -458,12 +459,12 @@ export function OrderPage() {
               <section
                 key={column.key}
                 aria-label={column.title}
-                className="md:flex md:min-h-0 md:flex-col md:px-3"
+                className="rounded-2xl bg-staff-column p-3 md:flex md:min-h-0 md:flex-col"
               >
-                <header className="mb-3 flex items-center justify-between gap-2">
+                <header className="mb-3 flex items-center justify-between gap-2 px-1">
                   <div className="flex min-w-0 items-center gap-2">
                     <span className={`h-3.5 w-3.5 shrink-0 rounded-full ${column.dot}`} />
-                    <h2 className="truncate text-lg font-bold text-black lg:text-xl">
+                    <h2 className="truncate text-lg font-bold text-text lg:text-xl">
                       {column.title}
                     </h2>
                   </div>
@@ -478,7 +479,7 @@ export function OrderPage() {
 
                 <ColumnScroll label={column.title}>
                   {list.length === 0 && (
-                    <p className="py-6 text-center text-sm text-gray-500">ไม่มีรายการ</p>
+                    <p className="py-6 text-center text-sm font-semibold text-gray-600">ไม่มีรายการ</p>
                   )}
 
                   {list.map((order) => (
@@ -600,9 +601,9 @@ function KitchenTicket({
     // โครงใบสั่ง: หัวใบ (โต๊ะ + เวลารอ) / รายการคั่นเส้นประ / ปุ่มท้ายใบ
     <article
       aria-busy={busy}
-      className={`overflow-hidden rounded-xl border-2 bg-white ${column.border}`}
+      className={`overflow-hidden rounded-2xl border-2 bg-white ${late ? 'border-status-queue-ink' : 'border-staff-line'}`}
     >
-      <header className={`px-3 pt-2.5 pb-2 ${column.band}`}>
+      <header className="px-3.5 pt-3 pb-2">
         {/* อ่านจากระยะ 1 เมตร: ชื่อโต๊ะกับเวลารอเด่นสุด — คอลัมน์แคบไม่พอบรรทัดเดียว
             ให้ป้ายเวลาตกลงบรรทัดถัดไปแทนการหักชื่อโต๊ะเป็น 2 บรรทัด */}
         <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
@@ -678,7 +679,7 @@ function KitchenTicket({
       </header>
 
       {/* รายการเป็นบรรทัดบนใบสั่ง คั่นเส้นประ — ไม่ใช่กล่องซ้อนกล่อง */}
-      <ul className="divide-y divide-dashed divide-gray-300 border-t-2 border-dashed border-gray-300 px-3">
+      <ul className="divide-y divide-dashed divide-staff-line border-t-2 border-dashed border-staff-line px-3.5">
         {order.items.map((item) => (
           <KitchenItemRow
             key={item.id}
@@ -690,7 +691,7 @@ function KitchenTicket({
         ))}
       </ul>
 
-      <footer className="border-t-2 border-dashed border-gray-300 p-3">
+      <footer className={awaitingUndo ? 'border-t-2 border-dashed border-staff-line p-3' : ''}>
         {awaitingUndo ? (
           // แถบเลิกทำแทนที่ปุ่มหลัก ตำแหน่งเดียวกับปุ่มที่เพิ่งกด — กดพลาดก็กดซ้ำที่เดิมเพื่อย้อน
           <UndoServe onUndo={onUndo} />
@@ -699,7 +700,7 @@ function KitchenTicket({
             type="button"
             disabled={busy}
             onClick={onAdvance}
-            className={`min-h-12 w-full rounded-lg px-4 text-base font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${column.button}`}
+            className={`min-h-13 w-full px-4 text-lg font-bold text-white transition active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 ${column.button}`}
           >
             {sending ? 'กำลังส่ง...' : column.buttonLabel}
           </button>

@@ -9,7 +9,11 @@ import { CustomerLayout } from '@/components/layout/CustomerLayout'
 
 // layout ไม่ได้ทดสอบ socket/การดึงข้อมูลจริง — ทดสอบแค่ว่าตะกร้าถูกผูก/ล้างถูกโต๊ะ
 vi.mock('@/features/live/hooks', () => ({ useCustomerLiveEvents: vi.fn() }))
-vi.mock('@/features/public/hooks', () => ({ useSession: vi.fn() }))
+vi.mock('@/features/public/hooks', () => ({
+  useSession: vi.fn(),
+  // ปุ่มเรียกพนักงานบน header — ไม่ได้ทดสอบในไฟล์นี้
+  useCallStaff: () => ({ mutate: vi.fn(), isPending: false, isSuccess: false }),
+}))
 
 type SessionResult = ReturnType<typeof useSession>
 

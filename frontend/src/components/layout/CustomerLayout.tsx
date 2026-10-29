@@ -1,5 +1,5 @@
 import { useCustomerLiveEvents } from '@/features/live/hooks'
-import { useSession } from '@/features/public/hooks'
+import { useCallStaff, useSession } from '@/features/public/hooks'
 import { cartCount, useCart } from '@/features/public/cart-store'
 import { ApiError } from '@/lib/api-client'
 import { RESTAURANT_NAME } from '@/lib/config'
@@ -41,6 +41,45 @@ function IconClock() {
       <circle cx="12" cy="12" r="8.5" />
       <path d="M12 7.5V12l3 1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  )
+}
+
+function IconBell() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden className="h-5 w-5 shrink-0">
+      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M10.3 21a1.9 1.9 0 0 0 3.4 0" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+/**
+ * ปุ่มเรียกพนักงานอยู่บน header ทุกหน้า — ลูกค้าต้องเรียกได้ตลอด (ถามเมนู แพ้อาหาร ขอช้อนส้อม)
+ * ไม่ใช่เฉพาะหน้าสถานะ กดแล้วล็อกปุ่มเป็น "แจ้งแล้ว" (backend คืนคำขอเดิมอยู่แล้วถ้ากดซ้ำ)
+ */
+function CallStaffButton({ token }: Readonly<{ token: string }>) {
+  const callStaff = useCallStaff()
+  const done = callStaff.isSuccess
+
+  return (
+    <>
+      <button
+        type="button"
+        disabled={callStaff.isPending || done}
+        onClick={() => callStaff.mutate({ token })}
+        className={`flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border-2 px-3 text-sm font-bold transition md:text-base ${
+          done
+            ? 'border-success-ink bg-success/10 text-success-ink'
+            : 'border-brand-500 bg-white text-brand-500 hover:bg-brand-50'
+        }`}
+      >
+        <IconBell />
+        {done ? 'แจ้งแล้ว' : 'เรียกพนักงาน'}
+      </button>
+      <output className="sr-only">
+        {done ? 'แจ้งพนักงานแล้ว กรุณารอสักครู่' : ''}
+      </output>
+    </>
   )
 }
 
@@ -130,17 +169,14 @@ export function CustomerLayout() {
   ]
 
   return (
-    <div className="flex min-h-dvh flex-col bg-white">
-      <header className="sticky top-0 z-20 border-b border-brand-75 bg-white/95 backdrop-blur">
+    <div className="flex min-h-dvh flex-col bg-cream">
+      <header className="sticky top-0 z-20 border-b-2 border-brand-75 bg-white">
         <div className="mx-auto flex w-full max-w-md items-center gap-3 px-4 py-3 md:max-w-3xl lg:max-w-6xl">
-          <span aria-hidden className="text-xl md:text-2xl text-brand-400">
-            🍴
-          </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm md:text-base font-bold text-brand-400 sm:text-base">
+            <p className="truncate text-xs font-bold text-brand-500 md:text-sm">
               {RESTAURANT_NAME}
             </p>
-            <p className="text-xs md:text-sm text-gray-500">
+            <p className="truncate text-lg font-bold text-ink md:text-xl">
               {isPending ? 'กำลังเปิดโต๊ะ...' : `โต๊ะ ${session?.tableName ?? '-'}`}
             </p>
           </div>
@@ -153,51 +189,61 @@ export function CustomerLayout() {
                 to={tab.to}
                 end={tab.end}
                 className={({ isActive }) =>
-                  `relative flex items-center gap-2 rounded-full px-3 py-2 text-sm md:text-base transition ${
+                  `relative flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm md:text-base transition ${
                     isActive
-                      ? 'bg-brand-300 font-semibold text-white'
-                      : 'text-gray-600 hover:bg-brand-50'
+                      ? 'bg-brand-500 font-bold text-white'
+                      : 'font-semibold text-gray-700 hover:bg-brand-50'
                   }`
                 }
               >
                 {tab.icon}
                 <span className="hidden lg:inline">{tab.label}</span>
                 {Boolean(tab.badge) && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-xs md:text-sm font-bold text-white">
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-danger-ink px-1 text-xs md:text-sm font-bold text-white">
                     {tab.badge}
                   </span>
                 )}
               </NavLink>
             ))}
           </nav>
+
+          {token && isOpen && <CallStaffButton token={token} />}
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-md flex-1 px-4 py-4 pb-28 md:max-w-3xl md:pb-8 lg:max-w-6xl">
+      <main className="mx-auto w-full max-w-md flex-1 px-4 py-4 pb-32 md:max-w-3xl md:pb-8 lg:max-w-6xl">
         <Outlet />
       </main>
 
-      {/* สูงตายตัว h-14 (56px) — แถบลอยของหน้าเมนู/รายละเอียดเมนูวางชิดบนตัวนี้ด้วยค่าเดียวกัน
-          (bottom-[calc(3.5rem+env(safe-area-inset-bottom))]) ไม่งั้นมีช่องว่างโผล่ระหว่างกัน */}
-      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-brand-500 bg-brand-400 pb-[env(safe-area-inset-bottom)] md:hidden">
-        <div className="mx-auto flex h-14 max-w-md">
+      {/* สูงตายตัว h-16 (64px) — แถบลอยของหน้าเมนู/รายละเอียดเมนูวางชิดบนตัวนี้ด้วยค่าเดียวกัน
+          (bottom-[calc(4rem+env(safe-area-inset-bottom))]) ไม่งั้นมีช่องว่างโผล่ระหว่างกัน */}
+      <nav className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-brand-75 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
+        <div className="mx-auto flex h-16 max-w-md">
           {tabs.map((tab) => (
             <NavLink
               key={tab.to}
               to={tab.to}
               end={tab.end}
               className={({ isActive }) =>
-                `relative flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] ${
-                  isActive ? 'font-bold text-white' : 'text-white/70'
+                `relative flex flex-1 flex-col items-center justify-center gap-0.5 text-xs ${
+                  isActive ? 'font-bold text-brand-500' : 'font-semibold text-gray-600'
                 }`
               }
             >
-              {tab.icon}
-              <span>{tab.label}</span>
-              {Boolean(tab.badge) && (
-                <span className="absolute top-1 right-[22%] flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">
-                  {tab.badge}
-                </span>
+              {({ isActive }) => (
+                <>
+                  {/* ขีดบนแท็บที่เลือก — บอกตำแหน่งด้วยรูปทรง ไม่ใช่แค่สี */}
+                  {isActive && (
+                    <span aria-hidden className="absolute inset-x-[22%] top-0 h-1 rounded-b-full bg-brand-500" />
+                  )}
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                  {Boolean(tab.badge) && (
+                    <span className="absolute top-1.5 right-[22%] flex h-5 min-w-5 items-center justify-center rounded-full bg-danger-ink px-1 text-[11px] font-bold text-white">
+                      {tab.badge}
+                    </span>
+                  )}
+                </>
               )}
             </NavLink>
           ))}

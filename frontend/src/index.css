@@ -16,12 +16,24 @@
 
   /* ---- รายการในตะกร้า / บิล ---- */
   --color-listing: #fff4e6;
+  /* พื้นหลังหน้าฝั่งลูกค้า — ครีมอ่อนกว่า listing ให้การ์ดขาว/รายการครีมยังแยกชั้นได้ */
+  --color-cream: #fffaf5;
   --color-text: #2d2d2d;
   --color-amount: #e65100;
   --color-accent-pink: #ff2d55;
   --color-qty: #f57c00;
   --color-minus: #f44336;
   --color-plus: #4caf50;
+
+  /* ---- ฝั่งพนักงาน (แท็บเล็ต) ----
+     พื้นครีมเทา + แถบนำทางซ้ายสีโกโก้เข้ม — การ์ดขาวลอยบนพื้นด้วยขอบ ไม่ใช้เงา */
+  --color-staff-ground: #f7f2ec;
+  --color-staff-column: #efe6dc;
+  --color-staff-muted: #f3ece4;
+  --color-staff-line: #eadfd3;
+  --color-rail: #2a1c12;
+  /* ตัวหนังสือบนแถบ rail — 12:1 กับ rail */
+  --color-rail-text: #e9dccf;
 
   /* ---- เส้นแบ่ง / กริดกราฟ (DESIGN.md › Hairline / Rule) ----
      ค่าเดียวกับ gray-200 / gray-300 — เดิม DESIGN.md มี token นี้แต่ไม่ได้ประกาศ
