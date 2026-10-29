@@ -11,7 +11,9 @@ import type { ApiCashClose, ApiCashClosePreview } from '@/types/api'
 import { CashClosesPage } from '@/pages/owner/CashClosesPage'
 
 // ข้อมูลมาจาก hook ทั้งหมด — mock ที่ hook ตรง ๆ คุมได้ทั้งรายการ สถานะโหลด และผลของการลบ
-vi.mock('@/features/cash-closes/hooks', () => ({
+// ใส่ของจริงที่เหลือไว้ด้วย — Chrome จริง (npm run test:browser) ไม่ยอม import ชื่อที่ mock ไม่มี ต่างจาก jsdom
+vi.mock('@/features/cash-closes/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/cash-closes/hooks')>()),
   useCashCloses: vi.fn(),
   useDeleteCashClose: vi.fn(),
   useCashClosePreview: vi.fn(),

@@ -10,7 +10,9 @@ const UNDO_MS = 5000
 import type { Order } from '@/types/models'
 import { OrderPage } from '@/pages/employee/OrderPage'
 
-vi.mock('@/features/orders/api', () => ({
+// ใส่ของจริงที่เหลือไว้ด้วย — Chrome จริง (npm run test:browser) ไม่ยอม import ชื่อที่ mock ไม่มี ต่างจาก jsdom
+vi.mock('@/features/orders/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/orders/api')>()),
   getOrders: vi.fn(),
   updateOrderStatus: vi.fn(),
   clearOrder: vi.fn(),

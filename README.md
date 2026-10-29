@@ -45,6 +45,28 @@ cd frontend
 npx playwright test --workers=1
 ```
 
+**คำสั่งเดียวจบ (แนะนำ):** เปิด DB ทดสอบ + ลง migration + เปิด API ทดสอบ `:3100` และเว็บ `:5273` ให้เอง แล้วปิดให้เมื่อเทสต์จบ
+(ไม่แตะ API `:3000` — ตัวนั้นจำกัด login 5 ครั้ง E2E จะโดน 429) ต้องเปิด Docker Desktop ก่อน
+
+```bash
+cd frontend
+npm run test:e2e:local                                         # ทั้งหมด
+npm run test:e2e:local -- test/e2e/customer/order-status.spec.ts  # ไฟล์เดียว
+npm run test:e2e:local -- -g "เมนูขายดี"                        # ตามชื่อเทสต์
+npm run test:e2e:local -- --headed --workers=1 --project=chromium  # เปิดเบราว์เซอร์ให้ดู
+```
+
+unit test: `npm test` ในโฟลเดอร์ `frontend` (Vitest) และ `backend` (Jest)
+
+ดู unit test หน้าจอ (`test/unit/pages`, `test/unit/components`) รันใน Chrome จริงแบบเปิดหน้าต่าง — ไม่ต้องเปิด Docker/server:
+
+```bash
+cd frontend
+npm run test:browser -- test/unit/pages/StatusPage.test.tsx           # ไฟล์เดียว (แก้ไฟล์แล้วรันใหม่เอง กด q ออก)
+npm run test:browser -- test/unit/pages/StatusPage.test.tsx -t "ยกเลิก" # ตามชื่อเทสต์
+VITEST_SLOWMO=1500 npm run test:browser -- test/unit/pages/SalesPage.test.tsx # ค้างหน้าจอหลังจบแต่ละเทสต์ (ms, ค่าเริ่มต้น 500, 0 = ไม่ค้าง)
+```
+
 ## หมายเหตุ
 
 - `backend/docker-compose.yml` ล็อกชื่อ project เป็น `restaurant-app` เพื่อใช้ volume ฐานข้อมูลเดิม

@@ -315,7 +315,7 @@ describe('MenuFormDialog — แก้ไขเมนู', () => {
     expect(screen.getByLabelText('หรือวางลิงก์รูปจากที่อื่น')).toHaveValue('https://img.example/kaprao.jpg')
     expect(screen.getByRole('checkbox', { name: 'พร้อมจำหน่าย' })).toBeChecked()
     expect(screen.getByRole('button', { name: 'ข้าว' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: /หมู · หมด/ })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: /หมู\s*·\s*หมด/ })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByRole('button', { name: 'บันทึกข้อมูลเมนู' })).toBeInTheDocument()
   })
 
