@@ -15,6 +15,8 @@ import { formatBaht, formatTime } from '@/lib/format'
 import { usePagination } from '@/lib/use-pagination'
 import { PaymentMethod, PaymentStatus, Role } from '@/types/enums'
 import type { Id, Payment } from '@/types/models'
+import { AttachSlipDialog } from './AttachSlipDialog'
+import { needsSlip } from './slip-input'
 import { ReceiptDialog } from './ReceiptDialog'
 import { SlipBadge } from './SlipBadge'
 import { useEffect, useState } from 'react'
@@ -72,6 +74,7 @@ export function PaidBills() {
 
   const [viewId, setViewId] = useState<Id | null>(null)
   const [voidTarget, setVoidTarget] = useState<Payment | null>(null)
+  const [slipTarget, setSlipTarget] = useState<Payment | null>(null)
 
   // GET /payments ไม่ส่ง items มา ต้องดึงทีละใบตอนจะเปิดใบเสร็จ
   const { data: viewing } = usePayment(viewId ?? undefined)
@@ -198,7 +201,8 @@ export function PaidBills() {
                       </span>
                     ) : (
                       // ปุ่มหน้าตาเหมือนลิงก์ แต่พื้นที่กดสูง 40px — บน iPad ข้อความ 20px นิ้วกดพลาดไปโดนอีกปุ่มง่าย
-                      <div className="flex items-center justify-end gap-2">
+                      // nowrap: 3 ปุ่ม (มีตรวจสลิป) ในจอแคบ ข้อความปุ่มเคยตัดเป็น 2 บรรทัด — ให้ตารางเลื่อนข้างแทน
+                      <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                         <button
                           type="button"
                           onClick={() => setViewId(p.id)}
@@ -206,6 +210,16 @@ export function PaidBills() {
                         >
                           ใบเสร็จ
                         </button>
+                        {/* พิมพ์ใบเสร็จ (มี QR) ไปแล้ว ลูกค้าสแกนจ่ายแล้วยื่นสลิป — แนบตรงนี้ */}
+                        {needsSlip(p) && (
+                          <button
+                            type="button"
+                            onClick={() => setSlipTarget(p)}
+                            className={button('primary', 'sm')}
+                          >
+                            ตรวจสลิป
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => setVoidTarget(p)}
@@ -245,6 +259,10 @@ export function PaidBills() {
 
       {viewing?.id === viewId && (
         <ReceiptDialog payment={viewing} onClose={() => setViewId(null)} />
+      )}
+
+      {slipTarget && (
+        <AttachSlipDialog payment={slipTarget} onClose={() => setSlipTarget(null)} />
       )}
 
       {voidTarget && (

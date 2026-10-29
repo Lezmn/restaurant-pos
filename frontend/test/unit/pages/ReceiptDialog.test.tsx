@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { printSettings } from '@/lib/print-settings'
-import { PaymentMethod } from '@/types/enums'
+import { PaymentMethod, SlipStatus } from '@/types/enums'
 import type { Payment } from '@/types/models'
 import { ReceiptDialog } from '@/pages/employee/ReceiptDialog'
 
@@ -74,5 +74,36 @@ describe('ReceiptDialog — พิมพ์ทันทีหลังรับ�
     expect(printSettings.getAutoPrintReceipt()).toBe(true)
     await nextTask()
     expect(print).not.toHaveBeenCalled()
+  })
+})
+
+describe('ReceiptDialog — PromptPay พิมพ์ใบเสร็จพร้อม QR ก่อนแนบสลิป', () => {
+  const promptPay = (status: string) =>
+    ({ ...payment, method: PaymentMethod.PROMPTPAY, slip: { status, message: null } }) as unknown as Payment
+
+  // ทดสอบ: บิลรอสลิป → ใบเสร็จ (ส่วนที่พิมพ์) มี QR PromptPay พร้อมยอด และแจ้งแคชเชียร์ให้ไปตรวจสลิป
+  // วิธี: render บิล PromptPay สถานะรอสลิป → เช็กข้อความสแกนจ่าย, svg QR ใน .print-area และข้อความแจ้งแคชเชียร์
+  it('รอสลิป → ใบเสร็จมี QR ให้สแกนจ่าย', () => {
+    printSettings.setAutoPrintReceipt(false)
+    render(<ReceiptDialog payment={promptPay(SlipStatus.AWAITING)} onClose={() => {}} />)
+    expect(screen.getByText('สแกนจ่ายด้วย PromptPay')).toBeInTheDocument()
+    expect(document.querySelector('.print-area svg')).not.toBeNull()
+    expect(screen.getByText(/ยังไม่ได้ตรวจสลิป/)).toBeInTheDocument()
+  })
+
+  // ทดสอบ: ตรวจสลิปผ่านแล้ว พิมพ์ซ้ำต้องไม่มี QR (กันลูกค้าสแกนจ่ายซ้ำ)
+  // วิธี: render บิล PromptPay ที่ตรวจผ่านแล้ว → ไม่มีข้อความสแกนจ่ายและไม่มี svg
+  it('ตรวจผ่านแล้ว → ไม่มี QR', () => {
+    render(<ReceiptDialog payment={promptPay(SlipStatus.VERIFIED)} onClose={() => {}} />)
+    expect(screen.queryByText('สแกนจ่ายด้วย PromptPay')).not.toBeInTheDocument()
+    expect(document.querySelector('.print-area svg')).toBeNull()
+  })
+
+  // ทดสอบ: กด "พิมพ์ใบเสร็จ" มาจากกล่องรับเงิน → สั่งพิมพ์ทันที แม้เครื่องนี้ไม่ได้ตั้งพิมพ์ทันทีไว้
+  // วิธี: ปิด autoPrint → render พร้อม printNow → รอ print ถูกเรียก 1 ครั้ง
+  it('printNow → สั่งพิมพ์ทันทีแม้ไม่ได้ตั้งพิมพ์ทันที', async () => {
+    printSettings.setAutoPrintReceipt(false)
+    render(<ReceiptDialog payment={promptPay(SlipStatus.AWAITING)} justPaid printNow onClose={() => {}} />)
+    await waitFor(() => expect(print).toHaveBeenCalledTimes(1))
   })
 })

@@ -82,13 +82,17 @@ export class PaymentSlipService implements OnModuleInit, OnModuleDestroy {
   async checkForNewPayment(input: {
     slipPayload?: string;
     overrideReason?: string;
+    /** ออกใบเสร็จพร้อม QR ก่อน แนบสลิปทีหลัง */
+    slipLater?: boolean;
     charged: Prisma.Decimal;
     sessionOpenedAt: Date;
     user: AuthenticatedUser;
   }): Promise<SlipFields> {
-    const { slipPayload, overrideReason, charged, sessionOpenedAt, user } = input;
+    const { slipPayload, overrideReason, slipLater, charged, sessionOpenedAt, user } = input;
 
     if (!slipPayload) {
+      // ลูกค้าจ่ายที่เคาน์เตอร์: พิมพ์ใบเสร็จที่มี QR ให้สแกน แล้วแคชเชียร์แนบสลิปจากรายการบิล
+      if (slipLater && !overrideReason) return { slipStatus: SlipStatus.AWAITING };
       if (!overrideReason) {
         throw new BadRequestException(
           'PromptPay ต้องสแกนสลิปให้ระบบตรวจก่อนบันทึก (ถ้าไม่มีสลิป ให้ ADMIN ยืนยันเองพร้อมเหตุผล)',
@@ -197,6 +201,50 @@ export class PaymentSlipService implements OnModuleInit, OnModuleDestroy {
       return `สลิปนี้ถูกใช้กับบิลอื่นแล้ว (ใบเสร็จ ${used.receipt?.number ?? used.id})`;
     }
     return null;
+  }
+
+  /**
+   * แนบสลิปให้บิลที่ออกใบเสร็จไปแล้ว (รอสลิป) หรือสลิปเดิมไม่ผ่าน — ตรวจแบบเดียวกับตอนรับเงิน
+   * สลิปใช้ไม่ได้ = 400 บิลยังรอสลิปเหมือนเดิม แนบใบใหม่ได้
+   */
+  async attachSlip(paymentId: string, slipPayload: string, user: AuthenticatedUser) {
+    const payment = await this.prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: { tableSession: { select: { openedAt: true } } },
+    });
+    if (!payment) throw new NotFoundException(`ไม่พบการชำระเงิน id: ${paymentId}`);
+    if (payment.status !== PaymentStatus.COMPLETED) {
+      throw new ConflictException('บิลนี้ถูกยกเลิกไปแล้ว');
+    }
+    if (payment.slipStatus !== SlipStatus.AWAITING && payment.slipStatus !== SlipStatus.FAILED) {
+      throw new ConflictException('แนบสลิปได้เฉพาะบิลที่รอสลิป หรือสลิปเดิมไม่ผ่าน');
+    }
+
+    const fields = await this.checkForNewPayment({
+      slipPayload,
+      charged: payment.amount,
+      sessionOpenedAt: payment.tableSession.openedAt,
+      user,
+    });
+
+    let updated;
+    try {
+      updated = await this.prisma.payment.update({
+        // เงื่อนไขสถานะเดิม กันแนบพร้อมกันสองเครื่อง / ADMIN ยืนยันเองไปพร้อมกัน
+        where: { id: paymentId, slipStatus: payment.slipStatus },
+        data: fields,
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new ConflictException('สลิปนี้ถูกใช้กับบิลอื่นแล้ว');
+      }
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
+        throw new ConflictException('บิลนี้ถูกแนบสลิป/ยืนยันไปแล้ว');
+      }
+      throw e;
+    }
+    this.notify(updated.id, updated.slipStatus);
+    return updated;
   }
 
   // ---------------------------------------------------------------------------
@@ -319,8 +367,12 @@ export class PaymentSlipService implements OnModuleInit, OnModuleDestroy {
     if (payment.status !== PaymentStatus.COMPLETED) {
       throw new ConflictException('บิลนี้ถูกยกเลิกไปแล้ว');
     }
-    if (payment.slipStatus !== SlipStatus.PENDING && payment.slipStatus !== SlipStatus.FAILED) {
-      throw new ConflictException('ยืนยันเองได้เฉพาะบิลที่รอตรวจ หรือตรวจไม่ผ่าน');
+    if (
+      payment.slipStatus !== SlipStatus.PENDING &&
+      payment.slipStatus !== SlipStatus.FAILED &&
+      payment.slipStatus !== SlipStatus.AWAITING
+    ) {
+      throw new ConflictException('ยืนยันเองได้เฉพาะบิลที่รอสลิป รอตรวจ หรือตรวจไม่ผ่าน');
     }
     const updated = await this.prisma.payment.update({
       where: { id: paymentId },

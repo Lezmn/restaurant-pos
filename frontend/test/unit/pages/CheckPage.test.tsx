@@ -419,7 +419,7 @@ describe('CheckPage — กล่องรับเงิน', () => {
     expect(within(quick).getByRole('button', { name: '฿500' })).toHaveAttribute('aria-pressed', 'true')
     expect(dialog).toHaveTextContent('เงินทอน฿380')
 
-    await user.click(within(dialog).getByRole('button', { name: 'รับเงิน ฿120' }))
+    await user.click(within(dialog).getByRole('button', { name: 'รับเงิน' }))
     expect(createPayment.mutate).toHaveBeenCalledWith(
       expect.objectContaining({
         tableSessionId: 's1',
@@ -445,7 +445,7 @@ describe('CheckPage — กล่องรับเงิน', () => {
     const user = userEvent.setup()
     const dialog = await openPayment(user)
     expect(dialog).not.toHaveTextContent(/เงินทอน฿/)
-    await user.click(within(dialog).getByRole('button', { name: 'รับเงิน ฿120' }))
+    await user.click(within(dialog).getByRole('button', { name: 'รับเงิน' }))
     createPayment.mutate.mock.calls[0][1].onSuccess({ id: 'pay-2' })
     expect(await screen.findByText('ใบเสร็จ pay-2 รับมา null')).toBeInTheDocument()
   })
@@ -457,24 +457,24 @@ describe('CheckPage — กล่องรับเงิน', () => {
     const dialog = await openPayment(user)
     await user.type(within(dialog).getByPlaceholderText('ไม่กรอกก็ได้'), '100')
     expect(dialog).toHaveTextContent('รับเงินมาไม่พอ ขาดอีก ฿20')
-    expect(within(dialog).getByRole('button', { name: 'รับเงิน ฿120' })).toBeEnabled()
+    expect(within(dialog).getByRole('button', { name: 'รับเงิน' })).toBeEnabled()
   })
 
-  // ทดสอบ: ส่วนลดเป็น % — คิดยอดลดและยอดเก็บจริงถูก ต้องใส่เหตุผลก่อนบันทึก และเหตุผลถูกรวมกับหมายเหตุลงบิล (ตัดช่องว่างหัวท้าย)
-  // วิธี: กดให้ส่วนลด กรอก 20% ในโต๊ะยอด 120 → เช็ก "ลด ฿24" / "เก็บจริง ฿96" และปุ่มกดไม่ได้ → ใส่เหตุผลและหมายเหตุ → กดรับเงิน → เช็ก note, discountPercent 20 และ expectedTotal เป็นยอดก่อนลด
+  // ทดสอบ: ส่วนลดเป็น % — คิดยอดเก็บจริงถูก ต้องใส่เหตุผลก่อนบันทึก และเหตุผลถูกรวมกับหมายเหตุลงบิล (ตัดช่องว่างหัวท้าย)
+  // วิธี: กดให้ส่วนลด กรอก 20% ในโต๊ะยอด 120 → เช็กแถบยอดเห็น ฿96 และปุ่มกดไม่ได้ → ใส่เหตุผลและหมายเหตุ → กดรับเงิน → เช็ก note, discountPercent 20 และ expectedTotal เป็นยอดก่อนลด
   it('ส่วนลด %: คิดยอดลดถูก ต้องใส่เหตุผลก่อนบันทึก และเหตุผลถูกรวมกับหมายเหตุลงบิล', async () => {
     const user = userEvent.setup()
     const dialog = await openPayment(user)
     await user.click(within(dialog).getByRole('button', { name: 'ให้ส่วนลด' }))
     await user.type(within(dialog).getByLabelText(/ลดกี่ %/), '20')
 
-    expect(dialog).toHaveTextContent('ลด ฿24')
-    expect(dialog).toHaveTextContent('เก็บจริง ฿96')
-    const submit = within(dialog).getByRole('button', { name: 'รับเงิน ฿96' })
+    expect(within(dialog).getByText('ยอดที่ต้องจ่าย').parentElement).toHaveTextContent('฿96')
+    const submit = within(dialog).getByRole('button', { name: 'รับเงิน' })
     expect(submit).toBeDisabled()
     expect(dialog).toHaveTextContent('ใส่เหตุผลที่ลดก่อนรับเงิน')
 
     await user.type(within(dialog).getByLabelText(/เหตุผลที่ลด/), '  ลูกค้าประจำ ')
+    await user.click(within(dialog).getByRole('button', { name: 'เพิ่มหมายเหตุ' }))
     await user.type(within(dialog).getByLabelText(/หมายเหตุ/), ' แยกถุง ')
     expect(submit).toBeEnabled()
     await user.click(submit)
@@ -489,23 +489,59 @@ describe('CheckPage — กล่องรับเงิน', () => {
   })
 
   // ทดสอบ: เงินสดที่มีส่วนลด ยอดเก็บปัดครึ่งขึ้นเป็นบาทเต็ม (ทอนสตางค์ไม่ได้) แต่ PromptPay เก็บตามสตางค์จริง
-  // วิธี: โต๊ะยอด 120 ลด 7% (= 8.40 เก็บ 111.60) → เงินสดต้องเห็น "ลด ฿8" / "รับเงิน ฿112" → เปลี่ยนเป็น PromptPay ต้องเห็น ฿111.60
+  // วิธี: โต๊ะยอด 120 ลด 7% (= 8.40 เก็บ 111.60) → แถบยอดเงินสดต้องเห็น ฿112 → เปลี่ยนเป็น PromptPay ต้องเห็น ฿111.60
   it('ส่วนลด % เงินสด: ปัดยอดเก็บครึ่งขึ้นเป็นบาทเต็ม PromptPay ไม่ปัด', async () => {
     const user = userEvent.setup()
     const dialog = await openPayment(user)
     await user.click(within(dialog).getByRole('button', { name: 'ให้ส่วนลด' }))
     await user.type(within(dialog).getByLabelText(/ลดกี่ %/), '7')
 
-    expect(dialog).toHaveTextContent('ลด ฿8')
-    expect(within(dialog).getByRole('button', { name: 'รับเงิน ฿112' })).toBeInTheDocument()
+    expect(within(dialog).getByText('ยอดที่ต้องจ่าย').parentElement).toHaveTextContent('฿112')
+    expect(within(dialog).getByRole('button', { name: 'รับเงิน' })).toBeInTheDocument()
 
     await user.click(within(dialog).getByRole('button', { name: 'PromptPay' }))
-    expect(dialog).toHaveTextContent('ลด ฿8.4')
-    expect(within(dialog).getByRole('button', { name: 'รับเงิน ฿111.6' })).toBeInTheDocument()
+    expect(within(dialog).getByText('ยอดที่ต้องจ่าย').parentElement).toHaveTextContent('฿111.6')
+  })
+
+  // ทดสอบ: แถบยอดด้านบนโชว์ยอดเก็บจริงหลังลด และขีดฆ่ายอดเดิม — ปุ่มรับเงินไม่มียอดแล้ว ยอดต้องอยู่จุดเดียว
+  // วิธี: โต๊ะยอด 120 → แถบเห็น ฿120 ไม่มีขีดฆ่า → ลด 10% → แถบเห็น ฿108 ตัวใหญ่ ฿120 ขีดฆ่า → ไม่ลดแล้ว → กลับเป็น ฿120
+  it('แถบยอดด้านบน: มีส่วนลดโชว์ยอดเก็บจริง ยอดเดิมขีดฆ่า', async () => {
+    const user = userEvent.setup()
+    const dialog = await openPayment(user)
+    const banner = within(dialog).getByText('ยอดที่ต้องจ่าย').parentElement!
+    expect(banner).toHaveTextContent('฿120')
+    expect(banner.querySelector('s')).toBeNull()
+
+    await user.click(within(dialog).getByRole('button', { name: 'ให้ส่วนลด' }))
+    await user.type(within(dialog).getByLabelText(/ลดกี่ %/), '10')
+    expect(banner.querySelector('s')).toHaveTextContent('฿120')
+    expect(banner).toHaveTextContent('฿108')
+
+    await user.click(within(dialog).getByRole('button', { name: 'ไม่ลดแล้ว' }))
+    expect(banner.querySelector('s')).toBeNull()
+    expect(banner).toHaveTextContent('฿120')
+  })
+
+  // ทดสอบ: ช่องหมายเหตุซ่อนอยู่หลังปุ่ม กดแล้วเปิด พิมพ์ได้ และ "ไม่ใส่หมายเหตุ" ล้างข้อความแล้วปิดกลับ
+  // วิธี: เปิดกล่อง → ยังไม่มีช่องหมายเหตุ → กดเพิ่มหมายเหตุ → พิมพ์ → กดไม่ใส่หมายเหตุ → ช่องหาย → กดรับเงิน → note ว่าง
+  it('หมายเหตุซ่อนหลังปุ่ม: เปิดแล้วพิมพ์ได้ "ไม่ใส่หมายเหตุ" ล้างแล้วปิด', async () => {
+    const user = userEvent.setup()
+    const dialog = await openPayment(user)
+    expect(within(dialog).queryByLabelText(/หมายเหตุ/)).not.toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: 'เพิ่มหมายเหตุ' }))
+    const field = within(dialog).getByLabelText(/หมายเหตุ/)
+    expect(field).toHaveFocus()
+    await user.type(field, 'ขอใบกำกับภาษี')
+
+    await user.click(within(dialog).getByRole('button', { name: 'ไม่ใส่หมายเหตุ' }))
+    expect(within(dialog).queryByLabelText(/หมายเหตุ/)).not.toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'รับเงิน' }))
+    expect(createPayment.mutate).toHaveBeenCalledWith(expect.objectContaining({ note: '' }), expect.anything())
   })
 
   // ทดสอบ: ปุ่ม % ที่ใช้บ่อย กดทีเดียวได้ส่วนลดเลย และปุ่มที่เลือกอยู่ถูกกดค้าง
-  // วิธี: กดให้ส่วนลด → กด "10%" → เช็กช่อง % เป็น 10, ปุ่ม aria-pressed และ "ลด ฿12"
+  // วิธี: กดให้ส่วนลด → กด "10%" → เช็กช่อง % เป็น 10, ปุ่ม aria-pressed และแถบยอดเห็น ฿108
   it('ปุ่ม % ด่วน: กด 10% แล้วได้ส่วนลด 10% ทันที', async () => {
     const user = userEvent.setup()
     const dialog = await openPayment(user)
@@ -513,8 +549,8 @@ describe('CheckPage — กล่องรับเงิน', () => {
     await user.click(within(dialog).getByRole('button', { name: '10%' }))
     expect(within(dialog).getByLabelText(/ลดกี่ %/)).toHaveValue(10)
     expect(within(dialog).getByRole('button', { name: '10%' })).toHaveAttribute('aria-pressed', 'true')
-    expect(dialog).toHaveTextContent('ลด ฿12')
-    expect(within(dialog).getByRole('button', { name: 'รับเงิน ฿108' })).toBeDisabled()
+    expect(within(dialog).getByText('ยอดที่ต้องจ่าย').parentElement).toHaveTextContent('฿108')
+    expect(within(dialog).getByRole('button', { name: 'รับเงิน' })).toBeDisabled()
   })
 
   // ทดสอบ: กรอก % ที่ไม่ใช่จำนวนเต็ม 1-100 ต้องเตือน และบันทึกไม่ได้
@@ -527,11 +563,11 @@ describe('CheckPage — กล่องรับเงิน', () => {
     await user.type(percent, '150')
     expect(dialog).toHaveTextContent('ใส่เป็นจำนวนเต็ม 1-100')
     expect(percent).toHaveAttribute('aria-invalid', 'true')
-    expect(within(dialog).getByRole('button', { name: /^รับเงิน ฿/ })).toBeDisabled()
+    expect(within(dialog).getByRole('button', { name: 'รับเงิน' })).toBeDisabled()
   })
 
   // ทดสอบ: กด "ไม่ลดแล้ว" ยอดต้องกลับเป็นยอดเต็ม เหตุผลหาย และปิดส่วนลด
-  // วิธี: กดให้ส่วนลด กรอก 10% และเหตุผล → กดไม่ลดแล้ว → เช็กว่าช่อง % หาย → กดรับเงิน ฿120 → เช็กว่า note ว่าง และ discountPercent เป็น undefined
+  // วิธี: กดให้ส่วนลด กรอก 10% และเหตุผล → กดไม่ลดแล้ว → เช็กว่าช่อง % หาย → กดรับเงิน → เช็กว่า note ว่าง และ discountPercent เป็น undefined
   it('"ไม่ลดแล้ว" → ยอดกลับเป็นยอดเต็ม เหตุผลหาย และปิดส่วนลด', async () => {
     const user = userEvent.setup()
     const dialog = await openPayment(user)
@@ -541,71 +577,39 @@ describe('CheckPage — กล่องรับเงิน', () => {
     await user.click(within(dialog).getByRole('button', { name: 'ไม่ลดแล้ว' }))
 
     expect(within(dialog).queryByLabelText(/ลดกี่ %/)).not.toBeInTheDocument()
-    await user.click(within(dialog).getByRole('button', { name: 'รับเงิน ฿120' }))
+    await user.click(within(dialog).getByRole('button', { name: 'รับเงิน' }))
     expect(createPayment.mutate).toHaveBeenCalledWith(
       expect.objectContaining({ note: '', discountPercent: undefined }),
       expect.anything(),
     )
   })
 
-  // ทดสอบ: PromptPay: แสดง QR พร้อมยอดและป้ายโหมดเดโม, ต้องสแกนสลิปก่อนถึงบันทึกได้, และ Enter จากเครื่องสแกนต้องไม่ส่งฟอร์ม
-  // วิธี: ล็อก config เป็นโหมดเดโมไว้ด้านบนไฟล์ → เปิดกล่อง PromptPay เช็ก QR (svg) และป้ายเดโม → ปุ่มกดไม่ได้ → พิมพ์สลิปแล้ว Enter เช็กว่ายังไม่ส่ง และขึ้น "อ่าน QR ได้แล้ว" → กดบันทึก เช็กว่าส่ง slipPayload ที่ตัดช่องว่างแล้ว
-  it('PromptPay: QR พร้อมยอด + คำเตือนโหมดเดโม · ต้องสแกนสลิปก่อน · Enter จากเครื่องสแกนไม่ submit', async () => {
+  // ทดสอบ: PromptPay: แสดง QR พร้อมยอดและป้ายโหมดเดโม ไม่มีช่องสแกนสลิปในกล่องแล้ว — ปุ่มเป็น "พิมพ์ใบเสร็จ" ส่ง slipLater
+  // วิธี: ล็อก config เป็นโหมดเดโมไว้ด้านบนไฟล์ → เปิดกล่อง PromptPay เช็ก QR (svg) ป้ายเดโม และไม่มีช่องสแกนสลิป → กดพิมพ์ใบเสร็จ ฿120 → เช็ก payload มี slipLater ไม่มี slipPayload → onSuccess แล้วขึ้นใบเสร็จ
+  it('PromptPay: QR พร้อมยอด + คำเตือนโหมดเดโม · ไม่ต้องสแกนสลิป · "พิมพ์ใบเสร็จ" ส่ง slipLater', async () => {
     const user = userEvent.setup()
     const dialog = await openPromptPay(user)
     expect(within(dialog).getByText('ให้ลูกค้าสแกนเพื่อจ่าย')).toBeInTheDocument()
     expect(dialog.querySelector('svg')).not.toBeNull()
     expect(dialog).toHaveTextContent('โหมดเดโม')
+    expect(within(dialog).queryByPlaceholderText(/ยิงเครื่องสแกน/)).not.toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: /^รับเงิน/ })).not.toBeInTheDocument()
 
-    const submit = within(dialog).getByRole('button', { name: 'รับเงิน ฿120' })
-    expect(submit).toBeDisabled()
-
-    const slip = within(dialog).getByPlaceholderText(/ยิงเครื่องสแกน/)
-    await user.type(slip, '  SLIP-QR-123  {Enter}')
-    expect(createPayment.mutate).not.toHaveBeenCalled()
-    expect(dialog).toHaveTextContent('อ่าน QR ได้แล้ว')
-    await user.click(submit)
-    expect(createPayment.mutate).toHaveBeenCalledWith(
-      expect.objectContaining({ method: PaymentMethod.PROMPTPAY, slipPayload: 'SLIP-QR-123', expectedTotal: 120 }),
-      expect.anything(),
-    )
-  })
-
-  // ทดสอบ: PromptPay: ปุ่ม "ล้าง" ลบสลิปที่สแกนไว้ แล้วกลับไปบันทึกไม่ได้อีก
-  // วิธี: เปิดกล่อง PromptPay พิมพ์สลิป → กดล้าง → เช็กว่าช่องว่าง และปุ่มรับเงินกดไม่ได้
-  it('PromptPay: ปุ่ม "ล้าง" ลบสลิปที่สแกนไว้ แล้วบันทึกไม่ได้อีก', async () => {
-    const user = userEvent.setup()
-    const dialog = await openPromptPay(user)
-    await user.type(within(dialog).getByPlaceholderText(/ยิงเครื่องสแกน/), 'SLIP')
-    await user.click(within(dialog).getByRole('button', { name: 'ล้าง' }))
-    expect(within(dialog).getByPlaceholderText(/ยิงเครื่องสแกน/)).toHaveValue('')
-    expect(within(dialog).getByRole('button', { name: 'รับเงิน ฿120' })).toBeDisabled()
-  })
-
-  // ทดสอบ: STAFF ไม่มีตัวเลือกยืนยันรับเงิน PromptPay เองโดยไม่มีสลิป
-  // วิธี: เปิดกล่อง PromptPay เป็น STAFF → เช็กว่าไม่มี checkbox ยืนยันเอง
-  it('STAFF ไม่มีตัวเลือกยืนยันรับเงินเองโดยไม่มีสลิป', async () => {
-    const user = userEvent.setup()
-    const dialog = await openPromptPay(user, { ...readyTable(), role: Role.STAFF })
-    expect(within(dialog).queryByRole('checkbox', { name: /ยืนยันรับเงินเอง/ })).not.toBeInTheDocument()
-  })
-
-  // ทดสอบ: ADMIN รับ PromptPay โดยไม่มีสลิปได้ ถ้าติ๊กยืนยันเองและใส่เหตุผล แล้วส่งเหตุผลไปแทนสลิป
-  // วิธี: เปิดกล่อง PromptPay เป็น ADMIN → ติ๊กยืนยันเอง เช็กว่าช่องสแกนถูกปิด และปุ่มกดไม่ได้ → ใส่เหตุผลแล้วกด → เช็กว่า payload มี slipOverrideReason (ตัดช่องว่างแล้ว) และไม่มี slipPayload
-  it('ADMIN ไม่มีสลิป → ติ๊กยืนยันเอง ต้องใส่เหตุผล แล้วส่งเหตุผลแทนสลิป', async () => {
-    const user = userEvent.setup()
-    const dialog = await openPromptPay(user, { ...readyTable(), role: Role.ADMIN })
-    await user.click(within(dialog).getByRole('checkbox', { name: /ยืนยันรับเงินเอง \(ADMIN\)/ }))
-    expect(within(dialog).getByPlaceholderText(/ยิงเครื่องสแกน/)).toBeDisabled()
-
-    const submit = within(dialog).getByRole('button', { name: 'รับเงิน ฿120' })
-    expect(submit).toBeDisabled()
-    await user.type(within(dialog).getByPlaceholderText(/เช็คยอดเข้าในแอปธนาคาร/), ' เช็คแอปแล้ว ')
-    await user.click(submit)
-
+    await user.click(within(dialog).getByRole('button', { name: 'พิมพ์ใบเสร็จ ฿120' }))
     const payload = createPayment.mutate.mock.calls[0][0]
-    expect(payload).toMatchObject({ method: PaymentMethod.PROMPTPAY, slipOverrideReason: 'เช็คแอปแล้ว' })
+    expect(payload).toMatchObject({ method: PaymentMethod.PROMPTPAY, slipLater: true, expectedTotal: 120 })
     expect(payload).not.toHaveProperty('slipPayload')
+    createPayment.mutate.mock.calls[0][1].onSuccess({ id: 'pay-pp' })
+    expect(await screen.findByText('ใบเสร็จ pay-pp รับมา null')).toBeInTheDocument()
+  })
+
+  // ทดสอบ: เงินสดไม่ส่ง slipLater (backend จะได้ไม่ตั้งสถานะสลิปให้บิลเงินสด)
+  // วิธี: เปิดกล่อง (เงินสด) → กดรับเงิน → เช็ก slipLater เป็น false
+  it('เงินสด: ไม่ส่ง slipLater', async () => {
+    const user = userEvent.setup()
+    const dialog = await openPayment(user)
+    await user.click(within(dialog).getByRole('button', { name: 'รับเงิน' }))
+    expect(createPayment.mutate.mock.calls[0][0]).toMatchObject({ method: PaymentMethod.CASH, slipLater: false })
   })
 
   // ทดสอบ: error จาก backend (เช่น ยอดเปลี่ยน) ต้องแสดงในกล่องรับเงิน ไม่ไปซ่อนอยู่หลังกล่อง
@@ -616,18 +620,18 @@ describe('CheckPage — กล่องรับเงิน', () => {
     expect(within(dialog).getByRole('alert')).toHaveTextContent('ยอดเปลี่ยนไปแล้ว กรุณาเปิดใหม่')
   })
 
-  // ทดสอบ: error (เช่น สลิปซ้ำ) ต้องอยู่ใต้ช่องหมายเหตุ ติดปุ่มรับเงิน — กล่อง PromptPay ยาวเกินจอ ถ้าอยู่หัวกล่องจะพ้นจอตอนกดปุ่มล่างสุด
-  // วิธี: mock useCreatePayment ให้มี error สลิปซ้ำ → เปิดกล่อง เลือก PromptPay → เช็กลำดับในหน้า: ช่องหมายเหตุ → alert → ปุ่มรับเงิน
-  it('error อยู่ใต้ช่องหมายเหตุ ติดปุ่มรับเงิน', async () => {
+  // ทดสอบ: error (เช่น สลิปซ้ำ) ต้องอยู่ใต้ปุ่มเพิ่มหมายเหตุ ติดปุ่มรับเงิน — กล่อง PromptPay ยาวเกินจอ ถ้าอยู่หัวกล่องจะพ้นจอตอนกดปุ่มล่างสุด
+  // วิธี: mock useCreatePayment ให้มี error สลิปซ้ำ → เปิดกล่อง เลือก PromptPay → เช็กลำดับในหน้า: ปุ่มเพิ่มหมายเหตุ → alert → ปุ่มรับเงิน
+  it('error อยู่ใต้ปุ่มเพิ่มหมายเหตุ ติดปุ่มรับเงิน', async () => {
     const user = userEvent.setup()
     const dialog = await openPayment(user, {
       ...readyTable(),
       paymentError: new Error('ตรวจสลิปไม่ผ่าน: สลิปนี้ถูกใช้กับบิลอื่นแล้ว'),
     })
     await user.click(within(dialog).getByRole('button', { name: 'PromptPay' }))
-    const note = within(dialog).getByText('หมายเหตุ')
+    const note = within(dialog).getByRole('button', { name: 'เพิ่มหมายเหตุ' })
     const alert = within(dialog).getByRole('alert')
-    const submit = within(dialog).getByRole('button', { name: /^รับเงิน/ })
+    const submit = within(dialog).getByRole('button', { name: /^พิมพ์ใบเสร็จ/ })
     expect(alert).toHaveTextContent('สลิปนี้ถูกใช้กับบิลอื่นแล้ว')
     expect(note.compareDocumentPosition(alert) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(alert.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
@@ -679,7 +683,7 @@ describe('CheckPage — บิลที่หารค้างไว้ (ก่
     expect(dialog).toHaveTextContent('ทั้งบิล ฿300 · ค้าง ฿200')
     expect(within(dialog).queryByRole('button', { name: 'ให้ส่วนลด' })).not.toBeInTheDocument()
 
-    await user.click(within(dialog).getByRole('button', { name: 'รับเงิน ฿100' }))
+    await user.click(within(dialog).getByRole('button', { name: 'รับเงิน' }))
     expect(createPayment.mutate).toHaveBeenCalledWith(
       expect.objectContaining({ expectedTotal: 300, splitParts: 3, discountPercent: undefined }),
       expect.anything(),

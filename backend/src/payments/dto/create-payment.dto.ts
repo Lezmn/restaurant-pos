@@ -5,6 +5,7 @@ import {
   ArrayMaxSize,
   ArrayNotEmpty,
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -130,6 +131,15 @@ export class CreatePaymentDto {
   @IsNotEmpty()
   @MaxLength(200)
   slipOverrideReason?: string;
+
+  @ApiPropertyOptional({
+    example: true,
+    description:
+      'PromptPay: ออกใบเสร็จพร้อม QR ก่อน แล้วค่อยแนบสลิปทีหลัง (POST /payments/:id/slip) — บิลเป็น "รอสลิป" จนกว่าจะตรวจผ่าน',
+  })
+  @IsOptional()
+  @IsBoolean()
+  slipLater?: boolean;
 
   @ApiPropertyOptional({
     example: 'ลูกค้าขอใบกำกับภาษี',

@@ -214,7 +214,7 @@ export function DashboardPage() {
   const { summary, trend, todayStatus, notifications, slipIssues } = data
   // trend ของ backend จบที่วันนี้ — จุดก่อนสุดท้ายคือเมื่อวาน
   const yesterday = trend.length >= 2 ? trend[trend.length - 2] : undefined
-  const slipIssueCount = slipIssues.pending + slipIssues.failed
+  const slipIssueCount = slipIssues.pending + slipIssues.failed + slipIssues.awaiting
   const netNegative = summary.netProfit < 0
 
   return (
@@ -237,6 +237,7 @@ export function DashboardPage() {
             <span>
               สลิป PromptPay ที่ยังยืนยันเงินเข้าไม่ได้:{' '}
               <span className="tabular-nums">
+                {slipIssues.awaiting > 0 && `รอสลิป ${slipIssues.awaiting} · `}
                 รอตรวจ {slipIssues.pending} · ไม่ผ่าน {slipIssues.failed}
               </span>
             </span>

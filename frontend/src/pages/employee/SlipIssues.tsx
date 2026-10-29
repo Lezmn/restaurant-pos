@@ -12,6 +12,8 @@ import { formatBaht } from '@/lib/format'
 import { Role, SlipStatus } from '@/types/enums'
 import type { Payment } from '@/types/models'
 import { useLayoutEffect, useRef, useState } from 'react'
+import { AttachSlipDialog } from './AttachSlipDialog'
+import { needsSlip } from './slip-input'
 import { SlipBadge } from './SlipBadge'
 import { RequiredMark } from '@/components/ui/RequiredMark'
 
@@ -32,6 +34,7 @@ export function SlipIssues() {
   const recheck = useRecheckSlip()
   const isAdmin = useAuth((s) => s.user?.role === Role.ADMIN)
   const [confirming, setConfirming] = useState<Payment | null>(null)
+  const [attaching, setAttaching] = useState<Payment | null>(null)
   const listRef = useRef<HTMLUListElement>(null)
   const [listMaxHeight, setListMaxHeight] = useState<number>()
   const scrolls = (payments?.length ?? 0) > VISIBLE_ROWS
@@ -64,7 +67,8 @@ export function SlipIssues() {
           ต้องทำอะไรกับรายการนี้
         </summary>
         <p className="pb-2 text-gray-700">
-          ยังยืนยันไม่ได้ว่าเงินเข้าบัญชีร้านจริง — "รอตรวจ" ระบบตรวจซ้ำให้เอง ·
+          ยังยืนยันไม่ได้ว่าเงินเข้าบัญชีร้านจริง — "รอสลิป" กดตรวจสลิปเมื่อลูกค้ายื่นสลิป ·
+          "รอตรวจ" ระบบตรวจซ้ำให้เอง ·
           "ไม่ผ่าน" ให้เช็คแอปธนาคาร แล้ว{isAdmin ? 'ยืนยันเอง' : 'แจ้งเจ้าของร้าน'}หรือยกเลิกบิล
         </p>
       </details>
@@ -96,6 +100,15 @@ export function SlipIssues() {
             </div>
 
             <div className="flex shrink-0 gap-2">
+              {needsSlip(p) && (
+                <button
+                  type="button"
+                  onClick={() => setAttaching(p)}
+                  className={button('outline', 'sm')}
+                >
+                  ตรวจสลิป
+                </button>
+              )}
               {p.slip?.status === SlipStatus.PENDING && (
                 <button
                   type="button"
@@ -129,6 +142,7 @@ export function SlipIssues() {
       {confirming && (
         <ConfirmSlipDialog payment={confirming} onClose={() => setConfirming(null)} />
       )}
+      {attaching && <AttachSlipDialog payment={attaching} onClose={() => setAttaching(null)} />}
     </section>
   )
 }

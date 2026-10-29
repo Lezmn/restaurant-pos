@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { QRCodeSVG } from 'qrcode.react'
 import { Modal } from '@/components/ui/Modal'
 import { button } from '@/components/ui/styles'
 import { formatBaht } from '@/lib/format'
-import { RESTAURANT_NAME } from '@/lib/config'
+import { PROMPTPAY_ID, RESTAURANT_NAME } from '@/lib/config'
+import { buildPromptPayPayload } from '@/lib/promptpay'
 import { printSettings } from '@/lib/print-settings'
 import { PaymentMethod, SlipStatus } from '@/types/enums'
 import type { Payment } from '@/types/models'
@@ -23,6 +25,7 @@ export function ReceiptDialog({
   payment,
   tendered = null,
   justPaid = false,
+  printNow = false,
   onClose,
 }: Readonly<{
   payment: Payment
@@ -30,6 +33,8 @@ export function ReceiptDialog({
   tendered?: number | null
   /** เพิ่งรับเงินเสร็จ (ไม่ใช่เปิดดูย้อนหลัง) — เครื่องที่เปิด "พิมพ์ทันที" ไว้จะสั่งพิมพ์เอง */
   justPaid?: boolean
+  /** สั่งพิมพ์ทันทีที่เปิด ไม่ว่าเครื่องนี้ตั้ง "พิมพ์ทันที" ไว้หรือไม่ (PromptPay: กดปุ่ม "พิมพ์ใบเสร็จ" มา) */
+  printNow?: boolean
   onClose: () => void
 }>) {
   const receipt = payment.receipt
@@ -38,7 +43,14 @@ export function ReceiptDialog({
   const [autoPrint, setAutoPrint] = useState(printSettings.getAutoPrintReceipt)
 
   // ตัดสินตอนเปิดกล่องครั้งเดียว — ติ๊กเปิดทีหลังมีผลกับใบถัดไป ไม่พิมพ์ใบนี้ซ้ำ
-  const [printOnOpen] = useState(() => justPaid && printSettings.getAutoPrintReceipt())
+  const [printOnOpen] = useState(() => printNow || (justPaid && printSettings.getAutoPrintReceipt()))
+  // PromptPay ที่ยังไม่ได้แนบสลิป: พิมพ์ QR ลงใบเสร็จให้ลูกค้าสแกนจ่ายยอดนี้ (พิมพ์ซ้ำก็ยังมี QR จนกว่าจะตรวจสลิป)
+  const payQr =
+    payment.method === PaymentMethod.PROMPTPAY &&
+    payment.slip?.status === SlipStatus.AWAITING &&
+    PROMPTPAY_ID
+      ? buildPromptPayPayload(PROMPTPAY_ID, payment.amount)
+      : ''
   // effect ของ Modal (ลูก) รันก่อน — ถึงตรงนี้ <dialog> showModal แล้ว เลื่อนไป task ถัดไปพอให้ render เสร็จ
   // ใช้ setTimeout ไม่ใช้ requestAnimationFrame: rAF ไม่ทำงานตอนหน้าต่างถูกบังหรือย่อ = ใบเสร็จไม่ออก
   // ตั้ง ref ตอนพิมพ์จริง: StrictMode รัน effect 2 รอบ รอบแรกถูก clear ไป — ref กันพิมพ์ซ้ำ 2 ใบ
@@ -75,6 +87,11 @@ export function ReceiptDialog({
         </output>
       )}
       {/* แจ้งแคชเชียร์เท่านั้น ไม่ติดไปกับกระดาษ */}
+      {payment.slip?.status === SlipStatus.AWAITING && (
+        <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 print:hidden">
+          ยังไม่ได้ตรวจสลิป — ให้ลูกค้าสแกน QR บนใบเสร็จจ่าย แล้วกด "ตรวจสลิป" ที่บิลนี้ในรายการบิล
+        </p>
+      )}
       {payment.slip?.status === SlipStatus.PENDING && (
         <p className="mb-3 flex gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 print:hidden">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden className="mt-0.5 h-4 w-4 shrink-0">
@@ -172,6 +189,17 @@ export function ReceiptDialog({
           <p className="mt-3 border-t border-dashed border-gray-300 pt-3 text-sm text-gray-700">
             หมายเหตุ: {note}
           </p>
+        )}
+
+        {payQr && (
+          <div className="mt-3 flex flex-col items-center border-t border-dashed border-gray-300 pt-3 text-center">
+            <p className="text-sm font-bold text-black">สแกนจ่ายด้วย PromptPay</p>
+            <QRCodeSVG value={payQr} size={160} className="mt-2" />
+            <p className="mt-2 text-base font-bold tabular-nums text-black">
+              {formatBaht(payment.amount)}
+            </p>
+            <p className="text-xs text-gray-600">สแกนจ่ายครั้งเดียว แล้วยื่นสลิปที่เคาน์เตอร์</p>
+          </div>
         )}
 
         <p className="mt-4 text-center text-xs text-gray-500">

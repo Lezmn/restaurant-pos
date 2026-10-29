@@ -250,7 +250,7 @@ export interface ApiDashboardReport {
   /** date เป็น YYYY-MM-DD ครบทุกวัน (วันที่ไม่มียอดเป็น 0) */
   revenueTrend: { date: string; revenue: number }[]
   /** บิล PromptPay ที่ยังยืนยันเงินเข้าไม่ได้ (ทุกวัน) */
-  slipIssues?: { pending: number; failed: number }
+  slipIssues?: { pending: number; failed: number; awaiting?: number }
   /** ลูกค้าเข้าใช้บริการวันนี้ — tablesWithoutCount = โต๊ะที่ไม่ได้ระบุจำนวน */
   guests?: { total: number; tables: number; tablesWithoutCount: number }
 }

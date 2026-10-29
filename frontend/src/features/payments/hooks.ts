@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { LIVE_STALE_TIME } from '@/lib/live'
 import {
+  attachSlip,
   confirmSlip,
   createPayment,
   getPayment,
@@ -85,3 +86,4 @@ function useSlipMutation<TVars, TData>(fn: (vars: TVars) => Promise<TData>) {
 
 export const useRecheckSlip = () => useSlipMutation(recheckSlip)
 export const useConfirmSlip = () => useSlipMutation(confirmSlip)
+export const useAttachSlip = () => useSlipMutation(attachSlip)

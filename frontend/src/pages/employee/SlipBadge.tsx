@@ -7,6 +7,7 @@ const label: Record<SlipStatus, string> = {
   [SlipStatus.PENDING]: 'รอตรวจสลิป',
   [SlipStatus.FAILED]: 'สลิปไม่ผ่าน',
   [SlipStatus.MANUAL]: 'ยืนยันเอง',
+  [SlipStatus.AWAITING]: 'รอสลิป',
 }
 
 const tone: Record<SlipStatus, BadgeTone> = {
@@ -14,6 +15,7 @@ const tone: Record<SlipStatus, BadgeTone> = {
   [SlipStatus.PENDING]: 'amber',
   [SlipStatus.FAILED]: 'red',
   [SlipStatus.MANUAL]: 'blue',
+  [SlipStatus.AWAITING]: 'amber',
 }
 
 /** ป้ายผลตรวจสลิป PromptPay — ชี้เมาส์ดูเหตุผลล่าสุด / ใครยืนยันเอง */

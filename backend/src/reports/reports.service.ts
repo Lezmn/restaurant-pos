@@ -80,7 +80,7 @@ export class ReportsService {
           by: ['slipStatus'],
           where: {
             status: PaymentStatus.COMPLETED,
-            slipStatus: { in: [SlipStatus.PENDING, SlipStatus.FAILED] },
+            slipStatus: { in: [SlipStatus.AWAITING, SlipStatus.PENDING, SlipStatus.FAILED] },
           },
           _count: { _all: true },
         }),
@@ -116,6 +116,7 @@ export class ReportsService {
       slipIssues: {
         pending: slipGroups.find((g) => g.slipStatus === SlipStatus.PENDING)?._count._all ?? 0,
         failed: slipGroups.find((g) => g.slipStatus === SlipStatus.FAILED)?._count._all ?? 0,
+        awaiting: slipGroups.find((g) => g.slipStatus === SlipStatus.AWAITING)?._count._all ?? 0,
       },
     };
   }

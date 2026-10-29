@@ -29,6 +29,8 @@ export async function createPayment(vars: {
   slipPayload?: string
   /** PromptPay ไม่มีสลิป — เฉพาะ ADMIN ยืนยันเองพร้อมเหตุผล */
   slipOverrideReason?: string
+  /** PromptPay: พิมพ์ใบเสร็จพร้อม QR ก่อน แล้วแนบสลิปจากรายการบิลทีหลัง (บิลเป็น "รอสลิป") */
+  slipLater?: boolean
 }): Promise<Payment> {
   const data = await apiClient<ApiPayment>('/payments', {
     method: 'POST',
@@ -41,6 +43,7 @@ export async function createPayment(vars: {
       ...(vars.note ? { note: vars.note } : {}),
       ...(vars.slipPayload ? { slipPayload: vars.slipPayload } : {}),
       ...(vars.slipOverrideReason ? { slipOverrideReason: vars.slipOverrideReason } : {}),
+      ...(vars.slipLater ? { slipLater: true } : {}),
     }),
   })
   return mapPayment(data, vars.tableName, vars.isTakeaway)
@@ -84,7 +87,7 @@ export async function voidPayment(vars: {
   return mapPayment(data)
 }
 
-/** GET /payments?slipIssues=true — บิล PromptPay ที่สลิปรอตรวจ/ตรวจไม่ผ่าน (ทุกวัน) */
+/** GET /payments?slipIssues=true — บิล PromptPay ที่รอสลิป/สลิปรอตรวจ/ตรวจไม่ผ่าน (ทุกวัน) */
 export async function getSlipIssuePayments(): Promise<Payment[]> {
   const data = await apiClient<ApiPayment[]>('/payments?slipIssues=true')
   return data.map((p) => mapPayment(p))
@@ -93,6 +96,15 @@ export async function getSlipIssuePayments(): Promise<Payment[]> {
 /** POST /payments/:id/slip/recheck @Roles(ADMIN, STAFF) — ตรวจสลิปที่รอตรวจอีกครั้งทันที */
 export async function recheckSlip(id: Id): Promise<Payment> {
   const data = await apiClient<ApiPayment>(`/payments/${id}/slip/recheck`, { method: 'POST' })
+  return mapPayment(data)
+}
+
+/** POST /payments/:id/slip @Roles(ADMIN, STAFF) — แนบสลิปให้บิลที่รอสลิป/สลิปเดิมไม่ผ่าน (ตรวจกับ SlipOK) */
+export async function attachSlip(vars: { id: Id; slipPayload: string }): Promise<Payment> {
+  const data = await apiClient<ApiPayment>(`/payments/${vars.id}/slip`, {
+    method: 'POST',
+    body: JSON.stringify({ slipPayload: vars.slipPayload.trim() }),
+  })
   return mapPayment(data)
 }
 
