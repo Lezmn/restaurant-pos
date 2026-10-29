@@ -125,9 +125,10 @@ export function CashDrawerBar() {
       </dl>
 
       <p className="mx-4 mt-2 flex justify-between gap-3 text-sm text-gray-600">
+        {/* นับเฉพาะบิลที่ยืนยันแล้วว่าเงินเข้า — บิลที่พิมพ์ใบเสร็จ QR ไปแต่ยังไม่ได้ตรวจสลิป ยังไม่ถือว่าเข้าบัญชี */}
         <span>PromptPay เข้าบัญชีร้าน</span>
         <span className="font-semibold text-black tabular-nums">
-          {formatBaht(preview.promptpaySales)}
+          {formatBaht(preview.promptpayConfirmed)}
         </span>
       </p>
 
@@ -154,7 +155,7 @@ export function CashDrawerBar() {
           </div>
           <div>
             <dt className="inline font-semibold text-black">PromptPay</dt>
-            <dd className="inline"> เข้าบัญชีธนาคารของร้าน ไม่อยู่ในลิ้นชัก ให้เทียบกับแอปธนาคาร</dd>
+            <dd className="inline"> เข้าบัญชีธนาคารของร้าน ไม่อยู่ในลิ้นชัก นับเฉพาะบิลที่ตรวจสลิปแล้ว ให้เทียบกับแอปธนาคาร</dd>
           </div>
         </dl>
       </details>

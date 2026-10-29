@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
-import { PaymentMethod, Prisma, Role } from '@prisma/client';
+import { PaymentMethod, PaymentStatus, Prisma, Role, SlipStatus } from '@prisma/client';
 import { CashClosesService } from '../../../src/cash-closes/cash-closes.service';
 
 const D = (v: number) => new Prisma.Decimal(v);
@@ -12,7 +12,10 @@ const todayKey = () => {
 
 function makePrisma() {
   return {
-    payment: { groupBy: jest.fn().mockResolvedValue([]) },
+    payment: {
+      groupBy: jest.fn().mockResolvedValue([]),
+      aggregate: jest.fn().mockResolvedValue({ _sum: { amount: null } }),
+    },
     expense: {
       aggregate: jest.fn().mockResolvedValue({ _sum: { amount: null } }),
       findMany: jest.fn().mockResolvedValue([]),
@@ -104,6 +107,29 @@ describe('CashClosesService', () => {
     expect(result.unpaidTableCount).toBe(2);
     expect(result.paymentCount).toBe(6);
     expect(result.alreadyClosed).toBeNull();
+  });
+
+  // ทดสอบ: การ์ดลิ้นชักโชว์ "PromptPay เข้าบัญชีร้าน" เฉพาะบิลที่ยืนยันแล้วว่าเงินเข้า — บิลรอแนบสลิป/ตรวจไม่ผ่านยังไม่นับ
+  // วิธี: mock aggregate คืน 300 → เช็กว่า preview ส่ง promptpayConfirmed 300 แยกจาก promptpaySales (800 = ทุกบิล ใช้ตอนปิดยอดเหมือนเดิม)
+  //       และ query กรองแค่ PromptPay ที่ COMPLETED + สลิป VERIFIED/MANUAL ของวันนั้น
+  it('preview: promptpayConfirmed นับเฉพาะ PromptPay ที่สลิปผ่านหรือแอดมินยืนยัน', async () => {
+    prisma.payment.aggregate.mockResolvedValue({ _sum: { amount: D(300) } });
+    const result: any = await service.preview();
+    expect(Number(result.promptpayConfirmed)).toBe(300);
+    expect(Number(result.promptpaySales)).toBe(800);
+    const where = prisma.payment.aggregate.mock.calls[0][0].where;
+    expect(where).toMatchObject({
+      status: PaymentStatus.COMPLETED,
+      method: PaymentMethod.PROMPTPAY,
+      slipStatus: { in: [SlipStatus.VERIFIED, SlipStatus.MANUAL] },
+    });
+    expect(where.paidAt.gte).toBeInstanceOf(Date);
+  });
+
+  // ทดสอบ: ยังไม่มีบิล PromptPay ที่ยืนยันแล้ว → promptpayConfirmed เป็น 0 ไม่ใช่ null
+  it('preview: ไม่มี PromptPay ที่ยืนยันแล้ว → promptpayConfirmed = 0', async () => {
+    const result: any = await service.preview();
+    expect(Number(result.promptpayConfirmed)).toBe(0);
   });
 
   it('findOne: ยอดเปลี่ยนหลังปิด (ยกเลิกบิลทีหลัง) → changedSinceClose = true', async () => {

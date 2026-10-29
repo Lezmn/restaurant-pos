@@ -10,6 +10,7 @@ import {
   PaymentMethod,
   PaymentStatus,
   Prisma,
+  SlipStatus,
   TableSessionStatus,
 } from '@prisma/client';
 import { AuthenticatedUser } from '../auth/jwt.strategy';
@@ -35,7 +36,8 @@ export class CashClosesService {
   async preview(date?: string) {
     const dateKey = this.resolveDateKey(date);
     const dayStart = this.dateKeyToStart(dateKey);
-    const [totals, unpaidTableCount, existing, lastClose, drawerExpenseItems] = await Promise.all([
+    const range = { gte: dayStart, lt: addDays(dayStart, 1) };
+    const [totals, unpaidTableCount, existing, lastClose, drawerExpenseItems, promptpayConfirmed] = await Promise.all([
       this.computeTotals(dateKey),
       this.countTablesWithUnpaidOrders(),
       this.prisma.dailyCashClose.findUnique({ where: { date: dateKey } }),
@@ -48,16 +50,27 @@ export class CashClosesService {
       this.prisma.expense.findMany({
         where: {
           paidFromDrawer: true,
-          spentAt: { gte: dayStart, lt: addDays(dayStart, 1) },
+          spentAt: range,
         },
         select: { id: true, title: true, amount: true, spentAt: true, createdByName: true },
         orderBy: { spentAt: 'asc' },
+      }),
+      // PromptPay ที่ยืนยันแล้วว่าเงินเข้าจริง (สลิปผ่าน/แอดมินยืนยันเอง) — บิลที่รอแนบสลิปหรือตรวจไม่ผ่านยังไม่นับว่าเข้าบัญชี
+      this.prisma.payment.aggregate({
+        where: {
+          status: PaymentStatus.COMPLETED,
+          method: PaymentMethod.PROMPTPAY,
+          slipStatus: { in: [SlipStatus.VERIFIED, SlipStatus.MANUAL] },
+          paidAt: range,
+        },
+        _sum: { amount: true },
       }),
     ]);
 
     return {
       date: dateKey,
       ...totals,
+      promptpayConfirmed: promptpayConfirmed._sum.amount ?? new Prisma.Decimal(0),
       drawerExpenseItems,
       unpaidTableCount,
       // ให้หน้าจอเติมเงินทอนตั้งต้นให้ก่อน ส่วนใหญ่ร้านใช้ยอดเดิมทุกวัน

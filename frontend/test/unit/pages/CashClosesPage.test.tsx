@@ -56,6 +56,7 @@ const todayPreview = (overrides: Partial<ApiCashClosePreview> = {}): ApiCashClos
   date: '2026-10-24',
   cashSales: 1250.5,
   promptpaySales: 830,
+  promptpayConfirmed: 830,
   drawerExpenses: 85.25,
   paymentCount: 9,
   drawerExpenseItems: [],

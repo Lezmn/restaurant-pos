@@ -333,7 +333,10 @@ export interface ApiCashClose {
 export interface ApiCashClosePreview {
   date: string
   cashSales: number
+  /** PromptPay ทุกบิลที่ไม่ถูกยกเลิก — ยอดที่บันทึกตอนปิดยอด */
   promptpaySales: number
+  /** PromptPay ที่ยืนยันแล้วว่าเงินเข้า (สลิปผ่าน/แอดมินยืนยัน) — ไม่รวมบิลรอแนบสลิปหรือตรวจไม่ผ่าน */
+  promptpayConfirmed: number
   drawerExpenses: number
   paymentCount: number
   drawerExpenseItems: ApiDrawerExpenseItem[]
