@@ -123,6 +123,17 @@ test('ปิดยอดวันนี้ (หน้าเจ้าของร
   await expect(page.getByText(/ปิดยอดวันนี้แล้ว/)).toBeVisible()
   await expect(page.getByText(/-?฿10|ขาด/).first()).toBeVisible()
 
+  // มือถือ: แต่ละวันเป็นการ์ด ชื่อตัวเลข (data-label) ซ้าย ค่าขวา — ไม่เลื่อนข้าง และ "นับได้" ของวันนี้อยู่ในจอ
+  await page.setViewportSize({ width: 375, height: 812 })
+  const todayRow = page.locator('tbody tr').filter({ has: page.locator('td[data-label="นับได้"]') }).first()
+  await expect(todayRow).toBeVisible()
+  const counted = todayRow.locator('td[data-label="นับได้"]')
+  await expect(counted).toContainText('฿')
+  const box = await counted.boundingBox()
+  expect(box!.x + box!.width).toBeLessThanOrEqual(375)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375)
+  await page.setViewportSize({ width: 1024, height: 768 })
+
   // ปิดยอดแล้วยกเลิกบิลของวันนั้นไม่ได้ — ADMIN ต้องลบการปิดยอดก่อน
   const closed = await (await request.get(`${API_URL}/cash-closes/preview`, { headers: admin })).json()
   const payments = await (await request.get(`${API_URL}/payments`, { headers: admin })).json()

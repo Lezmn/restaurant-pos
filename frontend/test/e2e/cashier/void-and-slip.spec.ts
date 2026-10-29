@@ -71,6 +71,33 @@ test('ยกเลิกบิลจากตาราง "บิลที่เ
   await ok(await call(request, 'POST', '/payments', { token: t.STAFF, data: { tableSessionId: sessionId, method: 'CASH' } }))
 })
 
+// ทดสอบ: STAFF ยกเลิกบิลได้แค่ภายใน 1 ชม. หลังรับเงิน — เลยแล้วปุ่มกดไม่ได้และบอกให้เจ้าของร้านยกเลิก (ปุ่มปิดเองโดยไม่ต้อง refresh)
+// วิธี: เตรียมโต๊ะแล้วเก็บเงินสดผ่าน API → ติดตั้งนาฬิกาจำลองก่อนเปิดหน้า Check → ปุ่มยกเลิกบิลกดได้ → เลื่อนเวลาไป 61 นาที (หน้าเช็กเวลาทุก 30 วิ)
+//       → ปุ่มกดไม่ได้ พร้อมข้อความ "เกิน 1 ชม. ให้เจ้าของร้านยกเลิก" → ADMIN เปิดหน้าเดียวกันยังกดได้
+test('STAFF: บิลเกิน 1 ชม. → ปุ่มยกเลิกบิลปิดเอง และบอกให้เจ้าของร้านยกเลิก · ADMIN ยังยกเลิกได้', async ({ page, request }) => {
+  const t = await tokens(request)
+  const { sessionId } = await servedTable(request, t)
+  const paid = await ok<{ receipt: { number: string } }>(
+    await call(request, 'POST', '/payments', { token: t.STAFF, data: { tableSessionId: sessionId, method: 'CASH' } }),
+  )
+  const receiptNo = paid.receipt.number
+
+  await page.clock.install()
+  await loginAsCashier(page, request)
+  await page.goto('/employee/check')
+  const voidButton = billRow(page, receiptNo).getByRole('button', { name: 'ยกเลิกบิล' })
+  await expect(voidButton).toBeEnabled({ timeout: 10_000 })
+
+  await page.clock.fastForward('01:01:00')
+  await expect(voidButton).toBeDisabled()
+  await expect(voidButton).toHaveAccessibleDescription('เกิน 1 ชม. ให้เจ้าของร้านยกเลิก')
+
+  // เจ้าของร้านไม่มีจำกัดเวลา (backend ก็อนุญาต ADMIN)
+  await loginAsAdmin(page, request)
+  await page.goto('/employee/check')
+  await expect(billRow(page, receiptNo).getByRole('button', { name: 'ยกเลิกบิล' })).toBeEnabled({ timeout: 10_000 })
+})
+
 // ทดสอบ: ADMIN รับ PromptPay โดยไม่มีสลิปได้ ถ้าติ๊กยืนยันเองและใส่เหตุผล แล้วบิลต้องขึ้นป้าย "ยืนยันเอง"
 // วิธี: เตรียมโต๊ะที่เสิร์ฟแล้ว → admin กดรับเงินเป็น PromptPay → ปุ่มบันทึกกดไม่ได้ → ติ๊กยืนยันเอง (ช่องสแกนถูกปิด) ปุ่มยังกดไม่ได้ → ใส่เหตุผลแล้วบันทึก → เช็กใบเสร็จ การ์ดโต๊ะหาย และแถวบิลมีคำว่า "ยืนยันเอง"
 test('ADMIN รับ PromptPay โดยไม่มีสลิป: ติ๊กยืนยันเองพร้อมเหตุผล → บันทึกได้ และบิลขึ้นป้าย "ยืนยันเอง"', async ({ page, request }) => {
