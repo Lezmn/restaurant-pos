@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" role="img" aria-labelledby="title desc">
+  <title id="title">ตามใจ อาหารไม่ตามสั่ง logo mark</title>
+  <desc id="desc">A compact circular Thai restaurant logo with a wok and chef hat.</desc>
+  <!-- Transparent background: suitable for signage, stickers, uniforms, and social avatars. -->
+  <g>
+    <circle cx="600" cy="600" r="540" fill="#D94B32"/>
+    <circle cx="600" cy="600" r="501" fill="none" stroke="#FFE5A0" stroke-width="18"/>
+    <circle cx="600" cy="600" r="466" fill="none" stroke="#752F25" stroke-width="5"/>
+
+    <!-- chef hat -->
+    <path d="M421 339c0-50 61-75 96-38 19-68 113-62 123 7 44-34 103-2 93 51-4 27-22 47-47 55v47H421v-48c-29-13-47-40-47-72 0-40 20-68 47-79Z" fill="#FFF8ED" stroke="#752F25" stroke-width="18" stroke-linejoin="round"/>
+    <path d="M442 461h222" fill="none" stroke="#752F25" stroke-width="18" stroke-linecap="round"/>
+
+    <!-- pan and flame -->
+    <path d="M388 578c19 124 94 194 211 194 119 0 194-70 215-194H388Z" fill="#752F25"/>
+    <path d="M786 620c82-13 137-52 174-116" fill="none" stroke="#752F25" stroke-width="43" stroke-linecap="round"/>
+    <path d="M416 603h369" fill="none" stroke="#FFE5A0" stroke-width="18" stroke-linecap="round"/>
+    <path d="M578 562c-37 56-22 99 1 121 25-23 31-51 19-83 42 32 46 86 16 130-27 39-76 54-118 37-48-19-68-73-49-118 15-35 47-56 68-101 7 22 26 39 63 14Z" fill="#FFB83E" stroke="#752F25" stroke-width="17" stroke-linejoin="round"/>
+
+    <!-- name -->
+    <text x="600" y="892" text-anchor="middle" fill="#FFF8ED" font-family="'Leelawadee UI', Tahoma, sans-serif" font-size="123" font-weight="800" letter-spacing="-2">ตามใจ</text>
+    <path d="M327 931h546" stroke="#FFE5A0" stroke-width="8" stroke-linecap="round"/>
+    <text x="600" y="993" text-anchor="middle" fill="#FFE5A0" font-family="'Leelawadee UI', Tahoma, sans-serif" font-size="43" font-weight="700">อาหารไม่ตามสั่ง</text>
+  </g>
+</svg>
