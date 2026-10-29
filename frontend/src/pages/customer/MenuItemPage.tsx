@@ -71,7 +71,8 @@ export function CustomerMenuItemPage() {
       quantity,
       note: note.trim(),
     })
-    navigate(`/t/${token}/cart`)
+    // กลับไปเลือกต่อ — แถบ "ดูตะกร้า" บนหน้าเมนูพาไปตะกร้าเอง
+    navigate(`/t/${token}`)
   }
 
   return (
