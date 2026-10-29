@@ -69,4 +69,49 @@ describe('LineSettingsService', () => {
     const cfg = await new LineSettingsService(prisma, config(env)).get();
     expect(cfg).toMatchObject({ token: '', tokenUnreadable: true, source: 'database' });
   });
+
+  it('ไม่มีทั้งค่าในหน้าเว็บและ .env → source none, ยังส่งไม่ได้', async () => {
+    const { prisma } = prismaWith([]);
+    const service = new LineSettingsService(prisma, config({ JWT_SECRET: 'jwt-secret' }));
+    expect(await service.get()).toMatchObject({ token: '', to: '', source: 'none', tokenUnreadable: false });
+    expect(await service.summary()).toMatchObject({ hasToken: false, tokenHint: null, ready: false });
+  });
+
+  it('.env มีแค่ LINE_TO (ตัดช่องว่าง) → ยังนับว่ามาจาก env', async () => {
+    const { prisma } = prismaWith([]);
+    const cfg = await new LineSettingsService(prisma, config({ JWT_SECRET: 'j', LINE_TO: '  Uenv  ' })).get();
+    expect(cfg).toMatchObject({ token: '', to: 'Uenv', source: 'env' });
+  });
+
+  it('บันทึกแค่บางค่า (ไม่มี token / ไม่มีผู้รับ) → ค่าที่ขาดเป็นว่าง และไม่ถือว่า token เสีย', async () => {
+    const { prisma } = prismaWith([{ key: 'line.enabled', value: 'false' }]);
+    const cfg = await new LineSettingsService(prisma, config(env)).get();
+    expect(cfg).toEqual({ token: '', to: '', enabled: false, source: 'database', tokenUnreadable: false });
+  });
+
+  it('ไม่เคยมี token และไม่ส่งมา → ไม่บันทึกแถว token', async () => {
+    const { prisma, store } = prismaWith([]);
+    const service = new LineSettingsService(prisma, config({ JWT_SECRET: 'j' }));
+    const summary = await service.update({ enabled: true, to: ' Uweb ' }, 'Admin');
+    expect(store.has('line.channelAccessToken')).toBe(false);
+    expect(store.get('line.to')).toBe('Uweb');
+    expect(summary).toMatchObject({ hasToken: false, ready: false, source: 'database' });
+  });
+
+  it('มี SETTINGS_SECRET → ใช้เข้ารหัสแทน JWT_SECRET', async () => {
+    const { prisma, store } = prismaWith([]);
+    const service = new LineSettingsService(prisma, config({ ...env, SETTINGS_SECRET: ' settings-key ' }));
+    await service.update({ enabled: true, to: 'U', token: 'tok-1234567890' }, 'Admin');
+    const sealed = store.get('line.channelAccessToken')!;
+    expect(openSecret(sealed, 'settings-key')).toBe('tok-1234567890');
+    expect(openSecret(sealed, 'jwt-secret')).toBeNull();
+  });
+
+  it('อ่านครั้งเดียวแล้วใช้ cache จนกว่าจะบันทึกใหม่', async () => {
+    const { prisma } = prismaWith([]);
+    const service = new LineSettingsService(prisma, config(env));
+    await service.get();
+    await service.get();
+    expect(prisma.appSetting.findMany).toHaveBeenCalledTimes(1);
+  });
 });

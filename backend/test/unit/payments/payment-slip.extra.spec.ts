@@ -114,4 +114,45 @@ describe('PaymentSlipService — สลิปของบิลที่ยก�
     prisma.payment.findUnique.mockResolvedValueOnce({ status: PaymentStatus.VOIDED, slipStatus: SlipStatus.PENDING });
     await expect(service.confirmManually('x', 'r', admin)).rejects.toThrow(/ยกเลิกไปแล้ว/);
   });
+
+  it('confirmManually: บิลตรวจผ่านแล้ว/ยืนยันไปแล้ว → 409 ไม่แก้บิล', async () => {
+    const { prisma, service } = build({ SLIP_RECHECK_INTERVAL_MS: '0' });
+    for (const slipStatus of [SlipStatus.VERIFIED, SlipStatus.MANUAL]) {
+      prisma.payment.findUnique.mockResolvedValueOnce({ status: PaymentStatus.COMPLETED, slipStatus });
+      await expect(service.confirmManually('x', 'r', admin)).rejects.toThrow(/เฉพาะบิลที่รอตรวจ/);
+    }
+    expect(prisma.payment.update).not.toHaveBeenCalled();
+  });
+
+  it('confirmManually: บิลตรวจไม่ผ่าน → MANUAL พร้อมเหตุผลและชื่อผู้ยืนยัน แล้วแจ้งพนักงาน', async () => {
+    const { prisma, events, service } = build({ SLIP_RECHECK_INTERVAL_MS: '0' });
+    prisma.payment.findUnique.mockResolvedValueOnce({ status: PaymentStatus.COMPLETED, slipStatus: SlipStatus.FAILED });
+    const updated: any = await service.confirmManually('p1', 'เช็กยอดในแอปธนาคารแล้ว', admin);
+    expect(prisma.payment.update.mock.calls[0][0].where).toEqual({ id: 'p1' });
+    expect(updated).toMatchObject({
+      slipStatus: SlipStatus.MANUAL,
+      slipOverrideReason: 'เช็กยอดในแอปธนาคารแล้ว',
+      slipOverrideByName: 'Admin',
+    });
+    expect(updated.slipCheckedAt).toBeInstanceOf(Date);
+    expect(events.emitToStaff).toHaveBeenCalled();
+  });
+
+  it('recheck: บันทึกผลแล้ว DB error อื่นที่ไม่ใช่ P2002/P2025 → โยนต่อ ไม่แจ้งพนักงาน', async () => {
+    const { prisma, slipOk, events, service } = build({ SLIP_RECHECK_INTERVAL_MS: '0' });
+    prisma.payment.findUnique.mockResolvedValueOnce({
+      id: 'p1',
+      status: PaymentStatus.COMPLETED,
+      slipStatus: SlipStatus.PENDING,
+      slipPayload: 'payload',
+      slipAttempts: 0,
+      amount: D(100),
+      tableSession: { openedAt: new Date() },
+    });
+    slipOk.check.mockResolvedValueOnce({ kind: 'unavailable', code: null, message: 'ล่ม' });
+    const boom = new Error('connection lost');
+    prisma.payment.update.mockRejectedValueOnce(boom);
+    await expect(service.recheck('p1')).rejects.toBe(boom);
+    expect(events.emitToStaff).not.toHaveBeenCalled();
+  });
 });

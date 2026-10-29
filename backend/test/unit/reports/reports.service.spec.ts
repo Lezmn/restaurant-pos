@@ -37,6 +37,15 @@ describe('ReportsService', () => {
       expect(r.guests).toEqual({ total: 7, tables: 3, tablesWithoutCount: 1 });
     });
 
+    it('ยังไม่มีโต๊ะไหนระบุจำนวนลูกค้า → รวมเป็น 0 ไม่ใช่ null', async () => {
+      prisma.tableSession.aggregate.mockResolvedValue({
+        _sum: { guestCount: null },
+        _count: { _all: 2, guestCount: 0 },
+      });
+      const r = await service.getDashboard();
+      expect(r.guests).toEqual({ total: 0, tables: 2, tablesWithoutCount: 2 });
+    });
+
     it('ยอดขาย/กำไร/แยกวิธีจ่าย ของวันนี้', async () => {
       const now = new Date();
       prisma.payment.findMany
@@ -207,6 +216,53 @@ describe('ReportsService', () => {
       expect(kitchen.slowestMenus).toEqual([
         { menuItemId: 'm1', name: 'กะเพรา', orderCount: 3, avgCookMinutes: 10 },
       ]);
+    });
+
+    it('ความเร็วครัว: เวลาติดลบ (นาฬิกาเพี้ยน) ไม่เอามาเฉลี่ย', async () => {
+      const at = (m: number) => new Date(2026, 8, 3, 12, m);
+      prisma.order.findMany.mockResolvedValue([
+        { createdAt: at(0), startedAt: at(2), servedAt: at(10), items: [line('m1', 1, 60)] },
+        { createdAt: at(5), startedAt: at(3), servedAt: at(9), items: [line('m1', 1, 60)] }, // รอคิวติดลบ
+        { createdAt: at(0), startedAt: at(8), servedAt: at(4), items: [line('m1', 1, 60)] }, // ปรุงติดลบ
+      ]);
+      const { kitchen }: any = await service.getSales({ month: '2026-09' });
+      expect(kitchen.timedOrderCount).toBe(1);
+      expect(kitchen.avgWaitMinutes).toBe(2);
+      expect(kitchen.avgCookMinutes).toBe(8);
+    });
+
+    it('รายการราคาเปิด (ไม่มี menuItemId) นับในยอดรวม/รายชั่วโมง แต่ไม่ขึ้นอันดับเมนู', async () => {
+      prisma.order.findMany.mockResolvedValue([
+        { createdAt: new Date(2026, 8, 3, 12, 0), items: [line('m1', 1, 60), { ...line('m1', 2, 15), menuItemId: null }] },
+      ]);
+      const r: any = await service.getSales({ month: '2026-09' });
+      expect(r.topItems.map((i: any) => [i.name, i.quantity])).toEqual([['กะเพรา', 1]]);
+      expect(r.byHour[12]).toMatchObject({ orderCount: 1, quantity: 3 });
+      expect(Number(r.byHour[12].revenue)).toBe(90);
+    });
+
+    it('ระบุแค่ to เป็นเวลาเต็ม → range.from null, range.to = เวลานั้น', async () => {
+      const to = '2026-09-10T15:30:00.000Z';
+      const r: any = await service.getSales({ to });
+      expect(r.range).toEqual({ from: null, to: new Date(to) });
+    });
+  });
+
+  describe('range ที่เปิดปลาย', () => {
+    it('getIncomeExpense ระบุแค่ from → range.to null', async () => {
+      const r: any = await service.getIncomeExpense({ from: '2026-09-01' });
+      expect(r.range).toEqual({ from: new Date(2026, 8, 1), to: null });
+    });
+
+    it('getIncomeExpense ระบุแค่ to เป็นเวลาเต็ม → ใช้ lte เป็น to', async () => {
+      const to = '2026-09-10T15:30:00.000Z';
+      const r: any = await service.getIncomeExpense({ to });
+      expect(r.range).toEqual({ from: null, to: new Date(to) });
+    });
+
+    it('getSales ระบุแค่ from → range.to null', async () => {
+      const r: any = await service.getSales({ from: '2026-09-01' });
+      expect(r.range).toEqual({ from: new Date(2026, 8, 1), to: null });
     });
   });
 });
