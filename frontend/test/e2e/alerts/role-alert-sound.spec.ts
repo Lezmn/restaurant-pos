@@ -43,9 +43,10 @@ async function heard(page: Page) {
   }
 }
 
-/** เบราว์เซอร์ไม่ให้เล่นเสียงจนกว่าจะแตะจอ — คลิกหัวข้อ (ไม่มีปุ่ม) แล้วรอให้ AudioContext เริ่มทำงาน */
+/** เบราว์เซอร์ไม่ให้เล่นเสียงจนกว่าจะแตะจอ — คลิกหัวข้อ (ไม่มีปุ่ม) แล้วรอให้ AudioContext เริ่มทำงาน
+ *  ข้ามหัวข้อ sr-only (จอครัวมี h1 "คิวครัว" ไว้ให้ screen reader) — มองไม่เห็นและมีของอื่นบังอยู่ คลิกไม่ได้ */
 async function unlockSound(page: Page) {
-  await page.getByRole('heading').first().click()
+  await page.locator(':is(h1, h2):not(.sr-only)').first().click()
   await expect
     .poll(() =>
       page.evaluate(() => (window as unknown as { __audio: AudioContext[] }).__audio.some((c) => c.state === 'running')),

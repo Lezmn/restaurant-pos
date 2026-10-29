@@ -83,8 +83,8 @@ test('โน้ตต่อจาน: ปุ่มความเผ็ดเล
 })
 
 // ทดสอบ: ตั๋วที่รอเกิน 15 นาทีต้องเปลี่ยนเป็นป้ายเตือน (ไม่ใช่แค่สี) และป้าย "ใหม่" หายไป โดยครัวไม่ต้อง refresh
-// วิธี: เปิดโต๊ะ + สั่งเมนูทดสอบผ่าน API → ตั้งนาฬิกาจำลองของเบราว์เซอร์ (page.clock) ก่อนเปิดบอร์ดครัว → เช็กตั๋วขึ้น "เพิ่งสั่ง" + "ใหม่" → เลื่อนเวลาไป 16 นาที → เช็กข้อความ "รอมาแล้ว 16 นาที" + "เกินเวลา 15 นาที" และไม่มีป้ายใหม่ → ปิดขายเมนูทดสอบ (ใน finally)
-test('ตัวจับเวลาครัว: รอเกิน 15 นาที → ป้ายเตือนเกินเวลา และป้าย "ใหม่" หายเอง (ไม่ refresh)', async ({ page, request }) => {
+// วิธี: เปิดโต๊ะ + สั่งเมนูทดสอบผ่าน API → ตั้งนาฬิกาจำลองของเบราว์เซอร์ (page.clock) ก่อนเปิดบอร์ดครัว → เช็กตั๋วขึ้น "เพิ่งสั่ง" + "ใหม่" → เลื่อนเวลาไป 16 นาที → เช็กข้อความ "รอ 16 นาที" + "เกินเวลา 15 นาที" และไม่มีป้ายใหม่ → ปิดขายเมนูทดสอบ (ใน finally)
+test('ตัวจับเวลาครัว: รอเกิน 15 นาที → ป้ายเตือน · เกิน 30 นาที → ขั้นที่สอง และป้าย "ใหม่" หายเอง (ไม่ refresh)', async ({ page, request }) => {
   const t = await tokens(request)
   const menu = await createMenu(request, t.ADMIN, { name: uniqueName('ข้าวจับเวลา'), price: 40 })
   try {
@@ -102,9 +102,14 @@ test('ตัวจับเวลาครัว: รอเกิน 15 นา�
 
     // ตัวจับเวลาของหน้าอัปเดตทุก 30 วิ — เลื่อนนาฬิกาไป 16 นาทีให้ interval ทำงานเอง
     await page.clock.fastForward('16:00')
-    await expect(card).toContainText('รอมาแล้ว 16 นาที')
+    await expect(card).toContainText('รอ 16 นาที')
     await expect(card).toContainText('เกินเวลา 15 นาที')
     await expect(card.getByText('ใหม่', { exact: true })).toHaveCount(0)
+
+    // ขั้นที่สอง: เกิน 30 นาที = ป้ายแดงทึบ screen reader ได้ยิน "เกินเวลา 30 นาที"
+    await page.clock.fastForward('15:00')
+    await expect(card).toContainText('รอ 31 นาที')
+    await expect(card).toContainText('เกินเวลา 30 นาที')
   } finally {
     await call(request, 'PATCH', `/menu/${menu.id}/availability`, { token: t.ADMIN, data: { isAvailable: false } })
   }

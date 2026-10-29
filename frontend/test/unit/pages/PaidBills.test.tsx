@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuth } from '@/features/auth/use-auth'
 import { useCashClosePreview } from '@/features/cash-closes/hooks'
 import { usePayment, useTodayPayments, useVoidPayment } from '@/features/payments/hooks'
@@ -27,6 +27,18 @@ beforeAll(() => {
   HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
     this.open = false
   }
+})
+
+// ตรึงนาฬิกาไว้เที่ยงวัน — บิล "30/61 นาทีก่อน" ต้องเป็นของวันนี้เสมอ
+// เดิมรันช่วง 00:00–01:01 แล้วบิลกลายเป็นของเมื่อวาน หน้า "บิลวันนี้" กรองทิ้ง เทสต์พังทุกคืน
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  const noon = new Date()
+  noon.setHours(12, 0, 0, 0)
+  vi.setSystemTime(noon)
+})
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString()

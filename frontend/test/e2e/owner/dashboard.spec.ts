@@ -113,7 +113,7 @@ test('Dashboard: การ์ด, ในร้านตอนนี้, กร�
 
   await test.step('ในร้านตอนนี้', async () => {
     await expect(statusRow(page, 'โต๊ะที่ใช้งานอยู่')).toHaveText(`${report.tables.OCCUPIED} จาก ${report.tables.total} โต๊ะ`)
-    await expect(statusRow(page, 'ออเดอร์วันนี้')).toHaveText(`${report.orderCount.toLocaleString('th-TH')} ออเดอร์`)
+    await expect(statusRow(page, 'ออเดอร์ที่สั่งวันนี้')).toHaveText(`${report.orderCount.toLocaleString('th-TH')} ออเดอร์`)
     await expect(statusRow(page, 'รายจ่ายวันนี้')).toHaveText(baht(report.expenses))
   })
 

@@ -46,7 +46,13 @@ test('ยกเลิกบิลจากตาราง "บิลที่เ
   await expect(dialog).toContainText(receiptNo)
   const confirm = dialog.getByRole('button', { name: 'ยืนยันยกเลิกบิล' })
   await expect(confirm).toBeDisabled()
-  await dialog.getByLabel(/เหตุผล/).fill('กดจ่ายผิดโต๊ะ (E2E)')
+  // แตะปุ่มลัดเหตุผลแทนพิมพ์ แล้วพิมพ์รายละเอียดต่อท้ายได้
+  await dialog.getByRole('button', { name: 'กดจ่ายผิดโต๊ะ' }).click()
+  const reason = dialog.getByLabel(/เหตุผล/)
+  await expect(reason).toHaveValue('กดจ่ายผิดโต๊ะ')
+  await expect(confirm).toBeEnabled()
+  await reason.press('End')
+  await reason.pressSequentially(' (E2E)')
   await confirm.click()
   await expect(dialog).toHaveCount(0)
 
@@ -135,7 +141,10 @@ test('สลิปรอตรวจขึ้นแผง "สลิป PromptPa
   const dialog = page.getByRole('dialog', { name: 'ยืนยันรับเงินเอง' })
   const confirm = dialog.getByRole('button', { name: 'ยืนยันว่าเงินเข้าแล้ว' })
   await expect(confirm).toBeDisabled()
-  await dialog.getByLabel(/เหตุผล/).fill('เช็คแอปธนาคารแล้ว ยอดเข้า (E2E)')
+  const chip = dialog.getByRole('button', { name: 'เช็คยอดในแอปธนาคารแล้ว' })
+  await chip.click()
+  await expect(chip).toHaveAttribute('aria-pressed', 'true')
+  await expect(confirm).toBeEnabled()
   await confirm.click()
   await expect(dialog).toHaveCount(0)
 
