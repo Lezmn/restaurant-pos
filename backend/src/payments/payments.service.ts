@@ -389,6 +389,7 @@ export class PaymentsService {
     const fields = await this.paymentSlip.checkForNewPayment({
       slipPayload: dto.slipPayload,
       overrideReason: dto.slipOverrideReason,
+      slipLater: dto.slipLater,
       charged,
       sessionOpenedAt: session.openedAt,
       user,
@@ -548,7 +549,7 @@ export class PaymentsService {
         ...(query.slipIssues
           ? {
               status: PaymentStatus.COMPLETED,
-              slipStatus: { in: [SlipStatus.PENDING, SlipStatus.FAILED] },
+              slipStatus: { in: [SlipStatus.AWAITING, SlipStatus.PENDING, SlipStatus.FAILED] },
             }
           : {}),
       },

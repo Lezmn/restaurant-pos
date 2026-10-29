@@ -60,7 +60,7 @@ describe('ReportsService', () => {
       expect(Number(r.revenueByMethod.CASH)).toBe(150);
       expect(Number(r.revenueByMethod.PROMPTPAY)).toBe(200);
       expect(r.tables).toEqual({ AVAILABLE: 5, OCCUPIED: 3, total: 8 });
-      expect(r.slipIssues).toEqual({ pending: 2, failed: 0 });
+      expect(r.slipIssues).toEqual({ pending: 2, failed: 0, awaiting: 0 });
     });
 
     it('เทรนด์ 7 วันครบทุกวัน เติม 0 วันที่ไม่มียอด และวันสุดท้ายคือวันนี้ (เวลาไทย)', async () => {

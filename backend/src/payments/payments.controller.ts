@@ -5,6 +5,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { Audit } from '../audit/audit.decorator';
 import { loadPayingTable, loadPayment } from '../audit/audit-loaders';
 import { AuthenticatedUser } from '../auth/jwt.strategy';
+import { AttachSlipDto } from './dto/attach-slip.dto';
 import { ConfirmSlipDto } from './dto/confirm-slip.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { FindPaymentsQueryDto } from './dto/find-payments-query.dto';
@@ -99,6 +100,19 @@ export class PaymentsController {
   @ApiOperation({ summary: 'ตรวจสลิปของบิลที่ "รอตรวจ" อีกครั้งทันที (ปกติระบบตรวจซ้ำเองทุก 2 นาที)' })
   recheckSlip(@Param('id') id: string) {
     return this.paymentSlip.recheck(id);
+  }
+
+  @Post(':id/slip')
+  @Roles(Role.ADMIN, Role.STAFF)
+  @ApiOperation({
+    summary: 'แนบสลิปให้บิล PromptPay ที่ออกใบเสร็จไปแล้ว (รอสลิป) หรือสลิปเดิมไม่ผ่าน — ตรวจกับ SlipOK',
+  })
+  attachSlip(
+    @Param('id') id: string,
+    @Body() dto: AttachSlipDto,
+    @Req() request: { user: AuthenticatedUser },
+  ) {
+    return this.paymentSlip.attachSlip(id, dto.slipPayload, request.user);
   }
 
   @Patch(':id/slip/confirm')

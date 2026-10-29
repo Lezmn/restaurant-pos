@@ -19,18 +19,16 @@ import { useSlashFocus } from '@/lib/use-slash-focus'
 import {
   OrderStatus,
   PaymentMethod,
-  Role,
   ServiceRequestStatus,
   ServiceRequestType,
   TableSessionStatus,
 } from '@/types/enums'
 import type { Id, Order, Payment, SessionSplit, TableSession } from '@/types/models'
 import { CashDrawerBar } from './CashDrawerBar'
+import { AttachSlipDialog } from './AttachSlipDialog'
 import { PaidBills } from './PaidBills'
 import { ReceiptDialog } from './ReceiptDialog'
 import { SlipIssues } from './SlipIssues'
-import { emptySlipInput, isSlipReady, type SlipInput } from './slip-input'
-import { SlipScanField } from './SlipScanField'
 import { QRCodeSVG } from 'qrcode.react'
 import { useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -106,7 +104,6 @@ export function CheckPage() {
 
   const createPayment = useCreatePayment()
   const user = useAuth((s) => s.user)
-  const isAdmin = user?.role === Role.ADMIN
   const canOpenTable = Boolean(user && pageRoles.openTable.includes(user.role))
   const closeSession = useCloseSession()
   const [search, setSearch] = useState('')
@@ -117,7 +114,11 @@ export function CheckPage() {
   const [receipt, setReceipt] = useState<{
     payment: Payment
     tendered: number | null
+    /** PromptPay: กด "พิมพ์ใบเสร็จ" มา = สั่งพิมพ์ทันที (ใบเสร็จมี QR ให้ลูกค้าสแกน) */
+    printNow: boolean
   } | null>(null)
+  /** PromptPay: พิมพ์ใบเสร็จ (QR) เสร็จแล้วไปหน้าตรวจสลิปต่อเลย — ลูกค้ายืนสแกนจ่ายอยู่ที่เคาน์เตอร์ */
+  const [slipTarget, setSlipTarget] = useState<Payment | null>(null)
   /** โต๊ะที่กำลังจะปิด — ยืนยันใน popup แบบเดียวกับหน้าอื่น (เดิมใช้ confirm() ของเบราว์เซอร์) */
   const [closing, setClosing] = useState<{
     session: TableSession
@@ -400,9 +401,16 @@ export function CheckPage() {
           payment={receipt.payment}
           tendered={receipt.tendered}
           justPaid
+          printNow={receipt.printNow}
+          onPrinted={receipt.printNow ? () => {
+            setSlipTarget(receipt.payment)
+            setReceipt(null)
+          } : undefined}
           onClose={() => setReceipt(null)}
         />
       )}
+
+      {slipTarget && <AttachSlipDialog payment={slipTarget} onClose={() => setSlipTarget(null)} />}
 
       {activeTarget && (
         <PaymentDialog
@@ -413,8 +421,7 @@ export function CheckPage() {
             createPayment.reset()
             finishPayment()
           }}
-          canOverrideSlip={isAdmin}
-          onSubmit={({ method, note, discountPercent, slip, tendered, scope }) =>
+          onSubmit={({ method, note, discountPercent, tendered, scope }) =>
             createPayment.mutate(
               {
                 tableSessionId: activeTarget.sessionId,
@@ -422,8 +429,8 @@ export function CheckPage() {
                 tableName: activeTarget.tableName,
                 isTakeaway: activeTarget.isTakeaway,
                 note,
-                // PromptPay: ส่งข้อความ QR ของสลิปให้ backend ตรวจกับ SlipOK
-                ...(method === PaymentMethod.PROMPTPAY ? slipFields(slip) : {}),
+                // PromptPay: พิมพ์ใบเสร็จที่มี QR ให้ลูกค้าสแกนก่อน แล้วแนบสลิปจากรายการบิล (บิลเป็น "รอสลิป")
+                slipLater: method === PaymentMethod.PROMPTPAY,
                 // ยอดที่ลูกค้าเห็นบนจอ/QR — ถ้ายอดจริงเปลี่ยนไประหว่างนี้ backend จะไม่ยอมบันทึก
                 expectedTotal: scope.expectedTotal,
                 splitParts: scope.splitParts,
@@ -434,7 +441,7 @@ export function CheckPage() {
                 // ยืนยันผลด้วยแถบบนใบเสร็จ (รับเงิน/ทอน) แทน toast ที่จะจมใต้กล่องใบเสร็จ
                 onSuccess: (payment) => {
                   finishPayment()
-                  setReceipt({ payment, tendered })
+                  setReceipt({ payment, tendered, printNow: method === PaymentMethod.PROMPTPAY })
                 },
               },
             )
@@ -582,7 +589,6 @@ function PaymentDialog({
   target,
   isSaving,
   error,
-  canOverrideSlip,
   onCancel,
   onSubmit,
 }: Readonly<{
@@ -590,15 +596,12 @@ function PaymentDialog({
   isSaving: boolean
   /** error ต้องโชว์ในกล่องนี้ — ErrorNote ของหน้าอยู่หลัง modal มองไม่เห็น */
   error: unknown
-  /** ADMIN ยืนยันรับเงิน PromptPay เองได้เมื่อไม่มีสลิป */
-  canOverrideSlip: boolean
   onCancel: () => void
   onSubmit: (input: {
     method: PaymentMethod
     note: string
     /** ส่วนลด % (1-100) — undefined = ไม่ลด */
     discountPercent?: number
-    slip: SlipInput
     /** เงินที่ลูกค้ายื่นมา (เงินสด) — ไว้โชว์เงินทอนบนใบเสร็จ ไม่ได้บันทึก */
     tendered: number | null
     /** ยอดก่อนส่วนลดที่หน้าจอใช้ (backend ตรวจซ้ำ) + รับเงินคนถัดไปของบิลที่หารค้างอยู่ */
@@ -618,10 +621,11 @@ function PaymentDialog({
   const [note, setNote] = useState('')
   // โต๊ะที่ลูกค้าไม่ได้กดเช็คบิลจาก QR ต้องให้พนักงานเลือกวิธีจ่ายเอง
   const [method, setMethod] = useState<PaymentMethod>(target.method)
-  const [slip, setSlip] = useState<SlipInput>(emptySlipInput)
   /** ส่วนลดซ่อนไว้หลังปุ่ม "ให้ส่วนลด" — กันกรอกผิดช่องตอนรีบ และใช้ไม่บ่อย */
   const [discountOpen, setDiscountOpen] = useState(false)
   const [discountReason, setDiscountReason] = useState('')
+  /** หมายเหตุก็ซ่อนหลังปุ่มเหมือนส่วนลด — ใช้ไม่บ่อย กล่อง PromptPay ยาวอยู่แล้ว */
+  const [noteOpen, setNoteOpen] = useState(false)
   // เลิกแยกบิลแล้ว — เหลือไว้แค่ "รับเงินต่อ" ของบิลที่หารค้างไว้ก่อนหน้า (ไม่งั้นโต๊ะนั้นเก็บเงินไม่ได้)
   const split = target.split
   /** ยอดก่อนส่วนลด (ส่งเป็น expectedTotal) */
@@ -637,14 +641,10 @@ function PaymentDialog({
   /** ยอดที่เก็บครั้งนี้ — บิลที่หารค้างไว้ = ส่วนของคนถัดไป */
   const chargedNum = split ? split.nextAmount : applied.charged
   const receivedNum = Number(received) || 0
-  // PromptPay ต้องมีสลิปให้ตรวจ (หรือ ADMIN ยืนยันเอง) — backend ก็บังคับไว้อีกชั้น
+  // PromptPay ไม่ต้องรอสลิปแล้ว — พิมพ์ใบเสร็จ (มี QR) ก่อน แล้วตรวจสลิปจากรายการบิล
   // ลดราคาต้องมีเหตุผลเสมอ เหมือนยกเลิกบิล
-  const canSubmit =
-    percentValid &&
-    (!isPromptPay || isSlipReady(slip)) &&
-    (!hasDiscount || discountReason.trim() !== '')
+  const canSubmit = percentValid && (!hasDiscount || discountReason.trim() !== '')
   const change = receivedNum - chargedNum
-  const chargeAmount = chargedNum
 
   // QR ผูกยอดเงินไว้ด้วย ลูกค้าจึงไม่ต้องกรอกยอดเอง
   const qrPayload =
@@ -667,7 +667,6 @@ function PaymentDialog({
             method,
             note: noteParts.join(' · '),
             discountPercent: split ? undefined : hasDiscount ? percentNum : undefined,
-            slip,
             tendered: !isPromptPay && receivedNum > 0 ? receivedNum : null,
             scope: {
               expectedTotal: base,
@@ -685,8 +684,14 @@ function PaymentDialog({
               </span>
             )}
           </span>
-          <span className="text-2xl font-bold text-black tabular-nums">
-            {formatBaht(split ? chargedNum : base)}
+          {/* มีส่วนลด: ตัวใหญ่คือยอดเก็บจริง ยอดเดิมขีดฆ่าไว้ข้าง ๆ — ยอดที่ต้องเก็บอยู่จุดเดียวเสมอ */}
+          <span className="text-right tabular-nums">
+            {!split && hasDiscount && (
+              <s className="mr-2 text-base text-gray-600">{formatBaht(base)}</s>
+            )}
+            <span className="text-2xl font-bold text-black">
+              {formatBaht(split || hasDiscount ? chargedNum : base)}
+            </span>
           </span>
         </div>
 
@@ -744,9 +749,9 @@ function PaymentDialog({
         )}
 
         {isPromptPay && (
-          <div className="mt-4">
-            <SlipScanField value={slip} onChange={setSlip} canOverride={canOverrideSlip} />
-          </div>
+          <p className="mt-3 text-sm text-gray-600">
+            กดพิมพ์ใบเสร็จ — ใบเสร็จมี QR ให้ลูกค้าสแกนจ่าย แล้วกด "ตรวจสลิป" ที่บิลนี้ในรายการบิลด้านล่าง
+          </p>
         )}
 
         {/* เงินสด: งานหลักคือรับเงินแล้วทอน — ช่องรับเงินกับปุ่มแบงก์ขึ้นก่อนเสมอ ส่วนลดอยู่หลังปุ่มแยก */}
@@ -804,7 +809,7 @@ function PaymentDialog({
         )}
 
         {/* ส่วนลด: ซ่อนไว้จนกว่าจะกดเปิด และต้องมีเหตุผลทุกครั้ง — เงินต้องตรวจสอบย้อนหลังได้ */}
-        {split ? null : discountOpen ? (
+        {!split && discountOpen && (
           <fieldset className="mt-4 rounded-lg border-2 border-gray-200 p-3">
             <legend className={`${fieldLabel} px-1`}>ส่วนลด</legend>
             <label className="block">
@@ -847,13 +852,10 @@ function PaymentDialog({
                 ใส่เป็นจำนวนเต็ม 1-100
               </p>
             )}
+            {/* ยอดลด/ยอดเก็บจริงดูที่แถบยอดด้านบน ไม่ต้องโชว์ซ้ำในกล่องนี้ */}
             {hasDiscount && (
               <>
-                <p className="mt-2 flex justify-between text-sm font-semibold">
-                  <span className="text-danger-ink">ลด {formatBaht(discount)}</span>
-                  <span className="text-black tabular-nums">เก็บจริง {formatBaht(chargedNum)}</span>
-                </p>
-                <label className="mt-2 block">
+                <label className="mt-3 block">
                   <span className={fieldLabel}>
                     เหตุผลที่ลด<RequiredMark />
                   </span>
@@ -881,28 +883,60 @@ function PaymentDialog({
               ไม่ลดแล้ว
             </button>
           </fieldset>
-        ) : (
-          <button
-            type="button"
-            aria-expanded={false}
-            onClick={() => setDiscountOpen(true)}
-            className={`${button('secondary', 'sm')} mt-4`}
-          >
-            ให้ส่วนลด
-          </button>
         )}
 
-        <label className="mt-4 block">
-          <span className={fieldLabel}>หมายเหตุ</span>
-          <span className="ml-1 text-sm text-gray-600">(พิมพ์ลงใบเสร็จ ไม่กรอกก็ได้)</span>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-            maxLength={300}
-            className={`${field} resize-none`}
-          />
-        </label>
+        {/* ปุ่มเปิดส่วนที่ยังซ่อนอยู่ เรียงแถวเดียวกัน — อยู่เหนือหมายเหตุ ให้ปุ่มส่วนลดไม่ถูกดันลงไปใต้กล่องหมายเหตุ */}
+        {((!split && !discountOpen) || !noteOpen) && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {!split && !discountOpen && (
+              <button
+                type="button"
+                aria-expanded={false}
+                onClick={() => setDiscountOpen(true)}
+                className={button('secondary', 'sm')}
+              >
+                ให้ส่วนลด
+              </button>
+            )}
+            {!noteOpen && (
+              <button
+                type="button"
+                aria-expanded={false}
+                onClick={() => setNoteOpen(true)}
+                className={button('secondary', 'sm')}
+              >
+                เพิ่มหมายเหตุ
+              </button>
+            )}
+          </div>
+        )}
+
+        {noteOpen && (
+          <div className="mt-4">
+            <label className="block">
+              <span className={fieldLabel}>หมายเหตุ</span>
+              <span className="ml-1 text-sm text-gray-600">(พิมพ์ลงใบเสร็จ)</span>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={2}
+                maxLength={300}
+                autoFocus
+                className={`${field} resize-none`}
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                setNote('')
+                setNoteOpen(false)
+              }}
+              className={`${button('secondary', 'sm')} mt-2`}
+            >
+              ไม่ใส่หมายเหตุ
+            </button>
+          </div>
+        )}
 
         {/* error อยู่ติดปุ่มรับเงิน — กล่อง PromptPay ยาวเกินจอ ถ้าอยู่หัวกล่องจะเลื่อนพ้นจอไปตอนกดปุ่มล่างสุด
             แคชเชียร์ไม่เห็นว่าสลิปไม่ผ่าน (เช่น สลิปซ้ำ) */}
@@ -921,7 +955,9 @@ function PaymentDialog({
           >
             {isSaving
               ? 'กำลังบันทึก...'
-              : `รับเงิน ${formatBaht(chargeAmount)}`}
+              : isPromptPay
+                ? 'พิมพ์ใบเสร็จ'
+                : 'รับเงิน'}
           </button>
         </div>
         {hasDiscount && !discountReason.trim() && (
@@ -939,12 +975,6 @@ const QUICK_DISCOUNT_PERCENTS = [5, 10, 15, 20] as const
  * ปุ่มเงินด่วน: ยอดพอดี + ยอดที่ปัดขึ้นเป็นแบงก์ถัดไป (50 / 100 / 500 / 1000) ไม่ซ้ำกัน สูงสุด 4 ปุ่ม
  * เช่น ฿120 → พอดี ฿120, ฿150, ฿200, ฿500
  */
-/** PromptPay: ส่งข้อความ QR ของสลิปให้ backend ตรวจกับ SlipOK หรือเหตุผลที่ ADMIN ยืนยันเอง */
-function slipFields(slip: SlipInput) {
-  return slip.override
-    ? { slipOverrideReason: slip.overrideReason.trim() }
-    : { slipPayload: slip.payload.trim() }
-}
 
 function quickCash(amount: number) {
   const steps = [50, 100, 500, 1000].map((note) => Math.ceil(amount / note) * note)

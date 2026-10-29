@@ -119,7 +119,7 @@ describe('PaymentSlipService — สลิปของบิลที่ยก�
     const { prisma, service } = build({ SLIP_RECHECK_INTERVAL_MS: '0' });
     for (const slipStatus of [SlipStatus.VERIFIED, SlipStatus.MANUAL]) {
       prisma.payment.findUnique.mockResolvedValueOnce({ status: PaymentStatus.COMPLETED, slipStatus });
-      await expect(service.confirmManually('x', 'r', admin)).rejects.toThrow(/เฉพาะบิลที่รอตรวจ/);
+      await expect(service.confirmManually('x', 'r', admin)).rejects.toThrow(/เฉพาะบิลที่รอสลิป รอตรวจ/);
     }
     expect(prisma.payment.update).not.toHaveBeenCalled();
   });

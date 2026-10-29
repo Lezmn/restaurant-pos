@@ -146,16 +146,16 @@ describe('getDashboard', () => {
     mockApi(report, [])
     const data = await getDashboard()
     expect(data.todayStatus).toMatchObject({ tablesInUse: 3, tablesTotal: 7 })
-    expect(data.slipIssues).toEqual({ pending: 2, failed: 1 })
+    expect(data.slipIssues).toEqual({ pending: 2, failed: 1, awaiting: 0 })
   })
 
   // ทดสอบ: backend รุ่นเก่าที่ไม่ส่ง slipIssues มา ต้องได้ 0 ไม่ใช่ undefined
-  // วิธี: ตัด slipIssues ออกจากรายงานที่ mock → เช็กว่าได้ { pending: 0, failed: 0 }
+  // วิธี: ตัด slipIssues ออกจากรายงานที่ mock → เช็กว่าได้ { pending: 0, failed: 0, awaiting: 0 }
   it('backend เก่าที่ไม่ส่ง slipIssues → เป็น 0 ไม่ใช่ undefined', async () => {
     const { slipIssues: _s, ...older } = report
     mockApi(older, [])
     const data = await getDashboard()
-    expect(data.slipIssues).toEqual({ pending: 0, failed: 0 })
+    expect(data.slipIssues).toEqual({ pending: 0, failed: 0, awaiting: 0 })
   })
 
   // ทดสอบ: กราฟ 7 วันมีป้ายวันย่อภาษาไทย ไม่เลื่อนวันเพราะ UTC และคงยอดเดิม

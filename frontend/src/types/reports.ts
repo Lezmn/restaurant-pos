@@ -44,7 +44,8 @@ export interface DashboardData {
   todayStatus: TodayStatus
   notifications: Notification[]
   /** บิล PromptPay ที่ยังยืนยันเงินเข้าไม่ได้ (ทุกวัน) */
-  slipIssues: { pending: number; failed: number }
+  /** awaiting = ออกใบเสร็จพร้อม QR แล้ว ยังไม่ได้แนบสลิป */
+  slipIssues: { pending: number; failed: number; awaiting: number }
 }
 
 export interface Transaction {

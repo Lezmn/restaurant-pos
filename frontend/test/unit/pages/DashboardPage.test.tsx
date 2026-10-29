@@ -52,7 +52,7 @@ const base: DashboardData = {
     tablesTotal: 7,
   },
   notifications: [note(5), note(12, PaymentMethod.PROMPTPAY)],
-  slipIssues: { pending: 0, failed: 0 },
+  slipIssues: { pending: 0, failed: 0, awaiting: 0 },
 }
 
 /** ข้อมูลช่วง 7 วัน — รายรับรายวัน 0, 0, 1000, 2500, 1000, 1000, 1500 */
@@ -239,7 +239,7 @@ describe('DashboardPage — วันนี้', () => {
   // วิธี: mock รอตรวจ 2 ไม่ผ่าน 1 → เช็กข้อความแบนเนอร์ → กด → เช็กว่าเห็น "หน้า Check"
   it('มีสลิปรอตรวจ/ไม่ผ่าน → แบนเนอร์บอกจำนวน และกดแล้วไปหน้า Check', async () => {
     const user = userEvent.setup()
-    renderData({ slipIssues: { pending: 2, failed: 1 } })
+    renderData({ slipIssues: { pending: 2, failed: 1, awaiting: 0 } })
     const banner = slipBanner() as HTMLElement
     expect(banner).toHaveTextContent('รอตรวจ 2 · ไม่ผ่าน 1')
     await user.click(banner)
@@ -249,7 +249,7 @@ describe('DashboardPage — วันนี้', () => {
   // ทดสอบ: มีแต่สลิปไม่ผ่าน (รอตรวจ 0) ก็ต้องเตือน
   // วิธี: mock รอตรวจ 0 ไม่ผ่าน 1 → เช็กว่ามีแบนเนอร์ข้อความ "ไม่ผ่าน 1"
   it('มีแต่สลิปไม่ผ่าน (รอตรวจ 0) ก็ต้องเตือน', () => {
-    renderData({ slipIssues: { pending: 0, failed: 1 } })
+    renderData({ slipIssues: { pending: 0, failed: 1, awaiting: 0 } })
     expect(slipBanner()).toHaveTextContent('ไม่ผ่าน 1')
   })
 

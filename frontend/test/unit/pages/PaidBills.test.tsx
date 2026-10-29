@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuth } from '@/features/auth/use-auth'
 import { useCashClosePreview } from '@/features/cash-closes/hooks'
-import { usePayment, useTodayPayments, useVoidPayment } from '@/features/payments/hooks'
+import { useAttachSlip, usePayment, useTodayPayments, useVoidPayment } from '@/features/payments/hooks'
 import { PaymentMethod, PaymentStatus, Role, SlipStatus } from '@/types/enums'
 import type { Payment } from '@/types/models'
 import { PaidBills } from '@/pages/employee/PaidBills'
@@ -12,6 +12,7 @@ vi.mock('@/features/payments/hooks', () => ({
   useTodayPayments: vi.fn(),
   usePayment: vi.fn(),
   useVoidPayment: vi.fn(),
+  useAttachSlip: vi.fn(),
 }))
 // ปิดยอดวันนี้แล้วหรือยัง — ถ้าปิดแล้วยกเลิกบิลไม่ได้
 vi.mock('@/features/cash-closes/hooks', () => ({ useCashClosePreview: vi.fn() }))
@@ -61,6 +62,7 @@ const bill = (id: string, overrides: Partial<Payment> = {}): Payment => ({
   ...overrides,
 })
 
+let attachSlip: { mutate: ReturnType<typeof vi.fn>; isPending: boolean; error: unknown }
 let voidPayment: { mutate: ReturnType<typeof vi.fn>; reset: ReturnType<typeof vi.fn>; isPending: boolean; error: unknown }
 let refetch: ReturnType<typeof vi.fn>
 
@@ -85,6 +87,8 @@ function setup(
   vi.mocked(usePayment).mockImplementation(((id?: string) => ({ data: payments?.find((p) => p.id === id) })) as never)
   voidPayment = { mutate: vi.fn(), reset: vi.fn(), isPending: false, error: voidError }
   vi.mocked(useVoidPayment).mockReturnValue(voidPayment as never)
+  attachSlip = { mutate: vi.fn(), isPending: false, error: null }
+  vi.mocked(useAttachSlip).mockReturnValue(attachSlip as never)
   return render(<PaidBills />)
 }
 
@@ -276,4 +280,44 @@ describe('PaidBills — บิลที่เก็บแล้ววันน�
     expect(button).toHaveAccessibleDescription('ปิดยอดวันนี้แล้ว ลบการปิดยอดก่อน')
   })
 
+})
+
+describe('PaidBills — ตรวจสลิปของบิลที่พิมพ์ใบเสร็จ (QR) ไปแล้ว', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const promptPay = (id: string, status: SlipStatus) =>
+    bill(id, { method: PaymentMethod.PROMPTPAY, slip: { status, message: null } as Payment['slip'] })
+
+  // ทดสอบ: ปุ่ม "ตรวจสลิป" อยู่ข้างปุ่มใบเสร็จ เฉพาะบิล PromptPay ที่รอสลิป/สลิปไม่ผ่าน — เงินสดและที่ตรวจผ่านแล้วไม่มี
+  // วิธี: บิลรอสลิป, สลิปไม่ผ่าน, ตรวจผ่าน, เงินสด, รอสลิปแต่ยกเลิกแล้ว → เช็กปุ่มในแต่ละแถว
+  it('ปุ่มตรวจสลิปขึ้นเฉพาะ PromptPay ที่รอสลิป/สลิปไม่ผ่าน', () => {
+    setup([
+      promptPay('p1', SlipStatus.AWAITING),
+      promptPay('p2', SlipStatus.FAILED),
+      promptPay('p3', SlipStatus.VERIFIED),
+      bill('p4'),
+      { ...promptPay('p5', SlipStatus.AWAITING), status: PaymentStatus.VOIDED },
+    ])
+    expect(within(row('RCPT-p1')).getByRole('button', { name: 'ตรวจสลิป' })).toBeInTheDocument()
+    expect(within(row('RCPT-p1')).getByText('รอสลิป')).toBeInTheDocument()
+    expect(within(row('RCPT-p2')).getByRole('button', { name: 'ตรวจสลิป' })).toBeInTheDocument()
+    for (const no of ['RCPT-p3', 'RCPT-p4', 'RCPT-p5']) {
+      expect(within(row(no)).queryByRole('button', { name: 'ตรวจสลิป' })).not.toBeInTheDocument()
+    }
+  })
+
+  // ทดสอบ: กดตรวจสลิป → กล่องโชว์ยอดของบิล, ต้องสแกนสลิปก่อนถึงกดตรวจได้, ส่ง id บิล + ข้อความ QR
+  // วิธี: บิลรอสลิป ฿100 → กดตรวจสลิป → ปุ่มตรวจสลิปในกล่องกดไม่ได้ → พิมพ์สลิป → กด → เช็ก attach.mutate
+  it('กดตรวจสลิป → สแกนสลิปแล้วส่งไปตรวจกับบิลนั้น', async () => {
+    const user = userEvent.setup()
+    setup([promptPay('p1', SlipStatus.AWAITING)])
+    await user.click(within(row('RCPT-p1')).getByRole('button', { name: 'ตรวจสลิป' }))
+    const dialog = screen.getByRole('dialog', { name: 'ตรวจสลิป' })
+    expect(dialog).toHaveTextContent('฿100')
+    const submit = within(dialog).getByRole('button', { name: 'ตรวจสลิป' })
+    expect(submit).toBeDisabled()
+    await user.type(within(dialog).getByPlaceholderText(/ยิงเครื่องสแกน/), 'SLIP-QR')
+    await user.click(submit)
+    expect(attachSlip.mutate).toHaveBeenCalledWith({ id: 'p1', slipPayload: 'SLIP-QR' }, expect.anything())
+  })
 })

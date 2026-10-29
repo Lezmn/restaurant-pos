@@ -145,7 +145,7 @@ describe('PaymentsService — findAll / findOne', () => {
     expect(prisma.payment.findMany.mock.calls[0][0].where).toEqual({
       paidAt: { gte: new Date('2026-05-01'), lt: new Date('2026-05-02') },
       status: PaymentStatus.COMPLETED,
-      slipStatus: { in: [SlipStatus.PENDING, SlipStatus.FAILED] },
+      slipStatus: { in: [SlipStatus.AWAITING, SlipStatus.PENDING, SlipStatus.FAILED] },
     });
   });
 

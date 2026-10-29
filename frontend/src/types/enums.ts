@@ -51,6 +51,8 @@ export const SlipStatus = {
   PENDING: 'PENDING',
   FAILED: 'FAILED',
   MANUAL: 'MANUAL',
+  /** ออกใบเสร็จพร้อม QR แล้ว รอลูกค้าสแกนจ่ายแล้วแนบสลิป */
+  AWAITING: 'AWAITING',
 } as const
 export type SlipStatus = (typeof SlipStatus)[keyof typeof SlipStatus]
 
