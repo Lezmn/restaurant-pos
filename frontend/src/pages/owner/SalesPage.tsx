@@ -429,6 +429,16 @@ const heatTextClass = (heat: string) =>
  * ตั้ง VITE_OPEN_HOUR/VITE_CLOSE_HOUR = แสดงเฉพาะเวลาเปิดร้าน
  * ไม่ตั้ง = ตัดชั่วโมงหัว/ท้ายที่ไม่มีออเดอร์ทั้งสัปดาห์ออก (ร้านไม่เปิดตีสาม)
  */
+/**
+ * มือถือตารางกว้างกว่าจอ — เปิดมาให้ชั่วโมงที่ยุ่งสุดอยู่กลางกรอบ ไม่ใช่ช่วงเช้ามืดที่ร้านยังไม่เปิด
+ * callback ref (ไม่ใช่ useEffect) เพราะ WeekHeatmap return null ก่อนถึง hook ได้
+ */
+function scrollToBusiestHour(el: HTMLDivElement | null) {
+  if (!el || el.scrollWidth <= el.clientWidth) return
+  const cell = el.querySelector<HTMLElement>('th[data-busiest]')
+  if (cell) el.scrollLeft = cell.offsetLeft - (el.clientWidth - cell.offsetWidth) / 2
+}
+
 function WeekHeatmap({ grid }: Readonly<{ grid: number[][] }>) {
   const hourTotals = Array.from({ length: 24 }, (_, h) => grid.reduce((n, day) => n + (day[h] ?? 0), 0))
   const firstActive = hourTotals.findIndex((n) => n > 0)
@@ -473,7 +483,7 @@ function WeekHeatmap({ grid }: Readonly<{ grid: number[][] }>) {
 
       {/* เต็มความกว้างกรอบ — จอแคบเกิน (มือถือ) เลื่อนเฉพาะในกรอบ หน้าไม่เลื่อนข้าง */}
       {/* relative: ช่อง sr-only (absolute) ต้องอยู่ในกรอบนี้ ไม่งั้นหลุดกรอบดันทั้งหน้าให้เลื่อนข้าง */}
-      <div className="relative mt-4 overflow-x-auto">
+      <div ref={scrollToBusiestHour} className="relative mt-4 overflow-x-auto">
         <table className="w-full border-separate border-spacing-0.5 text-xs md:text-sm">
           <caption className="sr-only">จำนวนออเดอร์แยกตามวันและชั่วโมง พร้อมยอดรวมรายวันและรายชั่วโมง</caption>
           <thead>
@@ -485,6 +495,7 @@ function WeekHeatmap({ grid }: Readonly<{ grid: number[][] }>) {
                 <th
                   key={hour}
                   scope="col"
+                  data-busiest={hourTotals[hour] === topHour || undefined}
                   className="min-w-11 pb-1 font-normal whitespace-nowrap text-gray-600 tabular-nums"
                 >
                   {clock(hour)}

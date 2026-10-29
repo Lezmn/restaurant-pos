@@ -19,6 +19,10 @@ const thaiDate = (ymd: string) =>
     month: 'short',
   })
 
+/** ช่องตัวเลขบนจอแคบ: ป้าย (data-label) ซ้าย ตัวเลขขวา */
+const CC_CELL =
+  'max-sm:flex max-sm:justify-between max-sm:gap-3 max-sm:px-0 max-sm:py-0.5 max-sm:before:font-normal max-sm:before:text-gray-600 max-sm:before:content-[attr(data-label)]'
+
 const differenceTone = (value: number) => {
   if (value === 0) return 'text-success-ink'
   return value > 0 ? 'text-brand-500' : 'text-danger-ink'
@@ -117,9 +121,11 @@ export function CashClosesPage() {
       )}
 
       <section className="rounded-xl border border-gray-200 p-4">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] border-collapse text-right text-sm">
-            <thead>
+        {/* จอแคบ: แต่ละวันเป็นการ์ด ป้ายจาก data-label — เดิมตาราง 10 คอลัมน์เลื่อนข้าง
+            และข้อความ "ยังไม่มีการปิดยอด" จัดกลางตาราง 820px เลยหลุดจอมองไม่เห็น */}
+        <div className="sm:overflow-x-auto">
+          <table className="w-full border-collapse text-right text-sm max-sm:block sm:min-w-[820px]">
+            <thead className="max-sm:sr-only">
               <tr className="bg-gray-100 text-gray-700">
                 <th className="px-3 py-3 text-left font-semibold">วันที่</th>
                 <th className="px-3 py-3 font-semibold">เงินทอนตั้งต้น</th>
@@ -133,44 +139,45 @@ export function CashClosesPage() {
                 <th className="px-3 py-3 text-center font-semibold">จัดการ</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 max-sm:block">
               {isPending && (
-                <tr>
-                  <td colSpan={10} className="py-8 text-center text-gray-500">
+                <tr className="max-sm:block">
+                  <td colSpan={10} className="py-8 text-center text-gray-500 max-sm:block">
                     กำลังโหลด...
                   </td>
                 </tr>
               )}
               {!isPending && closes.length === 0 && (
-                <tr>
-                  <td colSpan={10} className="py-10 text-center text-gray-500">
+                <tr className="max-sm:block">
+                  <td colSpan={10} className="py-10 text-center text-gray-500 max-sm:block">
                     ยังไม่มีการปิดยอดในเดือนนี้
                   </td>
                 </tr>
               )}
 
               {closes.map((c) => (
-                <tr key={c.id}>
-                  <td className="whitespace-nowrap px-3 py-3 text-left text-gray-800">
+                <tr key={c.id} className="max-sm:block max-sm:py-3">
+                  <td className="whitespace-nowrap px-3 py-3 text-left text-gray-800 max-sm:block max-sm:px-0 max-sm:pt-0 max-sm:pb-1 max-sm:text-base max-sm:font-bold max-sm:text-black">
                     {thaiDate(c.date)}
                   </td>
-                  <td className="px-3 py-3">{formatBaht(c.openingFloat)}</td>
-                  <td className="px-3 py-3 text-brand-300">{formatBaht(c.cashSales)}</td>
-                  <td className="px-3 py-3 text-danger-ink">
+                  <td data-label="เงินทอนตั้งต้น" className={`px-3 py-3 ${CC_CELL}`}>{formatBaht(c.openingFloat)}</td>
+                  {/* ข้อมูลอ่านอย่างเดียว ไม่ใช่สีส้ม — ส้มบนขาวได้แค่ 2.3:1 และส้มหมายถึงกดได้ */}
+                  <td data-label="รับเงินสด" className={`px-3 py-3 text-gray-900 ${CC_CELL}`}>{formatBaht(c.cashSales)}</td>
+                  <td data-label="หยิบออก" className={`px-3 py-3 text-danger-ink ${CC_CELL}`}>
                     {c.drawerExpenses > 0 ? `-${formatBaht(c.drawerExpenses)}` : '-'}
                   </td>
-                  <td className="px-3 py-3">{formatBaht(c.expectedCash)}</td>
-                  <td className="px-3 py-3 font-semibold">{formatBaht(c.countedCash)}</td>
-                  <td className={`whitespace-nowrap px-3 py-3 font-bold ${differenceTone(c.difference)}`}>
+                  <td data-label="ควรมี" className={`px-3 py-3 ${CC_CELL}`}>{formatBaht(c.expectedCash)}</td>
+                  <td data-label="นับได้" className={`px-3 py-3 font-semibold ${CC_CELL}`}>{formatBaht(c.countedCash)}</td>
+                  <td data-label="ผลต่าง" className={`whitespace-nowrap px-3 py-3 font-bold ${differenceTone(c.difference)} ${CC_CELL}`}>
                     {differenceLabel(c.difference)}
                   </td>
-                  <td className="px-3 py-3 text-promptpay">{formatBaht(c.promptpaySales)}</td>
-                  <td className="px-3 py-3 text-left text-gray-700">
+                  <td data-label="PromptPay" className={`px-3 py-3 text-promptpay ${CC_CELL}`}>{formatBaht(c.promptpaySales)}</td>
+                  <td className="px-3 py-3 text-left text-gray-700 max-sm:block max-sm:px-0 max-sm:pt-1.5 max-sm:pb-0">
                     {c.closedByName}{' '}
                     <span className="text-xs text-gray-500">{formatTime(c.closedAt)}</span>
                     {c.note && <span className="block text-xs text-gray-500">{c.note}</span>}
                   </td>
-                  <td className="px-3 py-3 text-center">
+                  <td className="px-3 py-3 text-center max-sm:block max-sm:p-0 max-sm:text-right">
                     <button
                       type="button"
                       onClick={() => setDeleting(c)}

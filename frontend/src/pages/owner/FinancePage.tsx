@@ -29,6 +29,10 @@ const categoryLabel: Record<PaymentMethod | ExpenseCategory, string> = {
   [ExpenseCategory.OTHER]: 'อื่น ๆ',
 }
 
+/** แถวรายการบนจอแคบ: รายละเอียด | ยอด / วันที่ | ปุ่ม / หมวด | ปุ่ม */
+const FIN_ROW =
+  "max-sm:grid max-sm:grid-cols-[1fr_auto] max-sm:gap-x-3 max-sm:gap-y-1 max-sm:py-3 max-sm:[grid-template-areas:'detail_amount'_'date_actions'_'cat_actions']"
+
 const categoryTone: Record<PaymentMethod | ExpenseCategory, string> = {
   [PaymentMethod.CASH]: 'bg-success/10 text-success-ink',
   [PaymentMethod.PROMPTPAY]: 'bg-success/10 text-success-ink',
@@ -117,7 +121,8 @@ export function FinancePage() {
       {formOpen && <ExpenseForm onDone={() => setFormOpen(false)} />}
 
       {/* กำไร / รายจ่าย */}
-      <div className="grid gap-4 md:grid-cols-2">
+      {/* มือถือ 2 ใบต่อแถว — เดิมการ์ด 6 ใบเรียงเต็มแถวทีละใบ ต้องเลื่อนผ่านก่อนถึงรายการ */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
         <StatCard
           label="กำไรสุทธิ"
           value={formatBaht(summary.netProfit)}
@@ -134,7 +139,7 @@ export function FinancePage() {
       </div>
 
       {/* สถิติย่อย */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard
           label="รายรับรวม"
           value={formatBaht(summary.revenueTotal)}
@@ -148,7 +153,7 @@ export function FinancePage() {
         <StatCard
           label="จ่าย PromptPay"
           value={formatBaht(summary.promptPayTotal)}
-          tone="purple"
+          tone="promptpay"
         />
         <StatCard
           label="จำนวนบิล"
@@ -180,9 +185,11 @@ export function FinancePage() {
       <section className="rounded-xl border border-gray-200 p-4">
         <h2 className="mb-3 text-lg font-bold text-black">รายการล่าสุด</h2>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] border-collapse text-left">
-            <thead>
+        {/* จอแคบ: ตารางกลายเป็นรายการ (รายละเอียดซ้าย ยอดชิดขวา) — เดิมเลื่อนข้างแล้วคอลัมน์ยอดเงินหลุดจอ
+            ใช้ DOM เดิม แค่เปลี่ยน display ด้วย max-sm: — screen reader ยังอ่านเป็นตาราง */}
+        <div className="sm:overflow-x-auto">
+          <table className="w-full border-collapse text-left max-sm:block sm:min-w-[560px]">
+            <thead className="max-sm:sr-only">
               <tr className="bg-gray-100 text-sm text-gray-700">
                 <th className="px-4 py-3 font-semibold">วันที่</th>
                 <th className="px-4 py-3 font-semibold">รายละเอียด</th>
@@ -191,21 +198,21 @@ export function FinancePage() {
                 <th className="px-4 py-3 text-center font-semibold">จัดการ</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 max-sm:block">
               {transactions.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="py-10 text-center text-sm text-gray-500">
+                <tr className="max-sm:block">
+                  <td colSpan={5} className="py-10 text-center text-sm text-gray-500 max-sm:block">
                     ไม่มีรายการในหมวดนี้
                   </td>
                 </tr>
               )}
 
               {paged.pageItems.map((tx) => (
-                <tr key={tx.id}>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
+                <tr key={tx.id} className={FIN_ROW}>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700 max-sm:[grid-area:date] max-sm:p-0">
                     {thaiDate(tx.date)}
                   </td>
-                  <td className="px-4 py-3 text-sm text-black">
+                  <td className="px-4 py-3 text-sm text-black max-sm:[grid-area:detail] max-sm:p-0 max-sm:font-semibold">
                     {tx.detail}
                     {tx.paidFromDrawer && (
                       <span className="block text-xs text-gray-500">
@@ -214,7 +221,7 @@ export function FinancePage() {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 max-sm:[grid-area:cat] max-sm:p-0">
                     <span
                       className={`inline-flex whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${categoryTone[tx.category]}`}
                     >
@@ -222,17 +229,17 @@ export function FinancePage() {
                     </span>
                   </td>
                   <td
-                    className={`whitespace-nowrap px-4 py-3 text-right text-sm font-bold ${
+                    className={`whitespace-nowrap px-4 py-3 text-right text-sm font-bold max-sm:[grid-area:amount] max-sm:p-0 max-sm:text-base ${
                       tx.amount < 0 ? 'text-danger-ink' : 'text-success-ink'
                     }`}
                   >
                     {tx.amount < 0 ? '-' : '+'}
                     {formatBaht(Math.abs(tx.amount))}
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 text-center max-sm:[grid-area:actions] max-sm:self-end max-sm:p-0 max-sm:text-right">
                     {/* รายรับมาจากบิลที่เก็บเงินไปแล้ว แก้ที่นี่ไม่ได้ — ต้องไปยกเลิกบิลที่หน้า Check */}
                     {tx.type === 'EXPENSE' ? (
-                      <div className="flex items-center justify-center gap-1">
+                      <div className="flex items-center justify-center gap-1 max-sm:-mr-3 max-sm:justify-end">
                         <button
                           type="button"
                           onClick={() => {
