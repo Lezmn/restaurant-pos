@@ -116,13 +116,14 @@ export class PaymentsController {
   }
 
   @Patch(':id/slip/confirm')
-  @Roles(Role.ADMIN)
+  // หน้าร้านยืนยันเองได้ด้วย (ร้านเล็ก เจ้าของไม่ได้อยู่หน้าเคาน์เตอร์ตลอด) — บังคับเหตุผล + เก็บใน audit log ว่าใครยืนยัน
+  @Roles(Role.ADMIN, Role.STAFF)
   @Audit('PAYMENT_SLIP_CONFIRM', {
     before: loadPayment,
     details: ({ body, before }) => paymentDetails(before, { reason: body.reason }),
   })
   @ApiOperation({
-    summary: 'ADMIN ยืนยันรับเงินเองสำหรับบิลที่รอตรวจ/ตรวจไม่ผ่าน (ต้องมีเหตุผล)',
+    summary: 'ADMIN/STAFF ยืนยันรับเงินเองสำหรับบิลที่รอตรวจ/ตรวจไม่ผ่าน (ต้องมีเหตุผล)',
   })
   confirmSlip(
     @Param('id') id: string,

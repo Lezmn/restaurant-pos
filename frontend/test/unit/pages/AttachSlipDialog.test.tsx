@@ -1,12 +1,15 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
-import { useAttachSlip } from '@/features/payments/hooks'
-import { PaymentMethod, PaymentStatus, SlipStatus } from '@/types/enums'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useAuth } from '@/features/auth/use-auth'
+import { useAttachSlip, useConfirmSlip } from '@/features/payments/hooks'
+import { PaymentMethod, PaymentStatus, Role, SlipStatus } from '@/types/enums'
 import type { Payment } from '@/types/models'
 import { AttachSlipDialog } from '@/pages/employee/AttachSlipDialog'
 
-vi.mock('@/features/payments/hooks', () => ({ useAttachSlip: vi.fn() }))
+vi.mock('@/features/payments/hooks', () => ({ useAttachSlip: vi.fn(), useConfirmSlip: vi.fn() }))
+
+const asRole = (role: Role) => useAuth.setState({ user: { id: 'u', email: 'u@x', name: 'U', role } })
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
@@ -55,6 +58,8 @@ async function submitWith(result: Payment) {
 }
 
 describe('AttachSlipDialog', () => {
+  beforeEach(() => asRole(Role.STAFF))
+
   it('ตรวจผ่าน → ปิดกล่อง', async () => {
     const onClose = await submitWith(bill(slipOf(SlipStatus.VERIFIED)))
     expect(onClose).toHaveBeenCalled()
@@ -68,5 +73,38 @@ describe('AttachSlipDialog', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'รับทราบ' }))
     expect(onClose).toHaveBeenCalled()
+  })
+
+  // ทดสอบ: ไม่มีสลิป/ตรวจไม่ได้ — ADMIN/STAFF ยืนยันรับเงินเองจากกล่องนี้ได้ (ต้องมีเหตุผล) · กลับ = กลับมาสแกนต่อ
+  it.each([Role.ADMIN, Role.STAFF])('%s: ยืนยันรับเงินเอง → ใส่เหตุผล → ส่ง id + เหตุผล แล้วปิดกล่อง / กลับ = กลับมาหน้าสแกน', async (role) => {
+    asRole(role)
+    vi.mocked(useAttachSlip).mockReturnValue({ mutate: vi.fn(), isPending: false, error: null } as never)
+    const confirm = vi.fn((_vars, opts: { onSuccess: () => void }) => opts.onSuccess())
+    vi.mocked(useConfirmSlip).mockReturnValue({ mutate: confirm, isPending: false, error: null } as never)
+    const onClose = vi.fn()
+    render(<AttachSlipDialog payment={bill(slipOf(SlipStatus.AWAITING))} onClose={onClose} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /ยืนยันรับเงินเอง/ }))
+    expect(screen.getByRole('dialog', { name: 'ยืนยันรับเงินเอง' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'กลับ' }))
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog', { name: 'ตรวจสลิป' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /ยืนยันรับเงินเอง/ }))
+    const submit = screen.getByRole('button', { name: 'ยืนยันว่าเงินเข้าแล้ว' })
+    expect(submit).toBeDisabled()
+    await userEvent.type(screen.getByRole('textbox', { name: /เหตุผล/ }), 'เช็คยอดในแอปธนาคารแล้ว')
+    await userEvent.click(submit)
+    expect(confirm).toHaveBeenCalledWith({ id: 'pay-1', reason: 'เช็คยอดในแอปธนาคารแล้ว' }, expect.anything())
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  // ทดสอบ: role อื่นไม่มีสิทธิ์ยืนยันเอง (backend @Roles(ADMIN, STAFF)) — ไม่เห็นปุ่ม แต่มีคำบอกทาง
+  it('KITCHEN: ไม่มีปุ่มยืนยันเอง แต่บอกให้เจ้าของร้านยืนยันแทน', () => {
+    asRole(Role.KITCHEN)
+    vi.mocked(useAttachSlip).mockReturnValue({ mutate: vi.fn(), isPending: false, error: null } as never)
+    render(<AttachSlipDialog payment={bill(slipOf(SlipStatus.AWAITING))} onClose={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: /ยืนยันรับเงินเอง/ })).not.toBeInTheDocument()
+    expect(screen.getByText(/ให้เจ้าของร้านเช็คยอดในแอปธนาคาร/)).toBeInTheDocument()
   })
 })
