@@ -34,6 +34,6 @@ test('กลับบ้าน: กด "เงินสด" → รับเง�
   await expect(page).toHaveURL(/method=CASH/)
   const dialog = page.getByRole('dialog', { name: /^รับเงิน กลับบ้าน #\d+/ })
   await expect(dialog.getByRole('button', { name: 'เงินสด', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  await dialog.getByRole('button', { name: 'รับเงิน ฿10' }).click()
+  await dialog.getByRole('button', { name: 'รับเงิน', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'ใบเสร็จรับเงิน' })).toBeVisible()
 })

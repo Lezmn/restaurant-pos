@@ -2,7 +2,7 @@ import { randomInt } from 'node:crypto'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { QRCodeSVG } from 'qrcode.react'
-import { expect, type APIRequestContext, type Page } from '@playwright/test'
+import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test'
 
 // ชี้ API อื่นได้ด้วย E2E_API_URL (เช่น API ทดสอบที่ต่อ DB restaurant_test)
 export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:3000'
@@ -210,6 +210,28 @@ export async function chooseOption(page: Page, role: 'radio' | 'checkbox', name:
 /** ตาราง "บิลที่เก็บแล้ววันนี้" ในหน้า Check (section มี aria-labelledby จึงเป็น region) */
 export function paidBillsTable(page: Page) {
   return page.getByRole('region', { name: /บิลที่เก็บแล้ววันนี้/ }).locator('table')
+}
+
+/**
+ * PromptPay: กด "พิมพ์ใบเสร็จ" ในกล่องรับเงิน → คืนเลขใบเสร็จของบิลที่เพิ่งสร้าง (สถานะ "รอสลิป")
+ * ใบเสร็จมี QR เด้งขึ้นแล้วสั่งพิมพ์เอง จากนั้นหน้าเว็บเปิดกล่อง "ตรวจสลิป" ต่อให้ — แทน window.print ไม่ให้กล่องพิมพ์จริงค้าง
+ */
+export async function printPromptPayReceipt(page: Page, dialog: Locator) {
+  await page.evaluate(() => {
+    window.print = () => {}
+  })
+  const [res] = await Promise.all([
+    page.waitForResponse((r) => new URL(r.url()).pathname === '/payments' && r.request().method() === 'POST'),
+    dialog.getByRole('button', { name: 'พิมพ์ใบเสร็จ', exact: true }).click(),
+  ])
+  expect(res.ok()).toBe(true)
+  const paid = (await res.json()) as { receipt: { number: string } }
+  return paid.receipt.number
+}
+
+/** กล่อง "ตรวจสลิป" (เด้งหลังพิมพ์ใบเสร็จ PromptPay หรือกดจากตารางบิล) — ใส่ข้อความ QR ของสลิปแล้วกดตรวจ */
+export function slipDialog(page: Page) {
+  return page.getByRole('dialog', { name: 'ตรวจสลิป' })
 }
 
 /**

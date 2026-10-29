@@ -61,8 +61,11 @@ test('รับเงินสดพร้อมส่วนลด: ต้อง
   await dialog.getByRole('button', { name: 'ให้ส่วนลด' }).click()
   // ส่วนลดเป็น % — ลด 20% จาก 100 = เก็บจริง 80
   await dialog.getByLabel(/ลดกี่ %/).fill('20')
-  await expect(dialog.getByText('เก็บจริง ฿80')).toBeVisible()
-  const submit = dialog.getByRole('button', { name: 'รับเงิน ฿80' })
+  // แถบยอดด้านบน: ยอดเก็บจริงตัวใหญ่ ยอดเดิมขีดฆ่า (ไม่มีข้อความ "เก็บจริง" ในกล่องส่วนลดแล้ว)
+  const banner = dialog.getByText('ยอดที่ต้องจ่าย').locator('..')
+  await expect(banner.locator('s')).toHaveText('฿100')
+  await expect(banner).toContainText('฿80')
+  const submit = dialog.getByRole('button', { name: 'รับเงิน', exact: true })
   await expect(submit).toBeDisabled() // ยังไม่ใส่เหตุผล
   await dialog.getByLabel(/เหตุผลที่ลด/).fill('ลูกค้าประจำ')
   await dialog.getByRole('button', { name: '฿500' }).click()
@@ -157,7 +160,7 @@ test('Dashboard ของเจ้าของ: ยอดขายวันน�
   await loginAsCashier(page, request)
   await page.goto('/employee/check')
   await checkTableTile(page, tableName).getByRole('button', { name: /^รับเงิน/ }).click()
-  await page.getByRole('dialog', { name: `รับเงิน โต๊ะ ${tableName}` }).getByRole('button', { name: 'รับเงิน ฿100' }).click()
+  await page.getByRole('dialog', { name: `รับเงิน โต๊ะ ${tableName}` }).getByRole('button', { name: 'รับเงิน', exact: true }).click()
   await page.getByRole('dialog', { name: 'ใบเสร็จรับเงิน' }).getByRole('button', { name: 'ปิด' }).click()
 
   const after = await (await request.get(`${API_URL}/reports/dashboard`, { headers: admin })).json()

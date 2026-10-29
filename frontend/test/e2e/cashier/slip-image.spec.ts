@@ -1,9 +1,9 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test'
 import { customerOrder, menuItemByName, openNewSession, serve, tokens } from '../api/api-helpers'
-import { checkTableTile, loginAsCashier, paidBillsTable, slipImage } from '../helpers'
+import { checkTableTile, loginAsCashier, paidBillsTable, printPromptPayReceipt, slipDialog, slipImage } from '../helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data (DB ทดสอบเท่านั้น — เก็บเงินจริง)
-// สลิป PromptPay จากรูป (ไม่มีเครื่องสแกน): กด "แนบรูป" → อ่าน QR ในเบราว์เซอร์ → เติมข้อความลงช่องสลิป → ส่งตรวจ SlipOK ทางเดิม
+// สลิป PromptPay จากรูป (ไม่มีเครื่องสแกน): พิมพ์ใบเสร็จมี QR → กล่อง "ตรวจสลิป" เด้งต่อ → กด "แนบรูป" → อ่าน QR ในเบราว์เซอร์ → เติมข้อความลงช่องสลิป → ส่งตรวจ SlipOK
 // backend ต้องตั้ง SLIPOK_MOCK=true — สลิปขึ้นต้น MOCK-OK = ผ่าน, MOCK-AMOUNT = ยอดไม่ตรง (ไม่ผ่าน)
 test.use({ viewport: { width: 1280, height: 900 } })
 test.describe.configure({ timeout: 60_000 })
@@ -19,40 +19,40 @@ async function servedTable(request: APIRequestContext, t: Tokens) {
   return { tableName: String(table.number), total: water.price * 2 }
 }
 
-/** cashier เปิดกล่องรับเงินของโต๊ะ แล้วสลับเป็น PromptPay */
-async function openPromptPay(page: Page, tableName: string) {
+/** cashier เปิดกล่องรับเงินของโต๊ะ สลับเป็น PromptPay แล้วกด "พิมพ์ใบเสร็จ" → คืนกล่อง "ตรวจสลิป" ที่เด้งต่อ + เลขใบเสร็จ */
+async function printAndOpenSlipDialog(page: Page, tableName: string) {
   await page.goto('/employee/check')
   await checkTableTile(page, tableName).getByRole('button', { name: /^รับเงิน/ }).click()
   const dialog = page.getByRole('dialog', { name: `รับเงิน โต๊ะ ${tableName}` })
   await dialog.getByRole('button', { name: 'PromptPay' }).click()
   await expect(dialog.getByRole('button', { name: 'PromptPay' })).toHaveAttribute('aria-pressed', 'true')
-  return dialog
+  const receiptNo = await printPromptPayReceipt(page, dialog)
+  const slip = slipDialog(page)
+  await expect(slip).toBeVisible()
+  return { slip, receiptNo }
 }
 
-// ทดสอบ: แนบรูปสลิปที่มี QR แล้วช่องสลิปต้องเติมข้อความจาก QR เอง บันทึกได้ และบิลขึ้น "ตรวจสลิปแล้ว"
-// วิธี: เตรียมโต๊ะน้ำ 2 ขวดที่เสิร์ฟแล้วผ่าน API → cashier เปิดกล่องรับเงินเลือก PromptPay → แนบรูป PNG ที่มี QR "MOCK-OK-img-…" (setInputFiles) → เช็กข้อความในช่องสลิปตรงกับ QR และขึ้น "✓ อ่าน QR ได้แล้ว" → กดรับเงิน → เช็กใบเสร็จ PromptPay และแถวบิลมี "ตรวจสลิปแล้ว"
-test('แนบรูปสลิปที่มี QR → ช่องสลิปเติมเอง บันทึกได้ และบิลขึ้น "ตรวจสลิปแล้ว"', async ({ page, request }) => {
+// ทดสอบ: แนบรูปสลิปที่มี QR แล้วช่องสลิปต้องเติมข้อความจาก QR เอง ตรวจผ่าน และบิลขึ้น "ตรวจสลิปแล้ว"
+// วิธี: เตรียมโต๊ะน้ำ 2 ขวดที่เสิร์ฟแล้วผ่าน API → cashier เลือก PromptPay กดพิมพ์ใบเสร็จ → ในกล่องตรวจสลิปแนบรูป PNG ที่มี QR "MOCK-OK-img-…" (setInputFiles) → เช็กข้อความในช่องสลิปตรงกับ QR และขึ้น "✓ อ่าน QR ได้แล้ว" → กดตรวจสลิป → เช็กแถวบิลมี "ตรวจสลิปแล้ว"
+test('แนบรูปสลิปที่มี QR → ช่องสลิปเติมเอง ตรวจผ่าน และบิลขึ้น "ตรวจสลิปแล้ว"', async ({ page, request }) => {
   const t = await tokens(request)
-  const { tableName, total } = await servedTable(request, t)
+  const { tableName } = await servedTable(request, t)
   const payload = `MOCK-OK-img-${Date.now()}`
 
   await loginAsCashier(page, request)
-  const dialog = await openPromptPay(page, tableName)
-  const save = dialog.getByRole('button', { name: `รับเงิน ฿${total}` })
-  await expect(save).toBeDisabled()
+  const { slip, receiptNo } = await printAndOpenSlipDialog(page, tableName)
+  const check = slip.getByRole('button', { name: 'ตรวจสลิป', exact: true })
+  await expect(check).toBeDisabled()
 
-  await dialog.getByLabel('แนบรูปสลิป').setInputFiles(await slipImage(page, payload))
-  await expect(dialog.getByPlaceholder(/ยิงเครื่องสแกน/)).toHaveValue(payload)
-  await expect(dialog.getByText(/อ่าน QR ได้แล้ว/)).toBeVisible()
+  await slip.getByLabel('แนบรูปสลิป').setInputFiles(await slipImage(page, payload))
+  await expect(slip.getByPlaceholder(/ยิงเครื่องสแกน/)).toHaveValue(payload)
+  await expect(slip.getByText(/อ่าน QR ได้แล้ว/)).toBeVisible()
   // อ่านได้แล้วปุ่มแนบรูปหาย เหลือปุ่มล้าง
-  await expect(dialog.getByRole('button', { name: 'แนบรูป' })).toHaveCount(0)
-  await expect(dialog.getByRole('button', { name: 'ล้าง' })).toBeVisible()
+  await expect(slip.getByRole('button', { name: 'แนบรูป' })).toHaveCount(0)
+  await expect(slip.getByRole('button', { name: 'ล้าง' })).toBeVisible()
 
-  await save.click()
-  const receipt = page.getByRole('dialog', { name: 'ใบเสร็จรับเงิน' })
-  await expect(receipt.getByText('PromptPay')).toBeVisible()
-  const receiptNo = (await receipt.getByText(/^RCPT-/).innerText()).trim()
-  await receipt.getByRole('button', { name: 'ปิด' }).click()
+  await check.click()
+  await expect(slip).toHaveCount(0)
 
   await expect(checkTableTile(page, tableName)).toHaveCount(0)
   await expect(
@@ -60,41 +60,45 @@ test('แนบรูปสลิปที่มี QR → ช่องสลิ
   ).toBeVisible()
 })
 
-// ทดสอบ: แนบรูปที่ไม่มี QR ต้องบอกว่า "ไม่พบ QR ในรูป" ช่องสลิปยังว่าง และยังรับเงินไม่ได้
-// วิธี: เตรียมโต๊ะที่เสิร์ฟแล้ว → cashier เปิดกล่องรับเงินเลือก PromptPay → แนบรูป PNG ขาวล้วน → เช็กข้อความเตือน ช่องสลิปว่าง และปุ่มรับเงินยังกดไม่ได้ → ปิดกล่องโดยไม่บันทึก
-test('แนบรูปที่ไม่มี QR → ขึ้น "ไม่พบ QR ในรูป" และยังรับเงินไม่ได้', async ({ page, request }) => {
+// ทดสอบ: แนบรูปที่ไม่มี QR ต้องบอกว่า "ไม่พบ QR ในรูป" ช่องสลิปยังว่าง และยังตรวจสลิปไม่ได้ (บิลยังรอสลิป)
+// วิธี: เตรียมโต๊ะที่เสิร์ฟแล้ว → cashier เลือก PromptPay กดพิมพ์ใบเสร็จ → แนบรูป PNG ขาวล้วนในกล่องตรวจสลิป → เช็กข้อความเตือน ช่องสลิปว่าง ปุ่มตรวจสลิปกดไม่ได้ → ปิดกล่อง บิลยังขึ้น "รอสลิป" พร้อมปุ่มตรวจสลิป
+test('แนบรูปที่ไม่มี QR → ขึ้น "ไม่พบ QR ในรูป" และยังตรวจสลิปไม่ได้', async ({ page, request }) => {
   const t = await tokens(request)
-  const { tableName, total } = await servedTable(request, t)
+  const { tableName } = await servedTable(request, t)
 
   await loginAsCashier(page, request)
-  const dialog = await openPromptPay(page, tableName)
-  await dialog.getByLabel('แนบรูปสลิป').setInputFiles(await slipImage(page, null))
+  const { slip, receiptNo } = await printAndOpenSlipDialog(page, tableName)
+  await slip.getByLabel('แนบรูปสลิป').setInputFiles(await slipImage(page, null))
 
-  await expect(dialog.getByRole('alert').filter({ hasText: 'ไม่พบ QR ในรูป' })).toBeVisible()
-  await expect(dialog.getByPlaceholder(/ยิงเครื่องสแกน/)).toHaveValue('')
-  await expect(dialog.getByRole('button', { name: `รับเงิน ฿${total}` })).toBeDisabled()
-  await page.keyboard.press('Escape')
-  await expect(checkTableTile(page, tableName)).toBeVisible()
+  await expect(slip.getByRole('alert').filter({ hasText: 'ไม่พบ QR ในรูป' })).toBeVisible()
+  await expect(slip.getByPlaceholder(/ยิงเครื่องสแกน/)).toHaveValue('')
+  await expect(slip.getByRole('button', { name: 'ตรวจสลิป', exact: true })).toBeDisabled()
+  await slip.getByRole('button', { name: 'กลับ' }).click()
+  await expect(slip).toHaveCount(0)
+
+  const row = paidBillsTable(page).getByRole('row').filter({ hasText: receiptNo })
+  await expect(row).toContainText('รอสลิป')
+  await expect(row.getByRole('button', { name: 'ตรวจสลิป' })).toBeVisible()
 })
 
-// ทดสอบ: สลิปที่ SlipOK ตรวจแล้วไม่ผ่าน (ยอดไม่ตรง) ต้องบันทึกไม่ได้ เห็นเหตุผลในกล่องรับเงิน และโต๊ะยังรอเก็บเงินอยู่
-// วิธี: เตรียมโต๊ะที่เสิร์ฟแล้ว → cashier เลือก PromptPay พิมพ์สลิป MOCK-AMOUNT (โหมดจำลอง = ยอดไม่ตรง) → กดรับเงิน → เช็กข้อความ "ยอดในสลิปไม่ตรง" ในกล่อง ไม่มีใบเสร็จ → ปิดกล่อง การ์ดโต๊ะยังอยู่พร้อมปุ่มรับเงิน
-test('สลิปไม่ผ่าน (ยอดไม่ตรง) → บันทึกไม่ได้ เห็นเหตุผล และโต๊ะยังรอเก็บเงิน', async ({ page, request }) => {
+// ทดสอบ: สลิปที่ SlipOK ตรวจแล้วไม่ผ่าน (ยอดไม่ตรง) ต้องเห็นเหตุผลในกล่อง กล่องไม่ปิด และบิลยังรอสลิปให้แนบใบใหม่
+// วิธี: เตรียมโต๊ะที่เสิร์ฟแล้ว → cashier เลือก PromptPay กดพิมพ์ใบเสร็จ → พิมพ์สลิป MOCK-AMOUNT (โหมดจำลอง = ยอดไม่ตรง) กดตรวจสลิป → เช็กได้ 400 และข้อความ "ยอดในสลิปไม่ตรง" ในกล่อง → ปิดกล่อง บิลยังรอสลิป ไม่ขึ้น "ตรวจสลิปแล้ว"
+test('สลิปไม่ผ่าน (ยอดไม่ตรง) → เห็นเหตุผลในกล่อง และบิลยังรอสลิป', async ({ page, request }) => {
   const t = await tokens(request)
-  const { tableName, total } = await servedTable(request, t)
+  const { tableName } = await servedTable(request, t)
 
   await loginAsCashier(page, request)
-  const dialog = await openPromptPay(page, tableName)
-  await dialog.getByPlaceholder(/ยิงเครื่องสแกน/).fill(`MOCK-AMOUNT-e2e-${Date.now()}`)
+  const { slip, receiptNo } = await printAndOpenSlipDialog(page, tableName)
+  await slip.getByPlaceholder(/ยิงเครื่องสแกน/).fill(`MOCK-AMOUNT-e2e-${Date.now()}`)
   const [res] = await Promise.all([
-    page.waitForResponse((r) => new URL(r.url()).pathname === '/payments' && r.request().method() === 'POST'),
-    dialog.getByRole('button', { name: `รับเงิน ฿${total}` }).click(),
+    page.waitForResponse((r) => /\/payments\/[^/]+\/slip$/.test(new URL(r.url()).pathname) && r.request().method() === 'POST'),
+    slip.getByRole('button', { name: 'ตรวจสลิป', exact: true }).click(),
   ])
   expect(res.status()).toBe(400)
 
-  await expect(dialog).toContainText('ยอดในสลิปไม่ตรงกับยอดที่ต้องจ่าย')
-  await expect(page.getByRole('dialog', { name: 'ใบเสร็จรับเงิน' })).toHaveCount(0)
-  await page.keyboard.press('Escape')
-  const tile = checkTableTile(page, tableName)
-  await expect(tile.getByRole('button', { name: /^รับเงิน/ })).toBeVisible()
+  await expect(slip).toContainText('ยอดในสลิปไม่ตรงกับยอดที่ต้องจ่าย')
+  await slip.getByRole('button', { name: 'กลับ' }).click()
+  const row = paidBillsTable(page).getByRole('row').filter({ hasText: receiptNo })
+  await expect(row).toContainText('รอสลิป')
+  await expect(row).not.toContainText('ตรวจสลิปแล้ว')
 })

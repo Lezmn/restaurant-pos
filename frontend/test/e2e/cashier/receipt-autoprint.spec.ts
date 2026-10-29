@@ -48,7 +48,7 @@ test('เครื่องที่เปิด "พิมพ์ทันที
   await page.goto('/employee/check')
 
   await checkTableTile(page, tableName).getByRole('button', { name: /^รับเงิน/ }).click()
-  await page.getByRole('dialog', { name: `รับเงิน โต๊ะ ${tableName}` }).getByRole('button', { name: /^รับเงิน ฿/ }).click()
+  await page.getByRole('dialog', { name: `รับเงิน โต๊ะ ${tableName}` }).getByRole('button', { name: 'รับเงิน', exact: true }).click()
 
   const receipt = page.getByRole('dialog', { name: 'ใบเสร็จรับเงิน' })
   await expect(receipt).toBeVisible()
@@ -77,7 +77,7 @@ test('เครื่องที่ไม่ได้เปิด → รับ
   await page.goto('/employee/check')
 
   await checkTableTile(page, tableName).getByRole('button', { name: /^รับเงิน/ }).click()
-  await page.getByRole('dialog', { name: `รับเงิน โต๊ะ ${tableName}` }).getByRole('button', { name: /^รับเงิน ฿/ }).click()
+  await page.getByRole('dialog', { name: `รับเงิน โต๊ะ ${tableName}` }).getByRole('button', { name: 'รับเงิน', exact: true }).click()
 
   const receipt = page.getByRole('dialog', { name: 'ใบเสร็จรับเงิน' })
   await expect(receipt).toBeVisible()

@@ -45,9 +45,9 @@ test('ลด 10% → ยกเลิกบิล → หน้าประวั
   const dialog = page.getByRole('dialog', { name: `รับเงิน โต๊ะ ${tableName}` })
   await dialog.getByRole('button', { name: 'ให้ส่วนลด' }).click()
   await dialog.getByRole('button', { name: '10%' }).click()
-  await expect(dialog.getByText('เก็บจริง ฿90')).toBeVisible()
+  await expect(dialog.getByText('ยอดที่ต้องจ่าย').locator('..')).toContainText('฿90')
   await dialog.getByLabel(/เหตุผลที่ลด/).fill('ทดสอบประวัติ')
-  await dialog.getByRole('button', { name: 'รับเงิน ฿90' }).click()
+  await dialog.getByRole('button', { name: 'รับเงิน', exact: true }).click()
 
   const receipt = page.getByRole('dialog', { name: 'ใบเสร็จรับเงิน' })
   await expect(receipt.getByText('ส่วนลด 10%', { exact: true })).toBeVisible()
