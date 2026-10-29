@@ -453,32 +453,18 @@ export function TakeawayPage() {
                   type="button"
                   disabled={count === 0 || unavailable.length > 0 || createTakeaway.isPending}
                   onClick={() => submit(PaymentMethod.CASH)}
-                  className={`${button('primary', 'lg')} flex-col gap-0 leading-tight`}
+                  className={button('primary', 'lg')}
                 >
-                  {createTakeaway.isPending ? (
-                    'กำลังส่ง...'
-                  ) : (
-                    <>
-                      <span>เงินสด</span>
-                      <span className="text-sm tabular-nums">{formatBaht(total)}</span>
-                    </>
-                  )}
+                  {createTakeaway.isPending ? 'กำลังส่ง...' : 'เงินสด'}
                 </button>
                 <button
                   type="button"
                   disabled={count === 0 || unavailable.length > 0 || createTakeaway.isPending}
                   onClick={() => submit(PaymentMethod.PROMPTPAY)}
                   // สีน้ำเงิน PromptPay แยกจากปุ่มเงินสด — ไม่ต้องอ่านป้ายตอนรีบ
-                  className={`${button('primary', 'lg').replace('bg-brand-500', 'bg-promptpay')} flex-col gap-0 leading-tight`}
+                  className={button('primary', 'lg').replace('bg-brand-500', 'bg-promptpay')}
                 >
-                  {createTakeaway.isPending ? (
-                    'กำลังส่ง...'
-                  ) : (
-                    <>
-                      <span>PromptPay</span>
-                      <span className="text-sm tabular-nums">{formatBaht(total)}</span>
-                    </>
-                  )}
+                  {createTakeaway.isPending ? 'กำลังส่ง...' : 'PromptPay'}
                 </button>
               </div>
             </div>

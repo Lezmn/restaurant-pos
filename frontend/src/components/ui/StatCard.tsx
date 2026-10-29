@@ -6,7 +6,8 @@ import type { ReactNode } from 'react'
  */
 const tones = {
   brand: 'border-brand-500 text-brand-500',
-  orange: 'border-brand-300 text-brand-500',
+  /** เงินสด — ส้มสดทั้งขอบและตัวเลขตามดีไซน์ (ตัวเลขใหญ่หนา 24px+ จึงพอรับ contrast ต่ำได้) */
+  orange: 'border-brand-300 text-brand-300',
   purple: 'border-status-done text-status-done-ink',
   promptpay: 'border-promptpay text-promptpay',
   olive: 'border-accent-olive text-accent-olive-ink',
