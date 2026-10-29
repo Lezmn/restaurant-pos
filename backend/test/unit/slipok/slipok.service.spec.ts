@@ -102,9 +102,9 @@ describe('SlipOkService — ต่อ SlipOK จริง', () => {
     expect(await real().check('qr', 100)).toEqual({ kind: 'rejected', code: 1012, message: 'Duplicate slip' });
   });
 
-  // ทดสอบ: ข้อความสลิปซ้ำของ SlipOK มีวันที่แบบ Date.toString() ต้องตัดเหลือถึงแค่เวลา
-  // วิธี: ดัก fetch ให้ตอบ 1012 พร้อมข้อความจริงที่มี "GMT+0700 (Indochina Time)" → check() → เช็กว่าตัดส่วน timezone ออก
-  it('วันที่ในข้อความ SlipOK ตัดเหลือถึงแค่เวลา', async () => {
+  // ทดสอบ: ข้อความสลิปซ้ำของ SlipOK มีวันที่แบบ Date.toString() ต้องแปลงเป็นวันที่แบบไทย
+  // วิธี: ดัก fetch ให้ตอบ 1012 พร้อมข้อความจริงที่มี "GMT+0700 (Indochina Time)" → check() → เช็กว่าได้ "29 ต.ค. 2569 15:59 น."
+  it('วันที่ในข้อความ SlipOK แปลงเป็นวันที่แบบไทย', async () => {
     respond(400, {
       success: false,
       code: 1012,
@@ -113,7 +113,7 @@ describe('SlipOkService — ต่อ SlipOK จริง', () => {
     expect(await real().check('qr', 100)).toEqual({
       kind: 'rejected',
       code: 1012,
-      message: 'สลิปซ้ำ สลิปนี้เคยส่งเข้ามาในระบบเมื่อ Thu Oct 29 2026 15:59:35',
+      message: 'สลิปซ้ำ สลิปนี้เคยส่งเข้ามาในระบบเมื่อ 29 ต.ค. 2569 15:59 น.',
     });
   });
 

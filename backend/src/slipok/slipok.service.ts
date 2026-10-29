@@ -44,9 +44,23 @@ const CODE_MESSAGES: Record<number, string> = {
 
 /**
  * SlipOK ใส่วันที่แบบ Date.toString() มาในข้อความ (เช่น 1012 "…เคยส่งเข้ามาในระบบเมื่อ Thu Oct 29 2026 15:59:35 GMT+0700 (Indochina Time)")
- * ตัดส่วน timezone ท้ายเวลาทิ้ง ให้เหลือถึงแค่เวลา — แคชเชียร์อ่านง่ายกว่า
+ * แปลงเป็นวันที่แบบไทยเหมือนใบเสร็จ ("29 ต.ค. 2569 15:59 น.") — แคชเชียร์อ่านง่ายกว่า
  */
-const tidy = (message: string) => message.replace(/\s*GMT[+-]\d{4}(\s*\([^)]*\))?/g, '').trim();
+const SLIPOK_DATE = /[A-Z][a-z]{2} [A-Z][a-z]{2} \d{1,2} \d{4} \d{2}:\d{2}:\d{2} GMT[+-]\d{4}(?: \([^)]*\))?/g;
+const tidy = (message: string) =>
+  message.replace(SLIPOK_DATE, (raw) => {
+    const date = new Date(raw.replace(/ \(.*\)$/, ''));
+    if (Number.isNaN(date.getTime())) return raw;
+    const thai = date.toLocaleString('th-TH', {
+      timeZone: 'Asia/Bangkok',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    return `${thai} น.`;
+  });
 
 const DEFAULT_BASE_URL ='https://api.slipok.com/api/line/apikey';
 const TIMEOUT_MS = 10_000;
