@@ -21,26 +21,6 @@ describe('OrdersController', () => {
   );
 
   describe('ประวัติ (@Audit)', () => {
-    it.each(['create', 'createTakeaway'])('%s เก็บเฉพาะออเดอร์ที่มีรายการพิเศษ (พิมพ์ราคาเอง)', (method) => {
-      const audit = auditOf(OrdersController, method)!;
-      const action = audit.action as (ctx: any) => string | null;
-      expect(action({ body: { customItems: [{ name: 'x', price: 10 }] } })).toBe('ORDER_CUSTOM_ITEM');
-      expect(action({ body: { customItems: [] } })).toBeNull();
-      expect(action({ body: {} })).toBeNull();
-
-      const customItems = [{ name: 'x', price: 10 }];
-      expect(audit.details!({ body: { customItems }, result: { id: 'o1', tableSessionId: 's1' } } as any)).toEqual({
-        customItems,
-        tableSessionId: 's1',
-      });
-      expect(audit.details!({ body: { customItems }, result: undefined } as any)).toEqual({
-        customItems,
-        tableSessionId: null,
-      });
-      expect(audit.targetId!({ result: { id: 'o1' } } as any)).toBe('o1');
-      expect(audit.targetId!({ result: undefined } as any)).toBeUndefined();
-    });
-
     it('updateStatus เก็บเฉพาะตอนยกเลิก พร้อมรายการในออเดอร์', () => {
       const audit = auditOf(OrdersController, 'updateStatus')!;
       const action = audit.action as (ctx: any) => string | null;

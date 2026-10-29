@@ -141,14 +141,6 @@ describe('audit-loaders (โหลดข้อมูลก่อนทำรา�
   const ctx = (params: Record<string, string> = {}, body: Record<string, unknown> = {}) =>
     ({ params, body, user }) as any;
 
-  it('loadPayingTable: แยกบิลด้วย orderIds → ใช้โต๊ะของออเดอร์แรก', async () => {
-    const prisma: any = { order: { findUnique: jest.fn().mockResolvedValue({ table: { number: 4 } }) } };
-    await expect(loaders.loadPayingTable(prisma, ctx({}, { orderIds: ['o1', 'o2'] }))).resolves.toEqual({
-      tableNumber: 4,
-    });
-    expect(prisma.order.findUnique.mock.calls[0][0].where).toEqual({ id: 'o1' });
-  });
-
   it('loadPayingTable: จ่ายทั้งโต๊ะด้วย tableSessionId', async () => {
     const prisma: any = { tableSession: { findUnique: jest.fn().mockResolvedValue({ table: { number: 7 } }) } };
     await expect(loaders.loadPayingTable(prisma, ctx({}, { tableSessionId: 's1' }))).resolves.toEqual({
@@ -157,14 +149,8 @@ describe('audit-loaders (โหลดข้อมูลก่อนทำรา�
   });
 
   it('loadPayingTable: ไม่มีอะไรเลย / หาไม่เจอ → null', async () => {
-    const prisma: any = {
-      order: { findUnique: jest.fn().mockResolvedValue(null) },
-      tableSession: { findUnique: jest.fn().mockResolvedValue(null) },
-    };
+    const prisma: any = { tableSession: { findUnique: jest.fn().mockResolvedValue(null) } };
     await expect(loaders.loadPayingTable(prisma, ctx())).resolves.toEqual({ tableNumber: null });
-    await expect(loaders.loadPayingTable(prisma, ctx({}, { orderIds: ['x'] }))).resolves.toEqual({
-      tableNumber: null,
-    });
     await expect(loaders.loadPayingTable(prisma, ctx({}, { tableSessionId: 'x' }))).resolves.toEqual({
       tableNumber: null,
     });

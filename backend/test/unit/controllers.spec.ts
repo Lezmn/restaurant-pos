@@ -80,9 +80,6 @@ describe('TableSessionsController', () => {
     ['create', [{ tableId: 't1' }], 'create', [{ tableId: 't1' }]],
     ['findAll', [{ status: 'OPEN' }], 'findAll', ['OPEN']],
     ['findOne', ['s1'], 'findOne', ['s1']],
-    ['setGuestCount', ['s1', { guestCount: 4 }], 'setGuestCount', ['s1', 4]],
-    ['move', ['s1', { tableId: 't2' }], 'move', ['s1', 't2']],
-    ['merge', ['s1', { targetSessionId: 's2' }], 'merge', ['s1', 's2']],
     ['close', ['s1'], 'close', ['s1']],
   ]);
 });

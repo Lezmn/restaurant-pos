@@ -32,20 +32,6 @@ describe('ReportsService', () => {
   });
 
   describe('getDashboard', () => {
-    it('ลูกค้าเข้าใช้บริการ = รวมจำนวนที่ระบุ + บอกจำนวนโต๊ะที่ไม่ได้ระบุ', async () => {
-      const r = await service.getDashboard();
-      expect(r.guests).toEqual({ total: 7, tables: 3, tablesWithoutCount: 1 });
-    });
-
-    it('ยังไม่มีโต๊ะไหนระบุจำนวนลูกค้า → รวมเป็น 0 ไม่ใช่ null', async () => {
-      prisma.tableSession.aggregate.mockResolvedValue({
-        _sum: { guestCount: null },
-        _count: { _all: 2, guestCount: 0 },
-      });
-      const r = await service.getDashboard();
-      expect(r.guests).toEqual({ total: 0, tables: 2, tablesWithoutCount: 2 });
-    });
-
     it('ยอดขาย/กำไร/แยกวิธีจ่าย ของวันนี้', async () => {
       const now = new Date();
       prisma.payment.findMany

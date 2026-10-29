@@ -276,10 +276,4 @@ describe('PaidBills — บิลที่เก็บแล้ววันน�
     expect(button).toHaveAccessibleDescription('ปิดยอดวันนี้แล้ว ลบการปิดยอดก่อน')
   })
 
-  // ทดสอบ: บิลที่หารจ่าย ต้องบอกว่าหารกี่คนและเป็นส่วนที่เท่าไร
-  // วิธี: mock receipt ที่มี splitParts 3 splitPart 2 → เช็กข้อความ "หาร 3 คน · ส่วนที่ 2"
-  it('บิลหารจ่าย → บอก "หาร N คน · ส่วนที่ M"', () => {
-    setup([bill('p24', { receipt: { number: 'RCPT-p24', splitParts: 3, splitPart: 2 } as Payment['receipt'] })])
-    expect(row('RCPT-p24')).toHaveTextContent('หาร 3 คน · ส่วนที่ 2')
-  })
 })

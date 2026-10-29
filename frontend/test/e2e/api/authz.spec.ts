@@ -72,7 +72,6 @@ const matrix: [Method, string, Role[]][] = [
   ['GET', '/reports/sales', ADMIN],
   ['GET', '/audit-logs', ADMIN],
   ['GET', '/audit-logs/devices', ADMIN],
-  ['GET', '/system/status', ADMIN],
   // POST /settings/line/test ไม่อยู่ในตารางนี้ — role ที่มีสิทธิ์จะยิงไป LINE จริง (403 ของ role อื่นเทสต์ใน owner/line-settings.spec.ts)
   ['GET', '/settings/line', ADMIN],
   ['PUT', '/settings/line', ADMIN],

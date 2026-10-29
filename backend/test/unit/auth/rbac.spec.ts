@@ -10,7 +10,6 @@ import { CashClosesController } from '../../../src/cash-closes/cash-closes.contr
 import { CategoriesController } from '../../../src/categories/categories.controller';
 import { ExpensesController } from '../../../src/expenses/expenses.controller';
 import { HealthController } from '../../../src/health/health.controller';
-import { SystemStatusController } from '../../../src/health/system-status.controller';
 import { IngredientsController } from '../../../src/ingredients/ingredients.controller';
 import { LineSettingsController } from '../../../src/line/line-settings.controller';
 import { MenuController } from '../../../src/menu/menu.controller';
@@ -40,7 +39,6 @@ const MATRIX: [new (...a: any[]) => any, Record<string, Access>][] = [
     getOrderStatus: 'PUBLIC', callStaff: 'PUBLIC', checkout: 'PUBLIC',
   }],
   [AuthController, { login: 'PUBLIC', me: 'ANY', changePassword: [A] }],
-  [SystemStatusController, { getStatus: [A] }],
   [AuditController, { findAll: [A], findDevices: [A] }],
   [ReportsController, { getDashboard: [A], getIncomeExpense: [A], getSales: [A] }],
   [UsersController, { create: [A], findAll: [A], findOne: [A], update: [A], remove: [A] }],

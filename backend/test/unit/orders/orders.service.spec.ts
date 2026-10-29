@@ -451,24 +451,6 @@ describe('OrdersService', () => {
     const closedEvent = () =>
       events.emitToStaffAndSession.mock.calls.filter(([, event]) => event === 'table-session.closed');
 
-    // ทดสอบ: แยกบิลจ่ายไปบางใบแล้ว พอยกเลิกออเดอร์ใบสุดท้ายที่ค้างจ่าย โต๊ะต้องปิดเอง คืนโต๊ะว่าง ปิดคำขอ และแจ้งลูกค้า
-    // วิธี: ออเดอร์ค้างจ่ายเหลือ 0 และมีที่จ่ายแล้ว 1 ใบ → ยกเลิกออเดอร์ → เช็ก update session เป็น CLOSED, โต๊ะ AVAILABLE, ปิดคำขอ และมี event table-session.closed ครั้งเดียว
-    it('แยกบิลจ่ายใบอื่นไปแล้ว ยกเลิกใบสุดท้ายที่ค้าง → ปิดบิลเอง คืนโต๊ะ ปิดคำขอ และแจ้งลูกค้า', async () => {
-      await cancelWith({ unpaid: 0, paid: 1 });
-      expect(prisma.tableSession.updateMany).toHaveBeenCalledWith({
-        where: { id: 's1', status: TableSessionStatus.OPEN },
-        data: { status: TableSessionStatus.CLOSED, closedAt: expect.any(Date) },
-      });
-      expect(prisma.restaurantTable.update).toHaveBeenCalledWith({
-        where: { id: 't1' },
-        data: { status: TableStatus.AVAILABLE },
-      });
-      expect(prisma.serviceRequest.updateMany).toHaveBeenCalled();
-      expect(closedEvent()).toEqual([
-        ['s1', 'table-session.closed', { id: 's1', status: TableSessionStatus.CLOSED, tableId: 't1' }],
-      ]);
-    });
-
     // ทดสอบ: ยกเลิกออเดอร์จนหมดโดยไม่เคยจ่าย ต้องไม่ปิดโต๊ะ เพราะลูกค้ายังนั่งอยู่และสั่งใหม่ได้
     // วิธี: ออเดอร์ค้างจ่าย 0 และที่จ่ายแล้ว 0 + session ยังเปิด → ยกเลิกออเดอร์ → เช็กว่าไม่ปิด session, ไม่ปล่อยโต๊ะ และไม่มี event ปิดโต๊ะ
     it('ยกเลิกทุกใบโดยยังไม่เคยจ่ายเลย → ไม่ปิดบิล (ลูกค้ายังนั่งอยู่ สั่งใหม่ได้)', async () => {

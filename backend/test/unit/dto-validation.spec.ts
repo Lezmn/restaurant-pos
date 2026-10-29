@@ -99,23 +99,13 @@ describe('DTO validation (ValidationPipe ตาม main.ts)', () => {
       [{ discountPercent: 0 }, 'discountPercent'],
       [{ discountPercent: 101 }, 'discountPercent'],
       [{ discountPercent: 5.5 }, 'discountPercent'],
-      [{ splitParts: 1 }, 'splitParts'],
-      [{ splitParts: 21 }, 'splitParts'],
       [{ expectedTotal: 1.234 }, 'expectedTotal'],
       [{ expectedTotal: -1 }, 'expectedTotal'],
-      [{ orderIds: [] }, 'orderIds'],
-      [{ orderIds: ['not-uuid'] }, 'orderIds'],
-      [{ items: [{ orderItemId: UUID, quantity: 0 }] }, 'quantity'],
-      [{ items: [{ orderItemId: 'x', quantity: 1 }] }, 'orderItemId'],
       [{ slipPayload: '   ' }, 'slipPayload'],
       [{ slipOverrideReason: 'x'.repeat(201) }, 'slipOverrideReason'],
       [{ note: 'x'.repeat(501) }, 'note'],
     ])('%j → 400', async (patch, field) => {
       await invalid(CreatePaymentDto, { tableSessionId: 's', method: 'CASH', ...patch }, field);
-    });
-
-    it('เลือกรายการ: items ซ้อนถูก validate', async () => {
-      await valid(CreatePaymentDto, { method: 'PROMPTPAY', items: [{ orderItemId: UUID, quantity: '2' }] });
     });
   });
 
@@ -127,24 +117,17 @@ describe('DTO validation (ValidationPipe ตาม main.ts)', () => {
 
   describe('ออเดอร์', () => {
     const item = { menuItemId: UUID, quantity: 1 };
-    it('ออเดอร์พนักงาน + รายการราคาเปิด', async () => {
-      await valid(CreateOrderDto, {
-        tableId: UUID,
-        items: [{ ...item, optionIds: [UUID2] }],
-        customItems: [{ name: ' ข้าวเปล่า ', price: 10, quantity: 2 }],
-      });
+    it('ออเดอร์พนักงาน + ตัวเลือก', async () => {
+      await valid(CreateOrderDto, { tableId: UUID, items: [{ ...item, optionIds: [UUID2] }] });
     });
     it.each([
       [{ items: [{ ...item, quantity: 100 }] }, 'quantity'],
       [{ items: [{ ...item, quantity: 0 }] }, 'quantity'],
       [{ items: [{ ...item, optionIds: [UUID2, UUID2] }] }, 'optionIds'],
       [{ items: [{ ...item, note: 'x'.repeat(201) }] }, 'note'],
-      [{ customItems: [{ name: '  ', price: 10, quantity: 1 }] }, 'name'],
-      [{ customItems: [{ name: 'x', price: 100_001, quantity: 1 }] }, 'price'],
-      [{ customItems: [{ name: 'x', price: 1.555, quantity: 1 }] }, 'price'],
       [{ items: Array.from({ length: 51 }, () => item) }, 'items'],
     ])('%j → 400', async (patch, field) => {
-      await invalid(CreateOrderDto, { tableId: UUID, items: [item], ...patch }, field);
+      await invalid(CreateOrderDto, { tableId: UUID, items: [item], ...(patch as Record<string, unknown>) }, field);
     });
 
     it('ลูกค้า QR สั่งได้แค่เมนู (customItems ถูกตัดทิ้ง ตั้งราคาเองไม่ได้) และต้องมีอย่างน้อย 1 รายการ', async () => {
@@ -200,9 +183,8 @@ describe('DTO validation (ValidationPipe ตาม main.ts)', () => {
       await invalid(FindTablesQueryDto, { status: 'BROKEN' }, 'status', 'query');
     });
 
-    it('เปิดโต๊ะ: จำนวนลูกค้า 1–99, expiresAt ต้องเป็น ISO', async () => {
-      await valid(CreateTableSessionDto, { tableId: UUID, guestCount: 4, expiresAt: '2026-05-01T12:00:00Z' });
-      await invalid(CreateTableSessionDto, { tableId: UUID, guestCount: 100 }, 'guestCount');
+    it('เปิดโต๊ะ: expiresAt ต้องเป็น ISO', async () => {
+      await valid(CreateTableSessionDto, { tableId: UUID, expiresAt: '2026-05-01T12:00:00Z' });
       await invalid(CreateTableSessionDto, { tableId: UUID, expiresAt: 'tomorrow' }, 'expiresAt');
     });
   });
