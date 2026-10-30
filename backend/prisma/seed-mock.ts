@@ -618,10 +618,16 @@ async function main() {
 
   // ---------- จำลองการขายรายวัน ----------
   const now = new Date();
+  const bkkDay = (d: Date) => new Date(d.getTime() + 7 * 60 * MIN).toISOString().slice(0, 10);
+  const today = bkkDay(now) <= LAST_DAY ? bkkDay(now) : LAST_DAY;
   const allDays = days(FIRST_DAY, LAST_DAY);
   const openDays: string[] = [];
   let paydayBoost = 1;
   for (const [index, day] of allDays.entries()) {
+    // ห้ามมีข้อมูลในอนาคต — เดิมรันตอนเช้าแล้วได้บิลถึง 20:30 ของวันนี้ บิลจริงที่เพิ่งรับเงินเลยไปอยู่ท้ายรายการ "ใหม่สุดก่อน"
+    if (day > today) break;
+    // วันนี้: จำลองเฉพาะลูกค้าที่น่าจะจ่ายเสร็จแล้ว (นั่งทานยาวสุด ~2 ชม. กลับบ้าน ~40 นาที) ที่เหลือคือโต๊ะ live ด้านล่าง
+    const nowMinute = day === today ? (now.getTime() - at(day, 0).getTime()) / MIN : Infinity;
     const wd = weekday(day);
     if (wd === 1) continue; // ร้านหยุดทุกวันจันทร์
     openDays.push(day);
@@ -644,6 +650,7 @@ async function main() {
     const tableFree = new Map<number, number>(); // เลขโต๊ะ → นาทีที่ว่าง
     const arrivals = Array.from({ length: dineCount }, arrival).sort((a, b) => a - b);
     for (const minute of arrivals) {
+      if (minute > nowMinute - 150) break;
       const guests = weighted([[1, 22], [2, 36], [3, 18], [4, 15], [5, 5], [6, 3], [8, 1]] as const);
       const table = TABLES
         .filter((t) => !(t.removedOn && day >= t.removedOn) && t.seats >= guests && (tableFree.get(t.number) ?? 0) <= minute)
@@ -773,6 +780,7 @@ async function main() {
       return Math.round(Math.min(20 * 60 + 30, Math.max(10 * 60, m)));
     }).sort((a, b) => a - b);
     for (const [i, minute] of takeawayArrivals.entries()) {
+      if (minute > nowMinute - 60) break;
       const sessionId = randomUUID();
       const openedAt = at(day, minute + rand());
       const cashier = cashierAt(day, minute);
@@ -800,6 +808,7 @@ async function main() {
 
   // ---------- รายจ่าย ----------
   const expense = (who: Actor, title: string, amount: number, category: ExpenseCategory, spentAt: Date, paidFromDrawer = false, note: string | null = null) => {
+    if (spentAt > now) return;
     const id = randomUUID();
     rows.expenses.push({ id, title, amount, category, spentAt, paidFromDrawer, note, createdById: who.id, createdByName: who.name, createdAt: spentAt, updatedAt: spentAt });
     audit(who, paidFromDrawer ? 'EXPENSE_DRAWER' : 'EXPENSE_CREATE', spentAt, { title, amount, category, note, paidFromDrawer }, id);
@@ -838,7 +847,6 @@ async function main() {
   audit(OWNER, 'EXPENSE_UPDATE', at('2026-10-08', 21 * 60), { before: { title: 'ซ่อมตู้แช่', amount: 15000, category: 'EQUIPMENT' }, changes: { amount: 1500 } }, fixMe.id as string);
 
   // ---------- เติมเลขใบเสร็จ (เรียงตามเวลาออกใบในแต่ละวัน) ----------
-  const bkkDay = (d: Date) => new Date(d.getTime() + 7 * 60 * MIN).toISOString().slice(0, 10);
   const sortedReceipts = [...rows.receipts].sort((a, b) => (a.issuedAt as Date).getTime() - (b.issuedAt as Date).getTime());
   const perDay = new Map<string, number>();
   const receiptByPayment = new Map<string, (typeof rows.receipts)[number]>();
@@ -854,7 +862,7 @@ async function main() {
   }
 
   // ---------- ปิดยอดเงินสดรายวัน (ยกเว้นวันนี้ ให้ลองปิดเองได้) ----------
-  for (const day of openDays.filter((d) => d < LAST_DAY)) {
+  for (const day of openDays.filter((d) => d < today)) {
     const paysToday = rows.payments.filter((p) => p.status === PaymentStatus.COMPLETED && bkkDay(p.paidAt as Date) === day);
     const cashSales = paysToday.filter((p) => p.method === CASH).reduce((s, p) => s + Number(p.amount), 0);
     const promptpaySales = paysToday.filter((p) => p.method === PROMPTPAY).reduce((s, p) => s + Number(p.amount), 0);
@@ -873,7 +881,6 @@ async function main() {
 
   // ---------- โต๊ะที่เปิดอยู่ตอนนี้ (ให้หน้า POS / ครัว มีงานค้าง) ----------
   const live = (minutesAgo: number) => plus(now, -minutesAgo);
-  const today = bkkDay(now) <= LAST_DAY ? bkkDay(now) : LAST_DAY;
   const liveTable = async (number: number, guests: number, openedMinutesAgo: number, build: (sessionId: string, tId: string) => void) => {
     const tId = tableId.get(number)!;
     const sessionId = randomUUID();
