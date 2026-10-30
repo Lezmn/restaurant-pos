@@ -9,7 +9,7 @@ import { loginViaApi, setAuthState } from '../helpers'
 // login อยู่แล้วเข้า /login ซ้ำ → เด้งไป /employee แล้วต่อไปหน้าแรกตาม role (homeByRole)
 
 // ทดสอบ: คนที่ login เป็น ADMIN อยู่แล้ว เปิดหน้า /login ซ้ำ ต้องถูกพาไปหน้าแรกของ ADMIN (/employee/order) ไม่ต้อง login ใหม่
-// วิธี: ขอ token จริงจาก API → ใส่ลง localStorage ของหน้า → reload หน้า /login แล้วเช็ก URL
+// วิธี: ขอ token จริงจาก API → ใส่เป็น cookie + user ของหน้า → reload หน้า /login แล้วเช็ก URL
 test('login อยู่แล้ว (ADMIN) เข้าหน้า login ซ้ำ ต้องถูกเด้งออกไปหน้าแรกของ ADMIN', async ({
   page,
   request,
@@ -24,7 +24,7 @@ test('login อยู่แล้ว (ADMIN) เข้าหน้า login ซ�
 })
 
 // ทดสอบ: คนที่ login เป็น STAFF อยู่แล้ว เปิดหน้า /login ซ้ำ ต้องถูกพาไปหน้าแรกของ STAFF (/employee/check)
-// วิธี: ขอ token จริงจาก API → ใส่ลง localStorage ของหน้า → reload หน้า /login แล้วเช็ก URL
+// วิธี: ขอ token จริงจาก API → ใส่เป็น cookie + user ของหน้า → reload หน้า /login แล้วเช็ก URL
 test('login อยู่แล้ว (STAFF) เข้าหน้า login ซ้ำ ต้องถูกเด้งไปหน้าแรกของ STAFF (/employee/check)', async ({
   page,
   request,

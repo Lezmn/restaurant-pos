@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PaymentMethod, PaymentStatus } from '@/types/enums'
 import { getDashboard } from '@/features/reports/api'
 
@@ -60,7 +60,6 @@ function mockApi(dashboard: unknown, payments: unknown[]) {
 }
 
 describe('getDashboard', () => {
-  beforeEach(() => localStorage.setItem('restaurant.token', 't'))
   afterEach(() => vi.unstubAllGlobals())
 
   // ทดสอบ: ยอดสรุปบน Dashboard (รายรับ, เงินสด, PromptPay, ออเดอร์, รายจ่าย) มาจาก /reports/dashboard ตรง ๆ

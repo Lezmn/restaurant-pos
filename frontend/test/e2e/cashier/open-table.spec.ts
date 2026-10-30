@@ -8,10 +8,9 @@ import { API_URL, checkTableTile, loginAsCashier, pickFreeTable, selectTable, ta
 // ตัวเลข "จำนวนโต๊ะที่ว่าง" เป็นของทั้งร้าน — รันพร้อมเทสอื่นที่เปิด/ปิดโต๊ะ ตัวเลขขยับเองได้
 // จึงเทียบกับจำนวนโต๊ะว่างจริงจาก API ณ ตอนนั้น แทนการเช็ก "ลดลง 1 พอดี"
 
-/** จำนวนโต๊ะว่างจริงจาก API (นับแบบเดียวกับ EmployeeLayout) ด้วย token ของคนที่ login อยู่ */
+/** จำนวนโต๊ะว่างจริงจาก API (นับแบบเดียวกับ EmployeeLayout) ด้วย cookie ของคนที่ login อยู่ */
 async function availableFromApi(page: Page) {
-  const token = await page.evaluate(() => localStorage.getItem('restaurant.token'))
-  const res = await page.request.get(`${API_URL}/tables`, { headers: { Authorization: `Bearer ${token}` } })
+  const res = await page.request.get(`${API_URL}/tables`)
   expect(res.ok()).toBe(true)
   const tables = (await res.json()) as { status: string }[]
   return tables.filter((t) => t.status === 'AVAILABLE').length
