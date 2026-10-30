@@ -202,7 +202,7 @@ describe('CashClosesPage — ประวัติปิดยอดเงิน
     const dialog = screen.getByRole('dialog', { name: 'ลบการปิดยอด' })
     expect(dialog).toHaveTextContent('ปิดยอดวันที่')
     expect(dialog).toHaveTextContent('นับได้ ฿3,339.5 · -฿40 · โดย แคชเชียร์')
-    expect(dialog).toHaveTextContent('แคชเชียร์จะกดปิดยอดวันนี้ใหม่ได้')
+    expect(dialog).toHaveTextContent('จะกดปิดยอดวันนี้ใหม่ได้ที่หน้านี้')
 
     await user.click(within(dialog).getByRole('button', { name: 'ย้อนกลับ' }))
     expect(deleteCashClose.reset).toHaveBeenCalled()

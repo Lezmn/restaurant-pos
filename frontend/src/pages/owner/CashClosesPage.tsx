@@ -35,7 +35,7 @@ const differenceLabel = (value: number) => {
 
 /**
  * ปิดยอดเงินสดรายวัน — ปุ่ม "ปิดยอดวันนี้" อยู่หน้านี้ (ย้ายมาจากหน้า Check) + ประวัติว่าเงินขาด/เกินวันไหน
- * ลบได้เพื่อให้แคชเชียร์นับใหม่ (เช่น กรอกยอดผิด หรือยกเลิกบิลหลังปิดยอด)
+ * ลบได้เพื่อนับใหม่ (เช่น กรอกยอดผิด หรือยกเลิกบิลหลังปิดยอด)
  */
 export function CashClosesPage() {
   const [month, setMonth] = useState(currentMonth)
@@ -199,7 +199,7 @@ export function CashClosesPage() {
           title="ลบการปิดยอด"
           subject={`ปิดยอดวันที่ ${thaiDate(deleting.date)}`}
           detail={`นับได้ ${formatBaht(deleting.countedCash)} · ${differenceLabel(deleting.difference)} · โดย ${deleting.closedByName}`}
-          consequence="ถ้าลบการปิดยอดของวันนี้ แคชเชียร์จะกดปิดยอดวันนี้ใหม่ได้ที่หน้า Check ส่วนวันก่อนหน้าจะไม่มีบันทึกการนับเงิน"
+          consequence="ถ้าลบการปิดยอดของวันนี้ จะกดปิดยอดวันนี้ใหม่ได้ที่หน้านี้ ส่วนวันก่อนหน้าจะไม่มีบันทึกการนับเงิน"
           confirmLabel="ลบ"
           pendingLabel="กำลังลบ..."
           isPending={deleteCashClose.isPending}

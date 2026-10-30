@@ -32,8 +32,9 @@ export class CashClosesController {
     return this.cashClosesService.preview(query.date);
   }
 
+  // เจ้าของร้านเท่านั้น — ปุ่มปิดยอดย้ายไปหน้า "ปิดยอดเงินสด" ของ ADMIN แล้ว (preview ยังให้ STAFF ดูยอดลิ้นชักได้)
   @Post()
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   @Audit('CASH_CLOSE_CREATE', {
     targetId: ({ result }) => (result as { id: string }).id,
     details: ({ result }) => {

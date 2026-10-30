@@ -47,7 +47,7 @@ const MATRIX: [new (...a: any[]) => any, Record<string, Access>][] = [
   [ExpensesController, {
     create: [A], createFromDrawer: [A, S], findAll: [A], findOne: [A], update: [A], remove: [A],
   }],
-  [CashClosesController, { preview: [A, S], create: [A, S], findAll: [A], findOne: [A], remove: [A] }],
+  [CashClosesController, { preview: [A, S], create: [A], findAll: [A], findOne: [A], remove: [A] }],
   [CategoriesController, { create: [A], findAll: 'ANY', findOne: 'ANY', update: [A], remove: [A] }],
   [TablesController, { create: [A], findAll: 'ANY', findOne: 'ANY', update: [A], remove: [A] }],
   [MenuController, {

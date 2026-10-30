@@ -78,7 +78,7 @@ const matrix: [Method, string, Role[]][] = [
   ['PUT', '/settings/line', ADMIN],
   ['POST', '/uploads/menu-image', ADMIN],
   ['GET', '/cash-closes/preview', ADMIN_STAFF],
-  ['POST', '/cash-closes', ADMIN_STAFF],
+  ['POST', '/cash-closes', ADMIN],
   ['GET', '/cash-closes', ADMIN],
   ['GET', `/cash-closes/${ID}`, ADMIN],
   ['DELETE', `/cash-closes/${ID}`, ADMIN],

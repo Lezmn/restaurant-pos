@@ -224,8 +224,8 @@ test('ปิดวัตถุดิบ (KITCHEN): เมนูหายจา�
   expect(back).toContain(target!.id)
 })
 
-// ทดสอบ: ยอดที่ควรมีในลิ้นชักตอนปิดยอดต้องเท่ากับเงินทอนตั้งต้น + ขายเงินสด − เงินที่หยิบไปจ่าย, ปิดซ้ำวันเดียวกันไม่ได้, ลบแล้วปิดใหม่ได้
-// วิธี: ถ้าวันนี้ปิดไปแล้วให้ลบก่อน → หยิบเงินจากลิ้นชัก 35.25 → ปิดยอดด้วยเงินทอน 1000 นับได้ 1500 → เช็ก expectedCash และส่วนต่าง → ปิดซ้ำได้ 409 → ลบได้ 200 และมี body ที่เว็บอ่านได้
+// ทดสอบ: ยอดที่ควรมีในลิ้นชักตอนปิดยอดต้องเท่ากับเงินทอนตั้งต้น + ขายเงินสด − เงินที่หยิบไปจ่าย, ปิดยอดได้เฉพาะเจ้าของร้าน (STAFF ได้ 403), ปิดซ้ำวันเดียวกันไม่ได้, ลบแล้วปิดใหม่ได้
+// วิธี: ถ้าวันนี้ปิดไปแล้วให้ลบก่อน → หยิบเงินจากลิ้นชัก 35.25 → STAFF ลองปิดยอดได้ 403 → ADMIN ปิดยอดด้วยเงินทอน 1000 นับได้ 1500 → เช็ก expectedCash และส่วนต่าง → ปิดซ้ำได้ 409 → ลบได้ 200 และมี body ที่เว็บอ่านได้
 test('ปิดยอดเงินสด: expected = เงินทอน + ขายสด − หยิบจากลิ้นชัก, ปิดซ้ำ 409, ลบแล้วปิดใหม่ได้', async ({ request }) => {
   // ถ้าวันนี้ปิดไปแล้ว (รันซ้ำ) ลบทิ้งก่อน
   const existing = await preview(request)
@@ -234,13 +234,15 @@ test('ปิดยอดเงินสด: expected = เงินทอน + �
 
   await ok(await call(request, 'POST', '/expenses/drawer', { token: t.STAFF, data: { title: 'น้ำแข็ง (API test)', amount: 35.25 } }))
   const p = await preview(request)
-  const created = await ok(await call(request, 'POST', '/cash-closes', { token: t.STAFF, data: { openingFloat: 1000, countedCash: 1500, note: 'API test' } }))
+  // ปุ่มปิดยอดอยู่หน้าเจ้าของร้านเท่านั้น — STAFF ยิง API ตรงก็ต้องไม่ผ่าน
+  expectStatus(await call(request, 'POST', '/cash-closes', { token: t.STAFF, data: { openingFloat: 1000, countedCash: 1500 } }), 403)
+  const created = await ok(await call(request, 'POST', '/cash-closes', { token: t.ADMIN, data: { openingFloat: 1000, countedCash: 1500, note: 'API test' } }))
   const expected = 1000 + p.cashSales - p.drawerExpenses
   expect(created.expectedCash).toBeCloseTo(expected, 2)
   expect(created.difference).toBeCloseTo(1500 - expected, 2)
   expect(created.drawerExpenses).toBeCloseTo(p.drawerExpenses, 2)
 
-  expectStatus(await call(request, 'POST', '/cash-closes', { token: t.STAFF, data: { openingFloat: 0, countedCash: 0 } }), 409)
+  expectStatus(await call(request, 'POST', '/cash-closes', { token: t.ADMIN, data: { openingFloat: 0, countedCash: 0 } }), 409)
   const detail = await ok(await call(request, 'GET', `/cash-closes/${created.id}`, { token: t.ADMIN }))
   expect(detail.changedSinceClose).toBe(false)
   const del = await call(request, 'DELETE', `/cash-closes/${created.id}`, { token: t.ADMIN })
