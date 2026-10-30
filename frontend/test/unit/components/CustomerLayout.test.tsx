@@ -57,7 +57,6 @@ const openSession = (
   isTakeaway: false,
   takeawayNo: null,
   customerName: null,
-  split: null,
   checkoutRequested: false,
   callStaffPending: false,
 })

@@ -27,7 +27,6 @@ const fullSession = (id: string, extra: Record<string, unknown> = {}) => ({
   table: { id: `table-of-${id}`, number: 1 },
   orders: [],
   serviceRequests: [],
-  billSplits: [],
   ...extra,
 });
 
@@ -233,32 +232,7 @@ describe('TableSessionsService.findAll + สรุปการหาร', () => 
     expect(prisma.tableSession.findMany.mock.calls[0][0].where).toEqual({ status: TableSessionStatus.OPEN });
     expect(s1.checkoutRequest).toEqual({ id: 'new', paymentMethod: 'CASH', createdAt: newer });
     expect(s2.billingStatus).toBe('IN_PROGRESS');
-    expect(s2.split).toBeNull();
     expect(s1.serviceRequests).toBeUndefined();
-  });
-
-  it('มีการหารค้างอยู่ → บอกจ่ายแล้วกี่คน ยอดคงเหลือ และยอดคนถัดไป', async () => {
-    const { prisma, service } = setup();
-    prisma.tableSession.findMany.mockResolvedValue([
-      fullSession('s1', {
-        billSplits: [
-          {
-            id: 'split-1',
-            parts: 3,
-            subtotal: D(100),
-            discountPercent: null,
-            discount: D(0),
-            total: D(100),
-            payments: [{ amount: D('33.33') }, { amount: D('33.33') }],
-          },
-        ],
-      }),
-    ]);
-    const [s]: any[] = await service.findAll();
-    expect(s.split).toMatchObject({ id: 'split-1', parts: 3, paidParts: 2 });
-    expect(s.split.paidAmount.toString()).toBe('66.66');
-    expect(s.split.remaining.toString()).toBe('33.34');
-    expect(s.split.nextAmount.toString()).toBe('33.34');
   });
 
   it('findOne ไม่พบ → 404', async () => {

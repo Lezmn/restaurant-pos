@@ -7,7 +7,6 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import {
-  BillSplitStatus,
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
@@ -18,7 +17,6 @@ import {
   TableStatus,
 } from '@prisma/client';
 import { toDateKey } from '../common/date-range.util';
-import { carveOutItems, lockSessionSplit, previewSelection, releaseUnpaidSplits, splitShare } from './bill-split';
 import { AuthenticatedUser } from '../auth/jwt.strategy';
 import { EventsGateway } from '../events/events.gateway';
 import { PrismaService } from '../prisma/prisma.service';
@@ -91,14 +89,9 @@ export class PaymentsService {
       dto.method === PaymentMethod.PROMPTPAY ? await this.checkSlip(dto, user) : null;
 
     const result = await this.runBillingTransaction(async (tx) => {
-      if (dto.splitParts) return this.paySplitPart(tx, dto, slip);
-
-      // แยกบิลตามรายการ: ย้ายรายการที่เลือกไปเป็นออเดอร์ใหม่ก่อน แล้วเก็บเงินแบบเลือกออเดอร์ตามปกติ
-      const orderIds = dto.items?.length ? await carveOutItems(tx, dto.items) : dto.orderIds;
-      const orders = orderIds?.length
-        ? await this.resolveOrdersByIds(tx, orderIds)
+      const orders = dto.orderIds?.length
+        ? await this.resolveOrdersByIds(tx, dto.orderIds)
         : await this.resolveUnpaidSessionOrders(tx, dto.tableSessionId!);
-      if (!dto.items?.length) await releaseUnpaidSplits(tx, orders.map((o) => o.id));
 
       const subtotal = this.calculateOrdersTotal(orders);
       // ยอดบนจอ/QR ที่ลูกค้าจ่ายไปแล้ว ต้องตรงกับยอดที่จะบันทึก ไม่งั้นบันทึกเงินผิดเงียบ ๆ
@@ -109,7 +102,6 @@ export class PaymentsService {
 
       return this.recordPayment(tx, dto, slip, {
         orders,
-        claimOrders: true,
         amount,
         bill: { subtotal, discount, discountPercent: dto.discountPercent ?? null, total: amount },
       });
@@ -128,16 +120,10 @@ export class PaymentsService {
     return payload;
   }
 
-  /** เก็บเงินได้ 4 แบบ: ทั้งโต๊ะ / เลือกออเดอร์ / เลือกรายการ / หารเท่ากัน (ทั้งโต๊ะเท่านั้น) */
+  /** เก็บเงินได้ 2 แบบ: ทั้งโต๊ะ / เลือกออเดอร์ */
   private assertPaymentTarget(dto: CreatePaymentDto) {
-    if (!dto.tableSessionId && !dto.orderIds?.length && !dto.items?.length) {
-      throw new BadRequestException('ต้องส่ง tableSessionId, orderIds หรือ items อย่างน้อยหนึ่งอย่าง');
-    }
-    if (dto.items?.length && dto.orderIds?.length) {
-      throw new BadRequestException('เลือกรายการ (items) หรือเลือกออเดอร์ (orderIds) อย่างใดอย่างหนึ่ง');
-    }
-    if (dto.splitParts && (!dto.tableSessionId || dto.items?.length || dto.orderIds?.length)) {
-      throw new BadRequestException('หารเท่ากันได้เฉพาะทั้งโต๊ะ (ส่ง tableSessionId อย่างเดียว)');
+    if (!dto.tableSessionId && !dto.orderIds?.length) {
+      throw new BadRequestException('ต้องส่ง tableSessionId หรือ orderIds อย่างน้อยหนึ่งอย่าง');
     }
   }
 
@@ -148,133 +134,6 @@ export class PaymentsService {
     }
   }
 
-  /**
-   * หารเท่ากัน: รับเงินคนถัดไปของโต๊ะนี้
-   * เริ่มหารครั้งแรก = ล็อกชุดออเดอร์ที่ค้างจ่าย + ยอดหลังส่วนลดไว้ใน BillSplit
-   * คนสุดท้ายจ่ายส่วนที่เหลือ (รวมเศษสตางค์) แล้วออเดอร์ทั้งชุดเป็น PAID / ปิดโต๊ะถ้าไม่เหลือค้าง
-   */
-  private async paySplitPart(
-    tx: Prisma.TransactionClient,
-    dto: CreatePaymentDto,
-    slip: { charged: Prisma.Decimal; fields: SlipFields } | null,
-  ) {
-    const plan = await this.planSplitPart(tx, dto, { create: true });
-    this.assertSlipAmount(slip, plan.amount);
-
-    const result = await this.recordPayment(tx, dto, slip, {
-      orders: plan.orders,
-      claimOrders: plan.isFinal,
-      amount: plan.amount,
-      bill: {
-        subtotal: plan.split.subtotal,
-        discount: plan.split.discount,
-        discountPercent: plan.split.discountPercent,
-        total: plan.split.total,
-      },
-      split: { id: plan.split.id, part: plan.part, parts: plan.split.parts },
-    });
-    if (plan.isFinal) {
-      await tx.billSplit.update({ where: { id: plan.split.id }, data: { status: BillSplitStatus.DONE } });
-    }
-    return result;
-  }
-
-  /**
-   * คิดว่าคนถัดไปต้องจ่ายเท่าไหร่ — ใช้ทั้งตอนตรวจสลิป (create: false ไม่เขียนอะไร) และตอนบันทึกจริง
-   */
-  private async planSplitPart(
-    tx: Prisma.TransactionClient,
-    dto: CreatePaymentDto,
-    options: { create: boolean },
-  ) {
-    const sessionId = dto.tableSessionId!;
-    const parts = dto.splitParts!;
-    if (options.create) await lockSessionSplit(tx, sessionId);
-
-    let split = await tx.billSplit.findFirst({
-      where: { tableSessionId: sessionId, status: BillSplitStatus.OPEN },
-      include: { payments: { where: { status: PaymentStatus.COMPLETED }, select: { amount: true } } },
-    });
-
-    // ยังไม่มีใครจ่าย แล้วแคชเชียร์เปลี่ยนจำนวนคน/ส่วนลด = เริ่มหารใหม่
-    const changedBeforeAnyPaid =
-      split &&
-      split.payments.length === 0 &&
-      (split.parts !== parts || (split.discountPercent ?? null) !== (dto.discountPercent ?? null));
-    if (split && changedBeforeAnyPaid) {
-      if (options.create) await releaseUnpaidSplits(tx, (await this.splitOrderIds(tx, split.id)));
-      split = null;
-    }
-    if (split && split.parts !== parts) {
-      throw new ConflictException(
-        `โต๊ะนี้หารจ่าย ${split.parts} คนอยู่ (จ่ายแล้ว ${split.payments.length} คน) — เปลี่ยนจำนวนคนไม่ได้แล้ว`,
-      );
-    }
-
-    if (!split) {
-      const orders = await this.resolveUnpaidSessionOrders(tx, sessionId);
-      const subtotal = this.calculateOrdersTotal(orders);
-      this.assertTotalUnchanged(subtotal, dto.expectedTotal);
-      const { charged: total, discount } = this.applyDiscountPercent(subtotal, dto.discountPercent, dto.method);
-      const draft = {
-        id: '',
-        parts,
-        subtotal,
-        discount,
-        discountPercent: dto.discountPercent ?? null,
-        total,
-        payments: [] as { amount: Prisma.Decimal }[],
-      };
-      const created = options.create
-        ? await tx.billSplit.create({
-            data: {
-              parts,
-              subtotal,
-              discount,
-              discountPercent: dto.discountPercent ?? null,
-              total,
-              tableSessionId: sessionId,
-              orders: { connect: orders.map((o) => ({ id: o.id })) },
-            },
-          })
-        : null;
-      return {
-        split: { ...draft, id: created?.id ?? '' },
-        orders,
-        part: 1,
-        isFinal: parts === 1,
-        amount: splitShare(total, parts, 0, new Prisma.Decimal(0)),
-      };
-    }
-
-    const orders = await tx.order.findMany({
-      where: { billSplitId: split.id, paymentId: null, status: OrderStatus.SERVED },
-      include: PAYABLE_ORDER_INCLUDE,
-    });
-    // ยอดล็อกไว้ตอนเริ่มหาร — ออเดอร์ในชุดถูกยกเลิก/แก้หลังมีคนจ่ายแล้ว ต้องให้คนตัดสินใจ ไม่เดาเอง
-    if (orders.length === 0 || !this.calculateOrdersTotal(orders).equals(split.subtotal)) {
-      throw new ConflictException(
-        'รายการในบิลที่หารเปลี่ยนไปหลังมีคนจ่ายแล้ว — ยกเลิกส่วนที่จ่ายไปก่อน แล้วเริ่มหารใหม่',
-      );
-    }
-    this.assertTotalUnchanged(split.subtotal, dto.expectedTotal);
-
-    const paidCount = split.payments.length;
-    const paidSum = split.payments.reduce((s, p) => s.plus(p.amount), new Prisma.Decimal(0));
-    return {
-      split,
-      orders,
-      part: paidCount + 1,
-      isFinal: paidCount === split.parts - 1,
-      amount: splitShare(split.total, split.parts, paidCount, paidSum),
-    };
-  }
-
-  private async splitOrderIds(tx: Prisma.TransactionClient, splitId: string) {
-    const orders = await tx.order.findMany({ where: { billSplitId: splitId }, select: { id: true } });
-    return orders.map((o) => o.id);
-  }
-
   /** สร้าง payment + ใบเสร็จ (+ ผูกออเดอร์ / ปิดโต๊ะ ถ้าเป็นการจ่ายที่ปิดบิล) */
   private async recordPayment(
     tx: Prisma.TransactionClient,
@@ -282,8 +141,6 @@ export class PaymentsService {
     slip: { fields: SlipFields } | null,
     input: {
       orders: PayableOrder[];
-      /** false = หารเท่ากันที่ยังไม่ใช่คนสุดท้าย: เก็บเงินไว้ก่อน ออเดอร์ยังค้างจ่าย */
-      claimOrders: boolean;
       amount: Prisma.Decimal;
       bill: {
         subtotal: Prisma.Decimal;
@@ -291,7 +148,6 @@ export class PaymentsService {
         discountPercent: number | null;
         total: Prisma.Decimal;
       };
-      split?: { id: string; part: number; parts: number };
     },
   ) {
     const { orders } = input;
@@ -309,39 +165,34 @@ export class PaymentsService {
         method: dto.method,
         note,
         ...slip?.fields,
-        ...(input.split ? { billSplitId: input.split.id, splitPart: input.split.part } : {}),
       },
     });
 
-    if (input.claimOrders) {
-      // อัปเดตแบบมีเงื่อนไข กันกดรับเงินพร้อมกันสองเครื่อง: ใบที่สองจะรอ row lock
-      // จนใบแรก commit แล้วเห็นว่าออเดอร์ถูกจ่ายไปแล้ว → นับได้ไม่ครบ → rollback ทั้งใบ
-      const claimed = await tx.order.updateMany({
-        where: {
-          id: { in: orders.map((order) => order.id) },
-          status: { in: payableStatusesOf(orders[0]) },
-          paymentId: null,
-        },
-        data: { paymentId: payment.id },
-      });
-      if (claimed.count !== orders.length) {
-        throw new ConflictException(
-          'บิลนี้เพิ่งถูกเก็บเงินหรือแก้ไขไปจากอีกเครื่อง กรุณารีเฟรชแล้วลองใหม่',
-        );
-      }
-      // เสิร์ฟแล้ว + จ่ายแล้ว = จบ — ที่ยังไม่เสิร์ฟ (กลับบ้านจ่ายก่อน) คงสถานะไว้ให้ครัวทำต่อ
-      await tx.order.updateMany({
-        where: { paymentId: payment.id, status: OrderStatus.SERVED },
-        data: { status: OrderStatus.PAID },
-      });
+    // อัปเดตแบบมีเงื่อนไข กันกดรับเงินพร้อมกันสองเครื่อง: ใบที่สองจะรอ row lock
+    // จนใบแรก commit แล้วเห็นว่าออเดอร์ถูกจ่ายไปแล้ว → นับได้ไม่ครบ → rollback ทั้งใบ
+    const claimed = await tx.order.updateMany({
+      where: {
+        id: { in: orders.map((order) => order.id) },
+        status: { in: payableStatusesOf(orders[0]) },
+        paymentId: null,
+      },
+      data: { paymentId: payment.id },
+    });
+    if (claimed.count !== orders.length) {
+      throw new ConflictException(
+        'บิลนี้เพิ่งถูกเก็บเงินหรือแก้ไขไปจากอีกเครื่อง กรุณารีเฟรชแล้วลองใหม่',
+      );
     }
+    // เสิร์ฟแล้ว + จ่ายแล้ว = จบ — ที่ยังไม่เสิร์ฟ (กลับบ้านจ่ายก่อน) คงสถานะไว้ให้ครัวทำต่อ
+    await tx.order.updateMany({
+      where: { paymentId: payment.id, status: OrderStatus.SERVED },
+      data: { status: OrderStatus.PAID },
+    });
 
     const receipt = await tx.receipt.create({
       data: {
         number: await this.generateReceiptNumber(tx),
         ...input.bill,
-        splitPart: input.split?.part ?? null,
-        splitParts: input.split?.parts ?? null,
         note,
         paymentId: payment.id,
         tableId: primaryTableId,
@@ -354,18 +205,16 @@ export class PaymentsService {
     // ปิดเฉพาะ session ที่จ่ายครบทุกออเดอร์แล้ว (แยกบิลจ่ายบางส่วนจะยังไม่ปิด)
     const affectedSessionIds = [...new Set(orders.map((order) => order.tableSessionId!))];
     const closedSessionIds: string[] = [];
-    if (input.claimOrders) {
-      for (const sessionId of affectedSessionIds) {
-        if (await closeSessionIfSettled(tx, sessionId)) {
-          closedSessionIds.push(sessionId);
-        }
+    for (const sessionId of affectedSessionIds) {
+      if (await closeSessionIfSettled(tx, sessionId)) {
+        closedSessionIds.push(sessionId);
       }
     }
 
     return {
       ...payment,
       receipt,
-      paidOrderIds: input.claimOrders ? orders.map((order) => order.id) : [],
+      paidOrderIds: orders.map((order) => order.id),
       closedSessionIds,
       affectedSessionIds,
     };
@@ -399,15 +248,6 @@ export class PaymentsService {
 
   /** ยอดที่จะเก็บครั้งนี้ โดยยังไม่เขียนอะไรลง DB */
   private async previewCharge(dto: CreatePaymentDto) {
-    if (dto.splitParts) {
-      const plan = await this.planSplitPart(this.prisma, dto, { create: false });
-      return { charged: plan.amount, sessionId: dto.tableSessionId! };
-    }
-    if (dto.items?.length) {
-      const { subtotal, tableSessionId } = await previewSelection(this.prisma, dto.items);
-      this.assertTotalUnchanged(subtotal, dto.expectedTotal);
-      return { charged: this.applyDiscountPercent(subtotal, dto.discountPercent, dto.method).charged, sessionId: tableSessionId };
-    }
     const orders = dto.orderIds?.length
       ? await this.resolveOrdersByIds(this.prisma, dto.orderIds)
       : await this.resolveUnpaidSessionOrders(this.prisma, dto.tableSessionId!);
@@ -432,7 +272,6 @@ export class PaymentsService {
         throw new ConflictException('บิลนี้ถูกยกเลิกไปแล้ว');
       }
       await this.assertCanVoid(tx, payment.paidAt, user);
-      await this.reopenSplitOnVoid(tx, payment);
 
       const affectedSessionIds = [
         ...new Set(
@@ -725,28 +564,6 @@ export class PaymentsService {
    * ลดเป็น % ของยอดบิล — ปัดยอดส่วนลดเป็นสตางค์แบบปัดครึ่งขึ้น
    * หน้าจอแคชเชียร์คิดสูตรเดียวกัน (ยอด QR PromptPay ต้องตรงกับยอดที่บันทึก)
    */
-  /**
-   * หารเท่ากัน: ยกเลิกส่วนของคนหนึ่ง
-   * - ส่วนสุดท้าย (ผูกออเดอร์) → ออเดอร์กลับเป็นค้างจ่าย (โค้ดด้านล่าง) และการหารกลับมาเปิด รับเงินคนสุดท้ายใหม่ได้
-   * - ส่วนก่อนหน้า ตอนบิลยังไม่ครบ → แค่คืนเงินส่วนนั้น เก็บใหม่ได้
-   * - ส่วนก่อนหน้า ตอนบิลจ่ายครบแล้ว → ห้าม เงินจะหายจากบิลที่ปิดไปแล้ว ต้องยกเลิกส่วนสุดท้ายก่อน
-   */
-  private async reopenSplitOnVoid(
-    tx: Prisma.TransactionClient,
-    payment: { billSplitId: string | null; orders: unknown[] },
-  ) {
-    if (!payment.billSplitId) return;
-    const split = await tx.billSplit.findUnique({ where: { id: payment.billSplitId } });
-    if (!split) return;
-    const isFinalPart = payment.orders.length > 0;
-    if (!isFinalPart && split.status === BillSplitStatus.DONE) {
-      throw new ConflictException('บิลนี้หารจ่ายครบแล้ว — ยกเลิกส่วนของคนสุดท้ายก่อน แล้วค่อยยกเลิกส่วนนี้');
-    }
-    if (isFinalPart) {
-      await tx.billSplit.update({ where: { id: split.id }, data: { status: BillSplitStatus.OPEN } });
-    }
-  }
-
   /**
    * กันยกเลิกบิลย้อนหลัง (เก็บเงินสด → ลูกค้ากลับ → ยกเลิกบิล → เงินหาย)
    * - วันที่ปิดยอดเงินสดแล้ว: ห้ามทุกคน ไม่งั้นยอดลิ้นชักที่นับไว้เพี้ยนเงียบ ๆ — ADMIN ลบการปิดยอดก่อน

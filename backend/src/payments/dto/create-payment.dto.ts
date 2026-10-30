@@ -20,18 +20,6 @@ import {
 } from 'class-validator';
 import { ACCEPTED_PAYMENT_METHODS } from '../accepted-payment-methods';
 
-export class PaymentItemSelectionDto {
-  @ApiProperty({ example: 'order-item-uuid' })
-  @IsUUID('4')
-  orderItemId: string;
-
-  @ApiProperty({ example: 1, description: 'จำนวนที่คนนี้จ่าย (ไม่เกินจำนวนที่สั่ง)' })
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  quantity: number;
-}
-
 export class CreatePaymentDto {
   @ApiPropertyOptional({
     example: 'table-session-uuid',
@@ -55,31 +43,6 @@ export class CreatePaymentDto {
   @ArrayNotEmpty()
   @IsUUID('4', { each: true })
   orderIds?: string[];
-
-  @ApiPropertyOptional({
-    type: [PaymentItemSelectionDto],
-    description:
-      'แยกบิลตามรายการ — จ่ายเฉพาะรายการ/จำนวนที่เลือก (ต้องเสิร์ฟแล้ว อยู่โต๊ะเดียวกัน) ที่เหลือค้างอยู่ในโต๊ะ',
-  })
-  @IsOptional()
-  @IsArray()
-  @ArrayNotEmpty()
-  @ArrayMaxSize(200)
-  @ValidateNested({ each: true })
-  @Type(() => PaymentItemSelectionDto)
-  items?: PaymentItemSelectionDto[];
-
-  @ApiPropertyOptional({
-    example: 3,
-    description:
-      'หารเท่ากัน N คน (ทั้งโต๊ะ) — เรียกครั้งละคน ระบบคิดส่วนของคนถัดไปเอง คนสุดท้ายจ่ายเศษที่เหลือ',
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(2)
-  @Max(20)
-  splitParts?: number;
 
   @ApiProperty({ enum: ACCEPTED_PAYMENT_METHODS, example: PaymentMethod.CASH })
   @IsIn(ACCEPTED_PAYMENT_METHODS)

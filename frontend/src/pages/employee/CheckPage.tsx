@@ -23,7 +23,7 @@ import {
   ServiceRequestType,
   TableSessionStatus,
 } from '@/types/enums'
-import type { Id, Order, Payment, SessionSplit, TableSession } from '@/types/models'
+import type { Id, Order, Payment, TableSession } from '@/types/models'
 import { CashDrawerBar } from './CashDrawerBar'
 import { AttachSlipDialog } from './AttachSlipDialog'
 import { PaidBills } from './PaidBills'
@@ -51,16 +51,7 @@ interface PayTarget {
   isTakeaway: boolean
   method: PaymentMethod
   amountDue: number
-  /** โต๊ะนี้หารเท่ากันค้างอยู่ */
-  split: SessionSplit | null
 }
-
-/**
- * ยอดค้างของโต๊ะ — หารค้างอยู่ = ส่วนที่ยังไม่มีคนจ่ายของบิลที่หาร (หลังส่วนลด)
- * + ออเดอร์ที่สั่งเพิ่มหลังเริ่มหาร (ไม่อยู่ในชุดที่หาร)
- */
-const sessionDue = (s: TableSession) =>
-  s.split ? Math.round((s.split.remaining + s.total - s.split.subtotal) * 100) / 100 : s.total
 
 /**
  * สถานะของโต๊ะในมุมแคชเชียร์ เรียงตามความเร่งด่วน (เลขน้อยขึ้นก่อน)
@@ -179,7 +170,7 @@ export function CheckPage() {
     ? rows.filter((r) => r.session.tableName.includes(keyword))
     : rows
 
-  const totalOutstanding = rows.reduce((sum, r) => sum + sessionDue(r.session), 0)
+  const totalOutstanding = rows.reduce((sum, r) => sum + r.session.total, 0)
   // นับทุกโต๊ะที่ลูกค้าแจ้งแล้ว แม้ยังรอเสิร์ฟ — ลูกค้าเห็นว่า "แจ้งพนักงานแล้ว" ตั้งแต่กด
   const waitingCount = rows.filter((r) => r.checkoutRequested).length
 
@@ -191,7 +182,6 @@ export function CheckPage() {
     // ลูกค้าไม่ได้เลือกวิธีจ่าย — แคชเชียร์เลือกเองในกล่องรับเงิน
     method: PaymentMethod.CASH,
     amountDue: row.session.total,
-    split: row.session.split,
   })
   const openPayment = (row: TableRow) => setTarget(toPayTarget(row))
 
@@ -433,7 +423,6 @@ export function CheckPage() {
                 slipLater: method === PaymentMethod.PROMPTPAY,
                 // ยอดที่ลูกค้าเห็นบนจอ/QR — ถ้ายอดจริงเปลี่ยนไประหว่างนี้ backend จะไม่ยอมบันทึก
                 expectedTotal: scope.expectedTotal,
-                splitParts: scope.splitParts,
                 // ส่งแค่ % — backend คิดยอดส่วนลดเองด้วยสูตรเดียวกับหน้าจอ
                 discountPercent,
               },
@@ -484,8 +473,7 @@ function TableTile({
   onClose: () => void
 }>) {
   const { session, state, checkoutRequested, notServed, cancelled, neverOrdered } = row
-  const due = sessionDue(session)
-  const split = session.split
+  const due = session.total
 
   const badgeText = {
     checkout: 'ขอเช็คบิล',
@@ -531,11 +519,6 @@ function TableTile({
           >
             {formatBaht(due)}
           </p>
-          {split && (
-            <p className="text-sm font-semibold text-brand-500">
-              หาร {split.parts} คน · จ่ายแล้ว {split.paidParts} คน
-            </p>
-          )}
           {cancelled.length > 0 && (
             <p className="text-sm text-danger-ink">ครัวยกเลิก {cancelled.length} ออเดอร์</p>
           )}
@@ -548,7 +531,7 @@ function TableTile({
             aria-label={`รับเงิน ${session.placeLabel} ${formatBaht(due)}`}
             className={`${button('primary')} shrink-0 px-6`}
           >
-            {split ? `รับเงินคนที่ ${split.paidParts + 1}` : 'รับเงิน'}
+            รับเงิน
           </button>
         )}
 
@@ -604,10 +587,9 @@ function PaymentDialog({
     discountPercent?: number
     /** เงินที่ลูกค้ายื่นมา (เงินสด) — ไว้โชว์เงินทอนบนใบเสร็จ ไม่ได้บันทึก */
     tendered: number | null
-    /** ยอดก่อนส่วนลดที่หน้าจอใช้ (backend ตรวจซ้ำ) + รับเงินคนถัดไปของบิลที่หารค้างอยู่ */
+    /** ยอดก่อนส่วนลดที่หน้าจอใช้ (backend ตรวจซ้ำ) */
     scope: {
       expectedTotal: number
-      splitParts?: number
     }
   }) => void
 }>) {
@@ -626,10 +608,8 @@ function PaymentDialog({
   const [discountReason, setDiscountReason] = useState('')
   /** หมายเหตุก็ซ่อนหลังปุ่มเหมือนส่วนลด — ใช้ไม่บ่อย กล่อง PromptPay ยาวอยู่แล้ว */
   const [noteOpen, setNoteOpen] = useState(false)
-  // เลิกแยกบิลแล้ว — เหลือไว้แค่ "รับเงินต่อ" ของบิลที่หารค้างไว้ก่อนหน้า (ไม่งั้นโต๊ะนั้นเก็บเงินไม่ได้)
-  const split = target.split
   /** ยอดก่อนส่วนลด (ส่งเป็น expectedTotal) */
-  const base = split ? split.subtotal : target.amountDue
+  const base = target.amountDue
 
   const isPromptPay = method === PaymentMethod.PROMPTPAY
   const percentNum = Number(percent)
@@ -638,8 +618,8 @@ function PaymentDialog({
   const hasDiscount = !percentEmpty && isValidDiscountPercent(percentNum)
   const applied = applyDiscountPercent(base, hasDiscount ? percentNum : 0, !isPromptPay)
   const discount = applied.discount
-  /** ยอดที่เก็บครั้งนี้ — บิลที่หารค้างไว้ = ส่วนของคนถัดไป */
-  const chargedNum = split ? split.nextAmount : applied.charged
+  /** ยอดที่เก็บครั้งนี้ */
+  const chargedNum = applied.charged
   const receivedNum = Number(received) || 0
   // PromptPay ไม่ต้องรอสลิปแล้ว — พิมพ์ใบเสร็จ (มี QR) ก่อน แล้วตรวจสลิปจากรายการบิล
   // ลดราคาต้องมีเหตุผลเสมอ เหมือนยกเลิกบิล
@@ -666,31 +646,23 @@ function PaymentDialog({
           onSubmit({
             method,
             note: noteParts.join(' · '),
-            discountPercent: split ? undefined : hasDiscount ? percentNum : undefined,
+            discountPercent: hasDiscount ? percentNum : undefined,
             tendered: !isPromptPay && receivedNum > 0 ? receivedNum : null,
-            scope: {
-              expectedTotal: base,
-              ...(split ? { splitParts: split.parts } : {}),
-            },
+            scope: { expectedTotal: base },
           })
         }}
       >
         <div className="flex items-baseline justify-between rounded-lg bg-brand-50 px-4 py-3">
           <span className="text-sm font-semibold text-gray-700">
-            {split ? `คนที่ ${split.paidParts + 1} จาก ${split.parts}` : 'ยอดที่ต้องจ่าย'}
-            {split && (
-              <span className="block font-normal text-gray-600 tabular-nums">
-                ทั้งบิล {formatBaht(split.total)} · ค้าง {formatBaht(split.remaining)}
-              </span>
-            )}
+            ยอดที่ต้องจ่าย
           </span>
           {/* มีส่วนลด: ตัวใหญ่คือยอดเก็บจริง ยอดเดิมขีดฆ่าไว้ข้าง ๆ — ยอดที่ต้องเก็บอยู่จุดเดียวเสมอ */}
           <span className="text-right tabular-nums">
-            {!split && hasDiscount && (
+            {hasDiscount && (
               <s className="mr-2 text-base text-gray-600">{formatBaht(base)}</s>
             )}
             <span className="text-2xl font-bold text-black">
-              {formatBaht(split || hasDiscount ? chargedNum : base)}
+              {formatBaht(hasDiscount ? chargedNum : base)}
             </span>
           </span>
         </div>
@@ -809,7 +781,7 @@ function PaymentDialog({
         )}
 
         {/* ส่วนลด: ซ่อนไว้จนกว่าจะกดเปิด และต้องมีเหตุผลทุกครั้ง — เงินต้องตรวจสอบย้อนหลังได้ */}
-        {!split && discountOpen && (
+        {discountOpen && (
           <fieldset className="mt-4 rounded-lg border-2 border-gray-200 p-3">
             <legend className={`${fieldLabel} px-1`}>ส่วนลด</legend>
             <label className="block">
@@ -886,9 +858,9 @@ function PaymentDialog({
         )}
 
         {/* ปุ่มเปิดส่วนที่ยังซ่อนอยู่ เรียงแถวเดียวกัน — อยู่เหนือหมายเหตุ ให้ปุ่มส่วนลดไม่ถูกดันลงไปใต้กล่องหมายเหตุ */}
-        {((!split && !discountOpen) || !noteOpen) && (
+        {(!discountOpen || !noteOpen) && (
           <div className="mt-4 flex flex-wrap gap-2">
-            {!split && !discountOpen && (
+            {!discountOpen && (
               <button
                 type="button"
                 aria-expanded={false}

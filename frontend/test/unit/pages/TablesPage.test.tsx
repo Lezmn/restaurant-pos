@@ -74,7 +74,6 @@ const session = (tableNo: number, extra: Partial<TableSession> = {}): TableSessi
     openedAt: '2026-10-29T05:00:00.000Z',
     closedAt: null,
     total: 0,
-    split: null,
     ...extra,
   }) as TableSession
 

@@ -17,8 +17,6 @@ export async function createPayment(vars: {
   expectedTotal: number
   /** ส่วนลดเป็น % (จำนวนเต็ม 1-100) — ไม่ส่ง = ไม่ลด backend คิดยอดส่วนลดเอง */
   discountPercent?: number
-  /** รับเงินคนถัดไปของบิลที่หารค้างไว้ (เลิกเริ่มหารใหม่แล้ว) */
-  splitParts?: number
   /** POST /payments ไม่ได้ส่ง tableSession กลับมา จึงต้องส่งชื่อโต๊ะมาเติมในใบเสร็จเอง */
   tableName: string
   /** บิลกลับบ้าน — ใบเสร็จโชว์ "คิว" แทน "โต๊ะ" */
@@ -39,7 +37,6 @@ export async function createPayment(vars: {
       method: vars.method,
       expectedTotal: vars.expectedTotal,
       ...(vars.discountPercent ? { discountPercent: vars.discountPercent } : {}),
-      ...(vars.splitParts ? { splitParts: vars.splitParts } : {}),
       ...(vars.note ? { note: vars.note } : {}),
       ...(vars.slipPayload ? { slipPayload: vars.slipPayload } : {}),
       ...(vars.slipOverrideReason ? { slipOverrideReason: vars.slipOverrideReason } : {}),

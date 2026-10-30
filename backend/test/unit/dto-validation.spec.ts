@@ -99,23 +99,15 @@ describe('DTO validation (ValidationPipe ตาม main.ts)', () => {
       [{ discountPercent: 0 }, 'discountPercent'],
       [{ discountPercent: 101 }, 'discountPercent'],
       [{ discountPercent: 5.5 }, 'discountPercent'],
-      [{ splitParts: 1 }, 'splitParts'],
-      [{ splitParts: 21 }, 'splitParts'],
       [{ expectedTotal: 1.234 }, 'expectedTotal'],
       [{ expectedTotal: -1 }, 'expectedTotal'],
       [{ orderIds: [] }, 'orderIds'],
       [{ orderIds: ['not-uuid'] }, 'orderIds'],
-      [{ items: [{ orderItemId: UUID, quantity: 0 }] }, 'quantity'],
-      [{ items: [{ orderItemId: 'x', quantity: 1 }] }, 'orderItemId'],
       [{ slipPayload: '   ' }, 'slipPayload'],
       [{ slipOverrideReason: 'x'.repeat(201) }, 'slipOverrideReason'],
       [{ note: 'x'.repeat(501) }, 'note'],
     ])('%j → 400', async (patch, field) => {
       await invalid(CreatePaymentDto, { tableSessionId: 's', method: 'CASH', ...patch }, field);
-    });
-
-    it('เลือกรายการ: items ซ้อนถูก validate', async () => {
-      await valid(CreatePaymentDto, { method: 'PROMPTPAY', items: [{ orderItemId: UUID, quantity: '2' }] });
     });
   });
 

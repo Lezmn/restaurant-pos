@@ -73,7 +73,6 @@ const session = (id: string, tableName: string, total: number, status: TableSess
   openedAt: '2026-10-24T05:30:00.000Z',
   closedAt: null,
   total,
-  split: null,
 })
 
 const order = (sessionId: string, status: OrderStatus, id = `${sessionId}-${status}`): Order => ({
@@ -656,47 +655,5 @@ describe('CheckPage — กล่องรับเงิน', () => {
     expect(screen.queryByRole('dialog', { name: 'รับเงิน โต๊ะ 1' })).not.toBeInTheDocument()
     expect(createPayment.reset).toHaveBeenCalled()
     expect(createPayment.mutate).not.toHaveBeenCalled()
-  })
-})
-
-describe('CheckPage — บิลที่หารค้างไว้ (ก่อนเลิกฟีเจอร์แยกบิล)', () => {
-  beforeEach(() => vi.clearAllMocks())
-
-  const splitTable = () => ({
-    sessions: [
-      {
-        ...session('s1', '1', 300),
-        split: {
-          id: 'sp1',
-          parts: 3,
-          paidParts: 1,
-          subtotal: 300,
-          discountPercent: null,
-          discount: 0,
-          total: 300,
-          paidAmount: 100,
-          remaining: 200,
-          nextAmount: 100,
-        },
-      },
-    ],
-    orders: [order('s1', OrderStatus.SERVED)],
-    requests: [],
-  })
-
-  // ทดสอบ: โต๊ะที่หารจ่ายค้างไว้ก่อนเลิกฟีเจอร์ ยังรับเงินคนถัดไปได้ (ไม่งั้นโต๊ะนั้นเก็บเงินไม่ได้) และให้ส่วนลดเพิ่มไม่ได้
-  // วิธี: mock session ที่ split 3 คน จ่ายแล้ว 1 → เปิดกล่องรับเงิน → เช็ก "คนที่ 2 จาก 3", ยอดทั้งบิล/ค้าง, ไม่มีปุ่มให้ส่วนลด → กดรับเงิน ฿100 → เช็ก expectedTotal และ splitParts
-  it('รับเงินคนถัดไปของบิลที่หารค้าง: บอกคนที่เท่าไร ยอดค้าง และส่ง splitParts เดิม', async () => {
-    const user = userEvent.setup()
-    const dialog = await openPayment(user, splitTable())
-    expect(dialog).toHaveTextContent('คนที่ 2 จาก 3')
-    expect(dialog).toHaveTextContent('ทั้งบิล ฿300 · ค้าง ฿200')
-    expect(within(dialog).queryByRole('button', { name: 'ให้ส่วนลด' })).not.toBeInTheDocument()
-
-    await user.click(within(dialog).getByRole('button', { name: 'รับเงิน' }))
-    expect(createPayment.mutate).toHaveBeenCalledWith(
-      expect.objectContaining({ expectedTotal: 300, splitParts: 3, discountPercent: undefined }),
-      expect.anything(),
-    )
   })
 })

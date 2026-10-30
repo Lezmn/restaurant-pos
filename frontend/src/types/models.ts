@@ -124,11 +124,8 @@ export interface TableSession {
   closedAt: string | null
   /** ยอดที่ต้องจ่ายของโต๊ะนี้ — backend คำนวณมาให้ ไม่ได้บวกเองฝั่ง frontend */
   total: number
-  /** หารเท่ากันที่ยังจ่ายไม่ครบ */
-  split: SessionSplit | null
 }
 
-export type SessionSplit = import('./api').ApiSessionSplit
 
 export interface OrderItem {
   id: Id

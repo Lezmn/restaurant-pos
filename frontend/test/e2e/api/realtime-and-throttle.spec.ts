@@ -118,9 +118,9 @@ test.describe('Socket.IO', () => {
   // ทดสอบ: การเชื่อมต่อ socket ที่ไม่มีสิทธิ์ต้องถูก server ตัดทิ้ง
   // วิธี: ลองต่อ socket แบบไม่มี token, token มั่ว และ token ของโต๊ะที่จ่ายเงินแล้ว → เช็กว่าถูกตัดภายใน 5 วินาทีทุกแบบ
   test('handshake ไม่มี token / token ผิด / QR ปิดแล้ว → ถูกตัด', async () => {
-    await expectRejected({})
-    await expectRejected({ token: 'not-a-jwt' })
-    await expectRejected({ sessionToken: 'demo-table-1-paid-session' })
+    await expect(expectRejected({})).resolves.toBeUndefined()
+    await expect(expectRejected({ token: 'not-a-jwt' })).resolves.toBeUndefined()
+    await expect(expectRejected({ sessionToken: 'demo-table-1-paid-session' })).resolves.toBeUndefined()
   })
 })
 

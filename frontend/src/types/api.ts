@@ -158,22 +158,6 @@ export interface ApiTableSession extends ApiTakeawayFields {
   checkoutRequest?: Pick<ApiServiceRequest, 'id' | 'paymentMethod' | 'createdAt'> | null
   /** GET /public/sessions/:token เท่านั้น — เรียกพนักงานที่ยังรอพนักงานรับทราบ */
   callStaffRequest?: Pick<ApiServiceRequest, 'id' | 'createdAt'> | null
-  /** หารเท่ากันที่ยังจ่ายไม่ครบ (null = ไม่ได้หาร) */
-  split?: ApiSessionSplit | null
-}
-
-export interface ApiSessionSplit {
-  id: string
-  parts: number
-  paidParts: number
-  /** ยอดก่อนส่วนลดของชุดออเดอร์ที่หาร — ส่งเป็น expectedTotal ตอนรับเงินคนถัดไป */
-  subtotal: number
-  discountPercent: number | null
-  discount: number
-  total: number
-  paidAmount: number
-  remaining: number
-  nextAmount: number
 }
 
 export interface ApiServiceRequest {
