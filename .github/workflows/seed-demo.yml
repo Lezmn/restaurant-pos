@@ -1,0 +1,59 @@
+# Seed demo data — กดเอง: ล้าง DB บน VPS แล้วใส่ข้อมูลจำลองร้านอาหารตามสั่ง 1 ก.ย. – 30 ต.ค. (backend/prisma/seed-mock.ts)
+#
+# ⚠️ ลบยอดขาย/ใบเสร็จ/รายจ่าย/ปิดยอด/เมนู/โต๊ะ ทั้งหมดบนเซิร์ฟเวอร์ — ใช้กับเซิร์ฟเวอร์เดโมที่ยังไม่ขายจริงเท่านั้น
+# ไม่แตะบัญชีผู้ใช้ (ใช้บัญชีที่มีอยู่เป็นคนทำรายการ) และค่าตั้ง LINE
+# สำรอง DB ก่อนเสมอ (backup once → ~/app/backups) กู้คืนด้วย restore.sh ถ้าต้องการข้อมูลเดิม
+# ใช้ image migrator ของเวอร์ชันที่ deploy อยู่ — ต้อง deploy เวอร์ชันที่มี seed-mock.ts + prisma/mock-images ก่อน
+# ใช้ secrets ชุดเดียวกับ Deploy: VPS_HOST, VPS_USER, VPS_SSH_KEY / variables: VITE_API_URL (ลิงก์รูปเมนู)
+name: Seed demo data
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'พิมพ์ "ล้างข้อมูล" เพื่อยืนยันว่าเซิร์ฟเวอร์นี้ยังไม่ได้ใช้ขายจริง'
+        required: true
+
+# ใช้คิวเดียวกับ Deploy — ไม่รันพร้อมตอน deploy กำลังเปลี่ยน image
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    if: inputs.confirm == 'ล้างข้อมูล'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      TARGET: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+      API_URL: ${{ vars.VITE_API_URL }}
+    steps:
+      - name: SSH key
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: สำรอง DB ก่อนล้าง
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 "$TARGET" \
+            "cd ~/app && docker compose run --rm backup once && ls -t backups | head -1"
+
+      - name: ใส่ข้อมูลจำลอง
+        run: |
+          test -n "$API_URL" || { echo "ตั้ง variable VITE_API_URL ก่อน (ใช้ทำลิงก์รูปเมนู)"; exit 1; }
+          # รูปเมนูคัดลอกลง ~/app/uploads (โฟลเดอร์เดียวกับที่ api เสิร์ฟ /uploads/)
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 "$TARGET" \
+            "cd ~/app && echo \"image: \$(cat DEPLOYED_TAG)\" && docker compose run --rm \
+              -v \"\$HOME/app/uploads:/app/uploads\" \
+              -e ALLOW_MOCK_SEED=true -e MOCK_EXISTING_USERS=true -e MOCK_IMAGE_BASE='$API_URL' \
+              migrate npx ts-node prisma/seed-mock.ts"
+
+      - name: เช็คเมนูและรูปบนหน้าลูกค้า
+        run: |
+          curl -fsS --retry 6 --retry-delay 5 --retry-all-errors "$API_URL/public/menu" \
+            | jq -r '.[] | "\(.name): \(.menuItems | length) เมนู"'
+          curl -fsS -o /dev/null -w "รูปเมนู: %{http_code}\n" "$API_URL/uploads/mock-kaprao.jpg"
