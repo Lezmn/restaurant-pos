@@ -479,7 +479,7 @@ function QrDialog({
     <Modal title={`QR โต๊ะ ${session.tableName}`} onClose={onClose}>
       <div className="flex flex-col items-center">
         {/* .print-area = ส่วนเดียวที่จะติดไปกับกระดาษ (ดู @media print ใน index.css) */}
-        <div className="print-area flex flex-col items-center rounded-xl border border-gray-200 p-4">
+        <div className="print-area print-table-sign flex flex-col items-center rounded-xl border border-gray-200 p-4">
           <div className="hidden text-center print:block">
             <p className="text-2xl font-bold text-black">{RESTAURANT_NAME}</p>
             <p className="mt-1 text-4xl font-bold text-black">
@@ -487,7 +487,7 @@ function QrDialog({
             </p>
           </div>
 
-          <QRCodeSVG value={url} size={220} className="print:h-80 print:w-80" />
+          <QRCodeSVG value={url} size={220} className="print-table-qr print:h-80 print:w-80" />
 
           <p className="hidden text-center text-lg font-semibold text-black print:block">
             สแกนเพื่อดูเมนูและสั่งอาหาร
