@@ -623,9 +623,6 @@ function KitchenTicket({
         <div className="flex items-start justify-between gap-x-2 gap-y-1">
           <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-2xl leading-tight font-bold text-black">
             {order.placeLabel}
-            <span className="text-sm font-semibold text-gray-600">
-              <span className="sr-only">ออเดอร์ </span>#{order.orderRef}
-            </span>
             {fresh && (
               <span className="self-center rounded-full bg-status-queue-ink px-2 py-0.5 text-xs font-bold text-white">
                 ใหม่
@@ -633,17 +630,25 @@ function KitchenTicket({
             )}
           </p>
 
-          {/* เวลารอ + ปุ่มยกเลิกอยู่หัวใบ ห่างจากปุ่มหลักท้ายใบ — มือเปียก/ใส่ถุงมือกดพลาดยาก
+          {!done && (
+            <p
+              className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full text-sm tabular-nums ${waitChipClass(late)}`}
+            >
+              {late && <AlertIcon />}
+              {waitedLabel(waited, column.key === 'queue')}
+              {late && <span className="sr-only"> เกินเวลา {LATE_MINUTES} นาที</span>}
+            </p>
+          )}
+        </div>
+
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <p className="whitespace-nowrap text-sm font-semibold text-gray-600">
+            <span className="sr-only">ออเดอร์ </span>#{order.orderRef}
+          </p>
+
+          {/* ยกเลิกอยู่หัวใบ ห่างจากปุ่มหลักท้ายใบ — มือเปียก/ใส่ถุงมือกดพลาดยาก
               คอลัมน์เสร็จแล้วไม่มี: ของเสิร์ฟไปแล้ว จะไม่คิดเงินเป็นเรื่องของแคชเชียร์ */}
           {!done && (
-            <div className="flex shrink-0 items-center gap-2">
-              <p
-                className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full text-sm tabular-nums ${waitChipClass(late)}`}
-              >
-                {late && <AlertIcon />}
-                {waitedLabel(waited, column.key === 'queue')}
-                {late && <span className="sr-only"> เกินเวลา {LATE_MINUTES} นาที</span>}
-              </p>
               <button
                 type="button"
                 aria-label="ยกเลิกออเดอร์"
@@ -664,7 +669,6 @@ function KitchenTicket({
                 </svg>
                 ยกเลิก
               </button>
-            </div>
           )}
         </div>
       </header>
