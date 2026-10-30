@@ -13,7 +13,7 @@ test('admin เข้าหน้าบัญชีผู้ใช้ เห็�
   page,
   request,
 }) => {
-  await loginAsAdmin(page, request)
+  const admin = await loginAsAdmin(page, request)
   await page.goto('/owner/users')
 
   await expect(page.getByRole('heading', { name: 'บัญชีผู้ใช้' })).toBeVisible()
@@ -21,7 +21,7 @@ test('admin เข้าหน้าบัญชีผู้ใช้ เห็�
   await expect(page.getByText('ชื่อผู้ใช้: kitchen', { exact: true })).toBeVisible()
   await expect(page.getByText('(คุณ)')).toBeVisible()
   // บัญชีตัวเองปิดใช้งาน/ลบไม่ได้
-  await expect(page.getByRole('button', { name: 'ปิดใช้งาน Admin' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: `ปิดใช้งาน ${admin.name}` })).toHaveCount(0)
 })
 
 // ทดสอบ: เพิ่มบัญชีครัวใหม่แล้ว login ได้ และพอปิดใช้งาน ทั้ง token เดิมและการ login ใหม่ต้องใช้ไม่ได้ทันที
@@ -73,9 +73,9 @@ test('admin เพิ่มบัญชีครัว → login ได้ → �
 // ทดสอบ: ADMIN เปลี่ยนสิทธิ์ของบัญชีตัวเองไม่ได้ ร้านจะได้ไม่เหลือ ADMIN เป็นศูนย์
 // วิธี: login เป็น admin → เปิดกล่องแก้ไขบัญชีตัวเอง → เช็กข้อความเตือน และตัวเลือก "พนักงานหน้าร้าน" กดไม่ได้
 test('ร้านต้องมี ADMIN อย่างน้อย 1 คน: เปลี่ยนสิทธิ์ตัวเองไม่ได้', async ({ page, request }) => {
-  await loginAsAdmin(page, request)
+  const admin = await loginAsAdmin(page, request)
   await page.goto('/owner/users')
-  await page.getByRole('button', { name: 'แก้ไข Admin' }).click()
+  await page.getByRole('button', { name: `แก้ไข ${admin.name}` }).click()
 
   const dialog = page.getByRole('dialog')
   await expect(dialog.getByText('เปลี่ยนสิทธิ์ของบัญชีตัวเองไม่ได้')).toBeVisible()
@@ -132,4 +132,27 @@ test('บัญชีครัว/หน้าร้านไม่เห็น�
   await page.goto('/employee/check')
   await expect(page.getByText('บัญชีหน้าร้าน', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'เปลี่ยนรหัสผ่าน' })).toHaveCount(0)
+})
+
+// ทดสอบ: เพิ่มบัญชีโดยยืนยันรหัสผ่านไม่ตรง ต้องขึ้นข้อความที่ช่องและไม่สร้างบัญชี (TC-120)
+// วิธี: เปิดกล่องเพิ่มบัญชี กรอกข้อมูลครบแต่รหัสสองช่องไม่ตรงกัน → กดเพิ่ม → เห็น "รหัสผ่านสองช่องไม่ตรงกัน" ดักนับ POST /users ต้องไม่มี และกล่องยังเปิดอยู่
+test('เพิ่มบัญชี: ยืนยันรหัสผ่านไม่ตรง → ขึ้นข้อความที่ช่อง และไม่สร้างบัญชี', async ({ page, request }) => {
+  const username = uniqueUsername()
+  await loginAsAdmin(page, request)
+  await page.goto('/owner/users')
+  const posts: string[] = []
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && new URL(r.url()).pathname === '/users') posts.push(r.url())
+  })
+  await page.getByRole('button', { name: 'เพิ่มบัญชี', exact: true }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('ชื่อบัญชี / ตำแหน่ง').fill(`ครัวทดสอบ ${username}`)
+  await dialog.getByLabel('ชื่อผู้ใช้ (ใช้ตอน login)').fill(username)
+  await dialog.getByLabel(/ครัว/).check()
+  await dialog.getByLabel(/รหัสผ่านเริ่มต้น/).fill('Welcome2Shop!')
+  await dialog.getByLabel('ยืนยันรหัสผ่าน').fill('Welcome2Shop?')
+  await dialog.getByRole('button', { name: 'เพิ่มบัญชี' }).click()
+  await expect(dialog.getByText('รหัสผ่านสองช่องไม่ตรงกัน')).toBeVisible()
+  await expect(dialog).toBeVisible()
+  expect(posts).toHaveLength(0)
 })

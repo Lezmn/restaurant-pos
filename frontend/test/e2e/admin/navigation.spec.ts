@@ -36,8 +36,19 @@ test('admin เห็นลิงก์ "Dashboard" ที่ header และ�
 // ทดสอบ: แถบด้านบนบอกว่า login อยู่ด้วยบัญชีไหน (บัญชีกลางตามตำแหน่ง — ชื่อเต็มอยู่ใน title ของป้าย)
 // วิธี: login เป็น admin → เปิด /employee/order → เช็กป้าย "เจ้าของร้าน" ที่มีชื่อบัญชีเป็น title
 test('header แสดงบัญชีของ admin ที่ login อยู่', async ({ page, request }) => {
-  await loginAsAdmin(page, request)
+  const admin = await loginAsAdmin(page, request)
   await page.goto('/employee/order')
 
-  await expect(page.getByTitle('Admin')).toHaveText('เจ้าของร้าน')
+  await expect(page.getByTitle(admin.name)).toHaveText('เจ้าของร้าน')
+})
+
+// ทดสอบ: กด "ออกจากระบบ" แล้วกลับหน้า login และเข้าหน้าพนักงานตรง ๆ อีกไม่ได้ (TC-014)
+// วิธี: login เป็น admin → กดออกจากระบบ → URL เป็น /login → ลองเปิด /employee/check ต้องถูกเด้งกลับ /login
+test('ออกจากระบบ → กลับหน้า login และเข้าหน้าพนักงานไม่ได้อีก', async ({ page, request }) => {
+  await loginAsAdmin(page, request)
+  await page.goto('/employee/order')
+  await page.getByRole('button', { name: 'ออกจากระบบ' }).click()
+  await expect(page).toHaveURL(/\/login/)
+  await page.goto('/employee/check')
+  await expect(page).toHaveURL(/\/login/)
 })

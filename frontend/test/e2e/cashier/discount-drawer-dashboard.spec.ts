@@ -85,6 +85,28 @@ test('รับเงินสดพร้อมส่วนลด: ต้อง
   await expect.poll(async () => money(await cashRow.textContent())).toBeCloseTo(cashBefore + 80, 2)
 })
 
+// ทดสอบ: ส่วนลดรับเฉพาะจำนวนเต็ม 1-100 (TC-083) ค่าอื่นต้องขึ้นคำเตือนและกดรับเงินไม่ได้
+// วิธี: เตรียมโต๊ะ 100 บาท → เปิดช่องส่วนลด → ใส่ 0, 12.5, 101 ทีละค่า เช็กคำเตือน "ใส่เป็นจำนวนเต็ม 1-100" และปุ่มรับเงินกดไม่ได้ → ใส่ 10 พร้อมเหตุผลแล้วปุ่มกดได้ (ไม่กดรับเงิน ปล่อยโต๊ะค้างไว้)
+test('ส่วนลดไม่ถูกต้อง (0 / 12.5 / 101) → ขึ้นคำเตือนและรับเงินไม่ได้', async ({ page, request }) => {
+  const { tableName } = await servedTable(request)
+  await loginAsCashier(page, request)
+  await page.goto('/employee/check')
+
+  await checkTableTile(page, tableName).getByRole('button', { name: /^รับเงิน/ }).click()
+  const dialog = page.getByRole('dialog', { name: `รับเงิน โต๊ะ ${tableName}` })
+  await dialog.getByRole('button', { name: 'ให้ส่วนลด' }).click()
+  const submit = dialog.getByRole('button', { name: 'รับเงิน', exact: true })
+  for (const bad of ['0', '12.5', '101']) {
+    await dialog.getByLabel(/ลดกี่ %/).fill(bad)
+    await expect(dialog.getByText('ใส่เป็นจำนวนเต็ม 1-100')).toBeVisible()
+    await expect(submit).toBeDisabled()
+  }
+  await dialog.getByLabel(/ลดกี่ %/).fill('10')
+  await dialog.getByLabel(/เหตุผลที่ลด/).fill('ทดสอบ')
+  await expect(dialog.getByText('ใส่เป็นจำนวนเต็ม 1-100')).toHaveCount(0)
+  await expect(submit).toBeEnabled()
+})
+
 // ทดสอบ: ยอด "ควรมีในลิ้นชัก" ตอนปิดยอดต้องเท่ากับเงินทอน + ขายเงินสด − เงินที่หยิบออก, บอกยอดขาดเมื่อนับได้น้อยกว่า และเจ้าของเห็นในประวัติ
 // วิธี: ถ้าวันนี้ปิดยอดไปแล้วให้ลบก่อน → cashier หยิบเงินออก 25 → ปิดยอดด้วยเงินทอน 1000 → เทียบยอดที่ควรมีกับที่คำนวณจาก API → กรอกนับได้น้อยไป 10 เช็กว่าขึ้น "ขาด" → ยืนยัน → admin เปิด /owner/cash-closes เช็กว่าเห็นรายการ
 // @totals-cashclose: รันท้ายสุด (playwright.config.ts) — ระหว่างปิดยอด เทสอื่นยกเลิกบิลของวันนี้ไม่ได้

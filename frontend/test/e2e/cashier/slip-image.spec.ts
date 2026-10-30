@@ -114,3 +114,24 @@ test('สลิปไม่ผ่าน (ยอดไม่ตรง) → ตร
   await expect(billRow(page, receiptNo).filter({ hasText: 'ตรวจสลิปแล้ว' })).toHaveCount(0)
   await voidBill(request, t, paymentId)
 })
+
+// ทดสอบ: สลิปโอนผิดบัญชี (TC-089) ต้องไม่ผ่าน เห็นเหตุผล และบิลยังไม่ถือว่าตรวจแล้ว
+// วิธี: เหมือนเคสยอดไม่ตรง แต่ใช้สลิป MOCK-RECEIVER (โหมดจำลอง = ไม่ได้โอนเข้าบัญชีของร้าน) → เช็กข้อความ "ไม่ได้โอนเข้าบัญชีของร้าน"
+test('สลิปโอนผิดบัญชี → ตรวจไม่ผ่าน เห็นเหตุผล และบิลยังไม่ถือว่าตรวจแล้ว', async ({ page, request }) => {
+  const t = await tokens(request)
+  const { tableName } = await servedTable(request, t)
+
+  await loginAsCashier(page, request)
+  const { slipDialog, receiptNo, paymentId } = await printPromptPayBill(page, tableName)
+  await slipDialog.getByPlaceholder(/ยิงเครื่องสแกน/).fill(`MOCK-RECEIVER-e2e-${Date.now()}`)
+  const [res] = await Promise.all([
+    page.waitForResponse((r) => /\/payments\/[^/]+\/slip$/.test(new URL(r.url()).pathname) && r.request().method() === 'POST'),
+    slipDialog.getByRole('button', { name: 'ตรวจสลิป', exact: true }).click(),
+  ])
+  expect(res.ok()).toBe(false)
+
+  await expect(slipDialog).toContainText('ไม่ได้โอนเข้าบัญชีของร้าน')
+  await page.keyboard.press('Escape')
+  await expect(billRow(page, receiptNo).filter({ hasText: 'ตรวจสลิปแล้ว' })).toHaveCount(0)
+  await voidBill(request, t, paymentId)
+})
