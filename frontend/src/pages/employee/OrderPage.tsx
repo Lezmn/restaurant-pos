@@ -62,12 +62,12 @@ function KitchenItemRow({
   onToggle: (checked: boolean) => void
 }>) {
   return (
-    <li className={`py-2 ${columnKey === 'done' ? 'text-gray-500' : 'text-black'}`}>
+    <li className={`py-1 ${columnKey === 'done' ? 'text-gray-500' : 'text-black'}`}>
       {/* คอลัมน์กำลังปรุง: ทั้งแถวเป็น label แตะตรงไหนก็ติ๊กได้
           จอครัวบน iPad มือเปียก/ใส่ถุงมือ เล็ง checkbox 20px ไม่ไหว */}
       <label
-        className={`flex min-h-11 items-center justify-between gap-3 ${
-          columnKey === 'cooking' ? 'cursor-pointer' : ''
+        className={`flex items-center justify-between gap-3 ${
+          columnKey === 'cooking' ? 'min-h-11 cursor-pointer' : ''
         }`}
       >
         {/* ครัวอ่านจากระยะแขน — 16px ขึ้นไป จำนวนตัวใหญ่ให้เห็นก่อนชื่อ */}
@@ -633,47 +633,43 @@ function KitchenTicket({
             )}
           </p>
 
+          {/* เวลารอ + ปุ่มยกเลิกอยู่หัวใบ ห่างจากปุ่มหลักท้ายใบ — มือเปียก/ใส่ถุงมือกดพลาดยาก
+              คอลัมน์เสร็จแล้วไม่มี: ของเสิร์ฟไปแล้ว จะไม่คิดเงินเป็นเรื่องของแคชเชียร์ */}
           {!done && (
-            <p
-              className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full text-sm tabular-nums ${waitChipClass(late)}`}
-            >
-              {late && <AlertIcon />}
-              {waitedLabel(waited, column.key === 'queue')}
-              {late && <span className="sr-only"> เกินเวลา {LATE_MINUTES} นาที</span>}
-            </p>
+            <div className="flex shrink-0 items-center gap-2">
+              <p
+                className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full text-sm tabular-nums ${waitChipClass(late)}`}
+              >
+                {late && <AlertIcon />}
+                {waitedLabel(waited, column.key === 'queue')}
+                {late && <span className="sr-only"> เกินเวลา {LATE_MINUTES} นาที</span>}
+              </p>
+              <button
+                type="button"
+                aria-label="ยกเลิกออเดอร์"
+                disabled={busy}
+                onClick={onCancel}
+                className="flex min-h-11 items-center gap-1 rounded-lg border-2 border-gray-300 bg-white px-3 text-sm font-semibold text-danger-ink transition hover:border-danger hover:bg-danger/5 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  aria-hidden
+                  className="h-4 w-4"
+                >
+                  <path d="M6 6l12 12M18 6 6 18" />
+                </svg>
+                ยกเลิก
+              </button>
+            </div>
           )}
         </div>
-
-        {/* ยกเลิกอยู่หัวใบ ห่างจากปุ่มหลักท้ายใบ — มือเปียก/ใส่ถุงมือกดพลาดยาก
-            คอลัมน์เสร็จแล้วไม่มี: ของเสิร์ฟไปแล้ว จะไม่คิดเงินเป็นเรื่องของแคชเชียร์ */}
-        {!done && (
-          <div className="mt-1 flex justify-end">
-            <button
-              type="button"
-              aria-label="ยกเลิกออเดอร์"
-              disabled={busy}
-              onClick={onCancel}
-              className="flex min-h-11 shrink-0 items-center gap-1 rounded-lg border-2 border-gray-300 bg-white px-3 text-sm font-semibold text-danger-ink transition hover:border-danger hover:bg-danger/5 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                aria-hidden
-                className="h-4 w-4"
-              >
-                <path d="M6 6l12 12M18 6 6 18" />
-              </svg>
-              ยกเลิก
-            </button>
-          </div>
-        )}
       </header>
 
-      {/* รายการเป็นบรรทัดบนใบสั่ง คั่นเส้นประ — ไม่ใช่กล่องซ้อนกล่อง */}
-      <ul className="divide-y divide-dashed divide-staff-line border-t-2 border-dashed border-staff-line px-3.5">
+      <ul className="px-3.5 pb-2">
         {order.items.map((item) => (
           <KitchenItemRow
             key={item.id}
