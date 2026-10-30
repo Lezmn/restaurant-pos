@@ -71,7 +71,8 @@ export function CustomerMenuItemPage() {
       quantity,
       note: note.trim(),
     })
-    navigate(`/t/${token}/cart`)
+    // กลับไปเลือกต่อ — แถบ "ดูตะกร้า" บนหน้าเมนูพาไปตะกร้าเอง
+    navigate(`/t/${token}`)
   }
 
   return (
@@ -79,25 +80,26 @@ export function CustomerMenuItemPage() {
       {/* รูป */}
       <div className="relative -mx-4 lg:mx-0 lg:self-start">
         <div className="aspect-[4/3] w-full overflow-hidden lg:rounded-2xl">
-          <FoodImage src={item.imageUrl} alt={item.name} />
+          {/* มือถือเต็มจอ ~430px / จอใหญ่ครึ่งคอลัมน์ ~560px */}
+          <FoodImage src={item.imageUrl} alt={item.name} width={600} />
         </div>
         <button
           type="button"
           onClick={() => navigate(-1)}
           aria-label="ย้อนกลับ"
-          className="absolute top-3 left-3 flex h-10 w-10 items-center justify-center rounded-full border-2 border-brand-300 bg-white text-lg md:text-xl font-bold text-brand-300 shadow-sm"
+          className="absolute top-3 left-3 flex h-11 w-11 items-center justify-center rounded-full bg-white text-ink shadow-md"
         >
-          ←
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden className="h-5 w-5">
+            <path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
       </div>
 
-      {/* ตัวเลือก */}
-      <div className="pb-32 lg:pb-0">
-        <div className="mt-4 flex items-start justify-between gap-3 lg:mt-0">
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold text-ink">{item.name}</h1>
-          </div>
-          <p className="shrink-0 text-xl md:text-2xl font-bold text-price">
+      {/* ตัวเลือก — มือถือเป็นแผ่นมุมโค้งซ้อนขึ้นไปบนรูป */}
+      <div className="relative -mx-4 -mt-5 rounded-t-3xl bg-cream px-4 pt-5 pb-36 lg:mx-0 lg:mt-0 lg:rounded-none lg:bg-transparent lg:px-0 lg:pt-0 lg:pb-0">
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-2xl font-bold text-ink">{item.name}</h1>
+          <p className="shrink-0 text-xl md:text-2xl font-bold text-price tabular-nums">
             {formatBaht(item.price)}
           </p>
         </div>
@@ -117,8 +119,8 @@ export function CustomerMenuItemPage() {
           />
         ))}
 
-        <div className="mt-5">
-          <span className="text-sm md:text-base font-semibold text-gray-700">หมายเหตุ</span>
+        <div className="mt-6">
+          <span className="text-base font-bold text-ink md:text-lg">หมายเหตุถึงครัว</span>
           <div className="mt-2">
             <NoteChips value={note} onChange={setNote} />
           </div>
@@ -131,19 +133,19 @@ export function CustomerMenuItemPage() {
             rows={3}
             maxLength={200}
             placeholder="พิมพ์เพิ่มเองได้ เช่น ข้าวน้อย"
-            className="mt-2 w-full resize-none rounded-xl border-2 border-brand-75 p-3 text-sm md:text-base outline-none focus:border-brand-300"
+            className="mt-2 w-full resize-none rounded-2xl border-2 border-brand-75 bg-white p-3 text-sm md:text-base outline-none focus:border-brand-500"
           />
         </label>
 
         {/* แถบสั่ง — มือถือ: ชิดบนเมนูล่าง / แท็บเล็ต (ไม่มีเมนูล่าง): ชิดขอบจอ / จอใหญ่: อยู่ในคอลัมน์ */}
-        <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-10 border-t border-brand-75 bg-brand-50 px-4 py-3 md:bottom-0 md:pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:static lg:mt-6 lg:rounded-2xl lg:border-2 lg:px-4 lg:pb-3">
+        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 border-t-2 border-brand-75 bg-white px-4 py-3 md:bottom-0 md:pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:static lg:mt-6 lg:rounded-2xl lg:border-2 lg:px-4 lg:pb-3">
           <div className="mx-auto flex max-w-md items-center gap-3 lg:max-w-none">
             <QuantityStepper value={quantity} onChange={setQuantity} />
             <button
               type="button"
               onClick={handleAdd}
               disabled={missingRequired.length > 0}
-              className="flex-1 rounded-full bg-brand-300 py-3 text-sm md:text-base font-bold text-white transition disabled:bg-gray-300"
+              className="min-h-14 flex-1 rounded-2xl bg-brand-500 px-3 text-base font-bold text-white tabular-nums transition active:scale-[0.98] disabled:bg-gray-200 disabled:text-gray-600 md:text-lg"
             >
               {missingRequired.length > 0
                 ? `กรุณาเลือก${missingRequired[0].name}`
@@ -170,10 +172,17 @@ function OptionGroupBlock({
   onMulti: (optionId: string, checked: boolean) => void
 }>) {
   return (
-    <fieldset className="mt-5">
-      <legend className="text-sm md:text-base font-semibold text-gray-700">
-        {group.name}
-        {group.required && <span className="ml-1 text-danger">*</span>}
+    <fieldset className="mt-6">
+      <legend className="flex items-center gap-2">
+        <span className="text-base font-bold text-ink md:text-lg">{group.name}</span>
+        {group.required && group.selectType === 'single' && (
+          <span className="rounded-full bg-danger-ink px-2 py-0.5 text-xs font-bold text-white">
+            ต้องเลือก 1
+          </span>
+        )}
+        {group.selectType !== 'single' && (
+          <span className="text-xs font-semibold text-gray-600 md:text-sm">เลือกได้หลายอย่าง</span>
+        )}
       </legend>
 
       <div className="mt-2 space-y-2">
@@ -183,38 +192,23 @@ function OptionGroupBlock({
           const checked =
             !soldOut && (single ? singleValue === option.id : Boolean(multiValue[option.id]))
 
-          // เนื้อสัตว์: การ์ดขาวขอบส้ม / เพิ่มเติม: พื้นส้มอ่อนไม่มีขอบ — หมด: กดไม่ได้ + ป้าย "หมด"
+          // ทุกตัวเลือกเป็นแถวขาวขอบหนา เลือกแล้ว = ขอบน้ำตาลพื้นส้มอ่อน — หมด: ขอบประ กดไม่ได้ + ป้าย "หมด"
           let tone: string
           if (soldOut) {
-            tone = single
-              ? 'cursor-not-allowed border border-brand-200 bg-gray-100'
-              : 'cursor-not-allowed bg-brand-50'
-          } else if (single) {
-            tone = `cursor-pointer border bg-white ${
-              checked ? 'border-brand-300 ring-1 ring-brand-300' : 'border-brand-200'
-            }`
+            tone = 'cursor-not-allowed border-dashed border-gray-300 bg-gray-50 text-gray-600'
+          } else if (checked) {
+            tone = 'cursor-pointer border-brand-500 bg-brand-50 text-text'
           } else {
-            tone = `cursor-pointer bg-brand-50 ${checked ? 'ring-2 ring-brand-300' : ''}`
+            tone = 'cursor-pointer border-brand-75 bg-white text-text hover:border-brand-100'
           }
 
           return (
             <label
               key={option.id}
-              className={`flex items-center justify-between gap-3 rounded-xl px-4 py-3 shadow-sm transition ${tone}`}
+              className={`flex min-h-13 items-center gap-3 rounded-2xl border-2 px-4 py-2 transition ${tone}`}
             >
-              <span className="text-sm font-semibold text-text md:text-base">
-                {option.name}
-                {option.price > 0 && (
-                  <span className="block text-xs font-semibold text-gray-600 md:text-sm">
-                    +{option.price}
-                  </span>
-                )}
-              </span>
-
               {soldOut ? (
-                <span className="shrink-0 rounded bg-red-100 px-2 py-0.5 text-xs font-bold text-danger-ink">
-                  หมด
-                </span>
+                <span className="flex-1 text-sm font-semibold md:text-base">{option.name}</span>
               ) : (
                 <>
                   <input
@@ -231,11 +225,11 @@ function OptionGroupBlock({
                     aria-hidden
                     className={`flex h-6 w-6 shrink-0 items-center justify-center border-2 peer-focus-visible:ring-2 peer-focus-visible:ring-brand-300 peer-focus-visible:ring-offset-2 ${
                       single
-                        ? 'rounded-full border-brand-300 bg-white'
-                        : `rounded-sm ${checked ? 'border-brand-300 bg-brand-300' : 'border-gray-500 bg-white'}`
+                        ? `rounded-full bg-white ${checked ? 'border-brand-500' : 'border-gray-500'}`
+                        : `rounded-md ${checked ? 'border-brand-500 bg-brand-500' : 'border-gray-500 bg-white'}`
                     }`}
                   >
-                    {single && checked && <span className="h-3 w-3 rounded-full bg-brand-300" />}
+                    {single && checked && <span className="h-3 w-3 rounded-full bg-brand-500" />}
                     {!single && checked && (
                       <svg
                         viewBox="0 0 16 16"
@@ -248,7 +242,20 @@ function OptionGroupBlock({
                       </svg>
                     )}
                   </span>
+                  <span className="flex-1 text-sm font-semibold md:text-base">{option.name}</span>
                 </>
+              )}
+
+              {soldOut ? (
+                <span className="shrink-0 rounded-full bg-danger-ink px-2.5 py-0.5 text-xs font-bold text-white">
+                  หมด
+                </span>
+              ) : (
+                option.price > 0 && (
+                  <span className="shrink-0 text-sm font-bold text-gray-700 tabular-nums md:text-base">
+                    +{formatBaht(option.price)}
+                  </span>
+                )
               )}
             </label>
           )

@@ -500,12 +500,21 @@ describe('PaymentSlipService', () => {
     );
   });
 
-  it('ยืนยันเอง (confirmManually) ได้เฉพาะบิล PENDING/FAILED และเฉพาะ ADMIN', async () => {
-    await expect(service.confirmManually('p', 'r', staff)).rejects.toBeInstanceOf(ForbiddenException);
+  it('ยืนยันเอง (confirmManually) ได้เฉพาะบิล AWAITING/PENDING/FAILED และเฉพาะ ADMIN/STAFF', async () => {
+    const kitchen: AuthenticatedUser = { id: 'u-k', email: 'k@x', name: 'Kitchen', role: Role.KITCHEN };
+    await expect(service.confirmManually('p', 'r', kitchen)).rejects.toBeInstanceOf(ForbiddenException);
     prisma.payment.findUnique.mockResolvedValue({ id: 'p', status: PaymentStatus.COMPLETED, slipStatus: SlipStatus.VERIFIED });
     await expect(service.confirmManually('p', 'r', admin)).rejects.toBeInstanceOf(ConflictException);
     prisma.payment.findUnique.mockResolvedValue({ id: 'p', status: PaymentStatus.VOIDED, slipStatus: SlipStatus.PENDING });
     await expect(service.confirmManually('p', 'r', admin)).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  // ทดสอบ: หน้าร้าน (STAFF) ยืนยันบิลที่รอสลิปเองได้ — บันทึกเหตุผลและชื่อคนยืนยัน
+  it('STAFF ยืนยันบิลรอสลิปเอง → MANUAL พร้อมเหตุผลและชื่อ', async () => {
+    prisma.payment.findUnique.mockResolvedValue({ id: 'p', status: PaymentStatus.COMPLETED, slipStatus: SlipStatus.AWAITING });
+    prisma.payment.update.mockImplementation(({ data }: any) => Promise.resolve({ id: 'p', ...data }));
+    const updated: any = await service.confirmManually('p', 'เช็คแอปแล้ว', staff);
+    expect(updated).toMatchObject({ slipStatus: SlipStatus.MANUAL, slipOverrideReason: 'เช็คแอปแล้ว', slipOverrideByName: 'Staff' });
   });
 
   it('ตรวจซ้ำครบจำนวนครั้งแล้วยังล่ม → FAILED', async () => {

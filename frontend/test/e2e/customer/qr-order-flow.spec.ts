@@ -1,5 +1,5 @@
 import { test, expect, devices, type Browser } from '@playwright/test'
-import { API_URL, chooseOption, loginAsCashier, loginAsKitchen, loginViaApi, onlyCallStaffAlertsFrom } from '../helpers'
+import { API_URL, chooseOption, loginAsCashier, loginAsKitchen, loginViaApi, onlyCallStaffAlertsFrom, openCart } from '../helpers'
 import { customerOrder, menuItemByName } from '../api/api-helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data (DB ทดสอบเท่านั้น — เทสต์นี้สร้างโต๊ะ/ออเดอร์จริง)
@@ -55,12 +55,14 @@ test('ลูกค้าสั่งผ่าน QR บนมือถือ แ
   await customer.getByPlaceholder(/พิมพ์เพิ่มเองได้/).fill('ไม่ใส่ผัก')
   // (50 + 20 + 10) × 2 = 160
   await customer.getByRole('button', { name: /เพิ่มรายการ\s*฿160/ }).click()
+  await openCart(customer)
 
   // ตะกร้า: เพิ่มน้ำเปล่าอีก 1 แล้วเช็คยอดรวม
   await expect(customer).toHaveURL(new RegExp(`/t/${token}/cart$`))
   await customer.getByRole('link', { name: 'เมนูอาหาร' }).click()
   await customer.getByRole('link', { name: /^น้ำเปล่า น้ำเปล่า/ }).click()
   await customer.getByRole('button', { name: /เพิ่มรายการ/ }).click()
+  await openCart(customer)
   await expect(customer.getByText('ทั้งหมด 3 รายการ')).toBeVisible()
   await expect(customer.getByText('฿170').first()).toBeVisible()
 
@@ -68,7 +70,7 @@ test('ลูกค้าสั่งผ่าน QR บนมือถือ แ
   await customer.reload()
   await expect(customer.getByText('ทั้งหมด 3 รายการ')).toBeVisible()
 
-  await customer.getByRole('button', { name: '➤ ส่งรายการเข้าครัว' }).click()
+  await customer.getByRole('button', { name: 'ส่งรายการเข้าครัว' }).click()
   await expect(customer.getByRole('heading', { name: 'ติดตามสถานะออเดอร์' })).toBeVisible()
   await expect(customer.getByText('ไม่ใส่ผัก')).toBeVisible()
 
@@ -112,7 +114,8 @@ test('เรียกพนักงาน/แจ้งชำระเงิน�
   await customer.goto(`/t/${token}`)
   await customer.getByRole('link', { name: /^น้ำเปล่า น้ำเปล่า/ }).click()
   await customer.getByRole('button', { name: /เพิ่มรายการ/ }).click()
-  await customer.getByRole('button', { name: '➤ ส่งรายการเข้าครัว' }).click()
+  await openCart(customer)
+  await customer.getByRole('button', { name: 'ส่งรายการเข้าครัว' }).click()
   await customer.getByRole('button', { name: /เรียกพนักงาน/ }).click()
 
   // หน้านี้เห็นเฉพาะคำขอของโต๊ะนี้ (onlyCallStaffAlertsFrom) — ไม่ไปกดรับทราบคำขอของเทสต์อื่น
@@ -207,7 +210,8 @@ test('แตะ "ส่งรายการเข้าครัว" สอง�
   await customer.goto(`/t/${token}`)
   await customer.getByRole('link', { name: /^น้ำเปล่า น้ำเปล่า/ }).click()
   await customer.getByRole('button', { name: /เพิ่มรายการ/ }).click()
-  await customer.getByRole('button', { name: '➤ ส่งรายการเข้าครัว' }).dblclick()
+  await openCart(customer)
+  await customer.getByRole('button', { name: 'ส่งรายการเข้าครัว' }).dblclick()
   await expect(customer.getByRole('heading', { name: 'ติดตามสถานะออเดอร์' })).toBeVisible()
   await customer.waitForTimeout(1500)
   const orders = await (await request.get(`${API_URL}/public/sessions/${token}/orders`)).json()
@@ -236,17 +240,19 @@ test('แอดมินเปลี่ยนราคาระหว่าง�
     await customer.goto(`/t/${token}`)
     await customer.getByRole('link', { name: /^น้ำเปล่า น้ำเปล่า/ }).click()
     await customer.getByRole('button', { name: /เพิ่มรายการ/ }).click()
+    await openCart(customer)
 
     // กดเพิ่มแล้วอยู่หน้าตะกร้าอยู่แล้ว — ราคาต้องเปลี่ยนเองตาม menu.updated โดยลูกค้าไม่ต้อง refresh
     await expect(customer.getByRole('heading', { name: 'รายการอาหาร' })).toBeVisible()
     const res = await request.patch(`${API_URL}/menu/${water.id}`, { headers, data: { price: newPrice } })
     expect(res.ok()).toBe(true)
 
-    await expect(customer.getByRole('status')).toContainText('น้ำเปล่า')
+    // หัวจอมี status ของปุ่มเรียกพนักงานอยู่ด้วย — เจาะเฉพาะข้อความแจ้งราคาเปลี่ยน
+    await expect(customer.getByRole('status').filter({ hasText: /ราคา.*มีการเปลี่ยนแปลง/ })).toContainText('น้ำเปล่า')
     const totalRow = customer.getByText('ยอดรวมรายการอาหาร').locator('..')
     await expect(totalRow).toContainText(String(newPrice))
 
-    await customer.getByRole('button', { name: '➤ ส่งรายการเข้าครัว' }).click()
+    await customer.getByRole('button', { name: 'ส่งรายการเข้าครัว' }).click()
     await expect(customer.getByRole('heading', { name: 'ติดตามสถานะออเดอร์' })).toBeVisible()
     const [order] = await (await request.get(`${API_URL}/public/sessions/${token}/orders`)).json()
     expect(Number(order.items[0].unitPrice)).toBe(newPrice)
@@ -272,6 +278,7 @@ test('เมนูถูกปิดขายระหว่างอยู่�
     await customer.goto(`/t/${token}`)
     await customer.getByRole('link', { name: /^น้ำเปล่า น้ำเปล่า/ }).click()
     await customer.getByRole('button', { name: /เพิ่มรายการ/ }).click()
+    await openCart(customer)
     await expect(customer.getByRole('heading', { name: 'รายการอาหาร' })).toBeVisible()
 
     const off = await request.patch(`${API_URL}/menu/${water.id}/availability`, { headers, data: { isAvailable: false } })
@@ -279,7 +286,7 @@ test('เมนูถูกปิดขายระหว่างอยู่�
 
     // ครัวปิดขาย → menu.updated → ตะกร้ารู้เองโดยไม่ refresh
     await expect(customer.getByText('หมดชั่วคราว', { exact: true })).toBeVisible()
-    await expect(customer.getByRole('button', { name: '➤ ส่งรายการเข้าครัว' })).toBeDisabled()
+    await expect(customer.getByRole('button', { name: 'ส่งรายการเข้าครัว' })).toBeDisabled()
     await customer.getByRole('button', { name: 'เอาออก' }).click()
     await expect(customer.getByText('ยังไม่มีรายการที่เลือก')).toBeVisible()
   } finally {

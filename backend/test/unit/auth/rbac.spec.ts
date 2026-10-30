@@ -38,7 +38,7 @@ const MATRIX: [new (...a: any[]) => any, Record<string, Access>][] = [
     getMenu: 'PUBLIC', getSession: 'PUBLIC', getOrdersBySession: 'PUBLIC', createOrder: 'PUBLIC',
     getOrderStatus: 'PUBLIC', callStaff: 'PUBLIC', checkout: 'PUBLIC',
   }],
-  [AuthController, { login: 'PUBLIC', me: 'ANY', changePassword: [A] }],
+  [AuthController, { login: 'PUBLIC', logout: 'PUBLIC', me: 'ANY', changePassword: [A] }],
   [AuditController, { findAll: [A], findDevices: [A] }],
   [ReportsController, { getDashboard: [A], getIncomeExpense: [A], getSales: [A] }],
   [UsersController, { create: [A], findAll: [A], findOne: [A], update: [A], remove: [A] }],
@@ -60,7 +60,7 @@ const MATRIX: [new (...a: any[]) => any, Record<string, Access>][] = [
     updateStatus: [A, K], markCleared: [A, K], addItem: [A, S], removeItem: [A, S],
   }],
   [PaymentsController, {
-    create: [A, S], voidPayment: [A, S], findAll: [A, S], findOne: [A, S], recheckSlip: [A, S], attachSlip: [A, S], confirmSlip: [A],
+    create: [A, S], voidPayment: [A, S], findAll: [A, S], findOne: [A, S], recheckSlip: [A, S], attachSlip: [A, S], confirmSlip: [A, S],
   }],
   [TableSessionsController, {
     create: [A, S], findAll: [A, S], findOne: [A, S], setGuestCount: [A, S], move: [A, S], merge: [A, S],

@@ -14,7 +14,7 @@ const apiOrigin = new URL(API_URL).origin
 const isApi = (path: string) => (url: URL) => url.origin === apiOrigin && url.pathname === path
 
 // ทดสอบ: ADMIN ตั้งค่า LINE ได้ครบ — ฟอร์มกันค่าผิด (token สั้น / User ID ผิดรูปแบบ), กดส่งข้อความทดสอบแล้วเห็นผลทั้งสำเร็จและไม่สำเร็จ, บันทึกแล้วสถานะเป็น "เชื่อมต่อแล้ว" และหน้าไม่โชว์ token เต็ม
-// วิธี: ดัก /settings/line/test (ครั้งแรกตอบสำเร็จ ครั้งที่สองตอบว่ายังไม่แอดเพื่อน) และ PUT /settings/line (ตอบค่าที่บันทึกแล้ว) → admin เปิด /owner/line เห็นว่ายังไม่เชื่อม → ใส่ token สั้น/User ID ผิด เช็กข้อความเตือนและปุ่มกดไม่ได้ → ใส่ค่าถูก กดทดสอบ 2 ครั้ง เช็ก body ที่ส่งและข้อความผล → กดบันทึก เช็ก body, toast, สถานะเชื่อมต่อแล้ว และช่อง token ว่างพร้อมบอก 4 ตัวท้าย → เช็กผ่าน API ว่าค่าจริงใน DB ไม่ถูกแก้ (mock ทำงานจริง)
+// วิธี: ดัก /settings/line/test (ครั้งแรกตอบสำเร็จ ครั้งที่สองตอบว่ายังไม่แอดเพื่อน) และ PUT /settings/line (ตอบค่าที่บันทึกแล้ว) และ GET (ก่อนบันทึกตอบว่ายังไม่ตั้ง — ไม่ขึ้นกับค่าใน DB ทดสอบ) → admin เปิด /owner/line เห็นว่ายังไม่เชื่อม → ใส่ token สั้น/User ID ผิด เช็กข้อความเตือนและปุ่มกดไม่ได้ → ใส่ค่าถูก กดทดสอบ 2 ครั้ง เช็ก body ที่ส่งและข้อความผล → กดบันทึก เช็ก body, toast, สถานะเชื่อมต่อแล้ว และช่อง token ว่างพร้อมบอก 4 ตัวท้าย → เช็กผ่าน API ว่าค่าจริงใน DB ไม่ถูกแก้ (mock ทำงานจริง)
 test('ADMIN ตั้งค่า LINE: กันค่าผิด, ส่งข้อความทดสอบ (สำเร็จ/ไม่สำเร็จ), บันทึกแล้วขึ้นเชื่อมต่อแล้ว', async ({ page, request }) => {
   const t = await tokens(request)
   const before = await (await call(request, 'GET', '/settings/line', { token: t.ADMIN })).json()
@@ -29,20 +29,16 @@ test('ADMIN ตั้งค่า LINE: กันค่าผิด, ส่ง�
     await route.fulfill({ json: testReplies[Math.min(testBodies.length - 1, 1)] })
   })
   let savedBody: unknown
+  // หน้าเว็บต้องเริ่มจาก "ยังไม่เชื่อม" เสมอ ไม่ว่า DB ทดสอบจะตั้ง LINE ไว้หรือยัง → ดัก GET ด้วย
+  // ก่อนกดบันทึกตอบว่ายังไม่ตั้ง หลังบันทึกตอบค่าที่บันทึก (หน้าโหลดใหม่หลัง PUT)
+  const unset = { enabled: false, to: '', hasToken: false, tokenHint: null, source: 'none', tokenUnreadable: false, ready: false }
+  const saved = { enabled: true, to: USER_ID, hasToken: true, tokenHint: '••••abcd', source: 'database', tokenUnreadable: false, ready: true }
   await page.route(isApi('/settings/line'), async (route: Route) => {
-    if (route.request().method() !== 'PUT') return route.continue()
+    const method = route.request().method()
+    if (method === 'GET') return route.fulfill({ json: savedBody ? saved : unset })
+    if (method !== 'PUT') return route.continue()
     savedBody = route.request().postDataJSON()
-    await route.fulfill({
-      json: {
-        enabled: true,
-        to: USER_ID,
-        hasToken: true,
-        tokenHint: '••••abcd',
-        source: 'database',
-        tokenUnreadable: false,
-        ready: true,
-      },
-    })
+    await route.fulfill({ json: saved })
   })
 
   await loginAsAdmin(page, request)

@@ -156,6 +156,8 @@ export interface ApiTableSession extends ApiTakeawayFields {
   billingStatus?: string
   /** /public/sessions ส่งมาแค่ id, paymentMethod, createdAt ของคำขอที่ยังรอ */
   checkoutRequest?: Pick<ApiServiceRequest, 'id' | 'paymentMethod' | 'createdAt'> | null
+  /** GET /public/sessions/:token เท่านั้น — เรียกพนักงานที่ยังรอพนักงานรับทราบ */
+  callStaffRequest?: Pick<ApiServiceRequest, 'id' | 'createdAt'> | null
   /** หารเท่ากันที่ยังจ่ายไม่ครบ (null = ไม่ได้หาร) */
   split?: ApiSessionSplit | null
 }
@@ -333,7 +335,10 @@ export interface ApiCashClose {
 export interface ApiCashClosePreview {
   date: string
   cashSales: number
+  /** PromptPay ทุกบิลที่ไม่ถูกยกเลิก — ยอดที่บันทึกตอนปิดยอด */
   promptpaySales: number
+  /** PromptPay ที่ยืนยันแล้วว่าเงินเข้า (สลิปผ่าน/แอดมินยืนยัน) — ไม่รวมบิลรอแนบสลิปหรือตรวจไม่ผ่าน */
+  promptpayConfirmed: number
   drawerExpenses: number
   paymentCount: number
   drawerExpenseItems: ApiDrawerExpenseItem[]

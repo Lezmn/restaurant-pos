@@ -23,7 +23,7 @@ interface DashboardReport {
   revenueByMethod: { CASH: number; PROMPTPAY: number }
   tables: { OCCUPIED: number; total: number }
   revenueTrend: { date: string; revenue: number }[]
-  slipIssues?: { pending: number; failed: number }
+  slipIssues?: { pending: number; failed: number; awaiting?: number }
 }
 
 interface ApiPayment {
@@ -79,7 +79,7 @@ const statusRow = (page: Page, label: string): Locator =>
 const notifications = (page: Page) => sectionOf(page, 'บิลที่รับเงินวันนี้')
 
 // ทดสอบ: ตัวเลขทุกส่วนบน Dashboard วันนี้ (การ์ด 4 ใบ, ในร้านตอนนี้, กราฟรายชั่วโมง, บิลที่รับเงินวันนี้, เมนูขายดี, แบนเนอร์สลิป) ต้องตรงกับข้อมูลที่หน้าเว็บโหลดมาจาก API
-// วิธี: เก็บเงินสดโต๊ะใหม่ 1 บิลผ่าน API → admin เปิด Dashboard พร้อมดักเก็บ response /reports/dashboard, /payments และ /reports/sales ที่หน้าเว็บโหลดเอง → เทียบตัวเลขทีละส่วนกับ response นั้น → เช็กว่ามีบิลที่เพิ่งเก็บ และแบนเนอร์สลิปขึ้นหรือไม่ขึ้นตามจำนวนสลิปค้าง (แท็ก @totals-reports)
+// วิธี: เก็บเงินสดโต๊ะใหม่ 1 บิลผ่าน API → admin เปิด Dashboard พร้อมดักเก็บ response /reports/dashboard, /payments และ /reports/sales ที่หน้าเว็บโหลดเอง → เทียบตัวเลขทีละส่วนกับ response นั้น → เช็กว่ามีบิลที่เพิ่งเก็บ และแบนเนอร์สลิปขึ้นหรือไม่ขึ้นตามจำนวนสลิปค้าง (รอสลิป + รอตรวจ + ไม่ผ่าน) (แท็ก @totals-reports)
 test('Dashboard: การ์ด, ในร้านตอนนี้, กราฟ, บิลวันนี้, เมนูขายดี และแบนเนอร์สลิป ตรงกับข้อมูลจาก API', { tag: '@totals-reports' }, async ({ page, request }) => {
   // มีบิลเงินสดของวันนี้อย่างน้อย 1 ใบ จากโต๊ะที่รู้เลข — เช็คได้ว่าโผล่ในการแจ้งเตือน
   const t = await tokens(request)
@@ -156,10 +156,12 @@ test('Dashboard: การ์ด, ในร้านตอนนี้, กร�
   })
 
   await test.step('แบนเนอร์สลิป PromptPay ที่ยังยืนยันเงินเข้าไม่ได้', async () => {
-    const issues = report.slipIssues ?? { pending: 0, failed: 0 }
+    // awaiting = PromptPay ที่พิมพ์ใบเสร็จแล้วแต่ยังไม่มีสลิป ("รอสลิป") — นับเป็นสลิปที่ต้องตามด้วย
+    const issues = { pending: 0, failed: 0, awaiting: 0, ...report.slipIssues }
     const banner = page.getByRole('link', { name: /สลิป PromptPay ที่ยังยืนยันเงินเข้าไม่ได้/ })
-    if (issues.pending + issues.failed > 0) {
-      await expect(banner).toContainText(`รอตรวจ ${issues.pending} · ไม่ผ่าน ${issues.failed}`)
+    if (issues.pending + issues.failed + issues.awaiting > 0) {
+      const awaiting = issues.awaiting > 0 ? `รอสลิป ${issues.awaiting} · ` : ''
+      await expect(banner).toContainText(`${awaiting}รอตรวจ ${issues.pending} · ไม่ผ่าน ${issues.failed}`)
       await banner.click()
       await expect(page).toHaveURL(/\/employee\/check$/)
     } else {

@@ -273,7 +273,7 @@ function IngredientImage({
   }
 
   const frame = 'relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-brand-50'
-  const image = <FoodImage src={item.imageUrl} alt={item.imageUrl ? `รูป ${item.name}` : ''} />
+  const image = <FoodImage src={item.imageUrl} width={64} alt={item.imageUrl ? `รูป ${item.name}` : ''} />
   if (!canEdit) return <div className={frame}>{image}</div>
 
   return (

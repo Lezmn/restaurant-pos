@@ -1,7 +1,9 @@
-import { Body, Controller, Get, Patch, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Patch, Post, Req, Res } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import type { Response } from 'express';
+import { clearAuthCookie, setAuthCookie } from './auth-cookie';
 import { AllowDuringPasswordChange } from './decorators/allow-password-change.decorator';
 import { Public } from './decorators/public.decorator';
 import { Roles } from './decorators/roles.decorator';
@@ -23,8 +25,21 @@ export class AuthController {
   @Throttle({
     default: { limit: () => Number(process.env.LOGIN_THROTTLE_LIMIT ?? 5), ttl: 60_000 },
   })
-  @ApiOperation({ summary: 'เข้าสู่ระบบและรับ JWT access token' })
-  login(@Body() dto: LoginDto) { return this.authService.login(dto); }
+  @ApiOperation({ summary: 'เข้าสู่ระบบ — ตั้ง JWT ใน httpOnly cookie (และส่ง accessToken กลับให้ Swagger/สคริปต์)' })
+  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.login(dto);
+    setAuthCookie(res, result.accessToken, result.expiresAt);
+    return { accessToken: result.accessToken, user: result.user };
+  }
+
+  @Public()
+  @Post('logout')
+  @HttpCode(204)
+  // Public: token หมดอายุแล้วก็ต้องลบ cookie ได้ — หน้าเว็บลบ httpOnly cookie เองไม่ได้
+  @ApiOperation({ summary: 'ออกจากระบบ — ลบ cookie ของเครื่องนี้' })
+  logout(@Res({ passthrough: true }) res: Response) {
+    clearAuthCookie(res);
+  }
 
   @Get('me')
   @AllowDuringPasswordChange()

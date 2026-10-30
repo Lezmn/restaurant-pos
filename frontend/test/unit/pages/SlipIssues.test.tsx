@@ -129,10 +129,16 @@ describe('SlipIssues — สลิป PromptPay ที่ต้องตาม',
     expect(screen.getByRole('alert')).toHaveTextContent('SlipOK ไม่ตอบ')
   })
 
-  // ทดสอบ: STAFF ไม่มีปุ่มยืนยันรับเงินเอง และคำแนะนำบอกให้แจ้งเจ้าของร้าน
-  // วิธี: render เป็น STAFF กับบิลไม่ผ่าน → เช็กว่าไม่มีปุ่มยืนยันเอง และมีข้อความ "แจ้งเจ้าของร้าน"
-  it('STAFF: ไม่มีปุ่มยืนยันเอง และคำแนะนำบอกให้แจ้งเจ้าของร้าน', () => {
+  // ทดสอบ: หน้าร้าน (STAFF) ยืนยันรับเงินเองได้เหมือนเจ้าของ (backend @Roles(ADMIN, STAFF))
+  it('STAFF: มีปุ่มยืนยันเอง และคำแนะนำบอกให้ยืนยันเอง', () => {
     setup([issue('p2', SlipStatus.FAILED, 'y')], Role.STAFF)
+    expect(within(item('2')).getByRole('button', { name: 'ยืนยันเอง' })).toBeInTheDocument()
+    expect(screen.queryByText(/แจ้งเจ้าของร้าน/)).not.toBeInTheDocument()
+  })
+
+  // ทดสอบ: role อื่น (ครัว) ไม่มีสิทธิ์ยืนยันเอง — ไม่มีปุ่ม และบอกให้แจ้งเจ้าของร้าน
+  it('KITCHEN: ไม่มีปุ่มยืนยันเอง และคำแนะนำบอกให้แจ้งเจ้าของร้าน', () => {
+    setup([issue('p2', SlipStatus.FAILED, 'y')], Role.KITCHEN)
     expect(screen.queryByRole('button', { name: 'ยืนยันเอง' })).not.toBeInTheDocument()
     expect(screen.getByText(/แจ้งเจ้าของร้าน/)).toBeInTheDocument()
   })

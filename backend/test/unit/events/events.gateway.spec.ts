@@ -2,10 +2,10 @@ import { Prisma, TableSessionStatus } from '@prisma/client';
 import { EventsGateway } from '../../../src/events/events.gateway';
 import { SocketIoAdapter } from '../../../src/events/socket-io.adapter';
 
-function client(auth: Record<string, unknown> | undefined) {
+function client(auth: Record<string, unknown> | undefined, cookie?: string) {
   return {
     id: 'sock-1',
-    handshake: { auth },
+    handshake: { auth, headers: cookie ? { cookie } : {} },
     data: {} as Record<string, unknown>,
     join: jest.fn().mockResolvedValue(undefined),
     emit: jest.fn(),
@@ -113,9 +113,34 @@ describe('EventsGateway — handshake', () => {
       const { gateway } = setup();
       const c = client(auth);
       await gateway.handleConnection(c);
-      expect(rejected(c)).toContain('ต้องส่ง token');
+      expect(rejected(c)).toContain('ต้อง login');
     },
   );
+
+  // ทดสอบ: หน้าเว็บพนักงานไม่ส่ง token ใน auth แล้ว — ต้องยืนยันตัวจาก httpOnly cookie ที่ติดมากับ handshake
+  // วิธี: handshake.auth ว่าง + header cookie มี restaurant_token → เช็กว่า verify token จาก cookie และเข้าห้อง staff
+  it('ไม่มี auth แต่มี cookie ของพนักงาน → เข้าห้อง staff', async () => {
+    const { gateway, jwt } = setup();
+    const c = client({}, 'theme=dark; restaurant_token=cookie-jwt');
+    await gateway.handleConnection(c);
+    expect(jwt.verifyAsync).toHaveBeenCalledWith('cookie-jwt');
+    expect(c.join).toHaveBeenCalledWith(['staff', 'user:u1']);
+  });
+
+  // ทดสอบ: เครื่องพนักงานเปิดหน้า QR ลูกค้า (มีทั้ง cookie และ sessionToken) ต้องได้ห้องของโต๊ะ ไม่ใช่ห้อง staff
+  // วิธี: ส่ง sessionToken + cookie → เช็กว่า join ห้อง session และไม่ verify JWT เลย
+  it('มีทั้ง sessionToken และ cookie → ใช้ sessionToken (ห้องลูกค้า)', async () => {
+    const { gateway, prisma, jwt } = setup();
+    prisma.tableSession.findUnique.mockResolvedValue({
+      id: 's1',
+      status: TableSessionStatus.OPEN,
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    const c = client({ sessionToken: 'qr' }, 'restaurant_token=cookie-jwt');
+    await gateway.handleConnection(c);
+    expect(c.join).toHaveBeenCalledWith('session:s1');
+    expect(jwt.verifyAsync).not.toHaveBeenCalled();
+  });
 
   it('error ที่ไม่ใช่ Error object → ข้อความ unauthorized', async () => {
     const { gateway, jwt } = setup();

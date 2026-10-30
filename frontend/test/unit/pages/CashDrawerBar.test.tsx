@@ -25,6 +25,7 @@ const preview = (overrides: Partial<ApiCashClosePreview> = {}): ApiCashClosePrev
   date: '2026-10-24',
   cashSales: 1250.5,
   promptpaySales: 830,
+  promptpayConfirmed: 830,
   drawerExpenses: 85.25,
   paymentCount: 9,
   drawerExpenseItems: [
@@ -90,6 +91,14 @@ describe('CashDrawerBar — ลิ้นชักวันนี้', () => {
     expect(ledger('หยิบออก')).toBe('−฿85.25')
     expect(ledger('เงินสดสุทธิ')).toBe('฿1,165.25')
     expect(within(section).getByText('PromptPay เข้าบัญชีร้าน').nextElementSibling).toHaveTextContent('฿830')
+  })
+
+  // ทดสอบ: บิล PromptPay ที่พิมพ์ใบเสร็จ QR ไปแล้วแต่ยังไม่ได้ตรวจสลิป ยังไม่นับว่าเข้าบัญชีร้าน
+  // วิธี: mock PromptPay ทุกบิล 830 แต่ยืนยันแล้วแค่ 500 → แถว "PromptPay เข้าบัญชีร้าน" ต้องเป็น ฿500
+  it('PromptPay เข้าบัญชีร้าน: นับเฉพาะบิลที่ตรวจสลิปแล้ว ไม่รวมบิลที่ยังรอสลิป', () => {
+    setup(preview({ promptpaySales: 830, promptpayConfirmed: 500 }))
+    const section = screen.getByRole('region', { name: 'ลิ้นชักวันนี้' })
+    expect(within(section).getByText('PromptPay เข้าบัญชีร้าน').nextElementSibling).toHaveTextContent('฿500')
   })
 
   // ทดสอบ: ยังไม่หยิบเงินออก ต้องแสดง ฿0 (ไม่ใช่ −฿0) และไม่มีรายการหยิบออก

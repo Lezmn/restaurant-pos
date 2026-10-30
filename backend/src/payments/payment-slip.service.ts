@@ -361,7 +361,11 @@ export class PaymentSlipService implements OnModuleInit, OnModuleDestroy {
   // ---------------------------------------------------------------------------
 
   async confirmManually(paymentId: string, reason: string, user: AuthenticatedUser) {
-    this.assertAdmin(user);
+    // หลังเก็บเงินแล้ว หน้าร้านยืนยันเองได้ด้วย (ต้องมีเหตุผล + เก็บชื่อคนยืนยัน) — ตรงกับ @Roles(ADMIN, STAFF) ของ controller
+    // ส่วนรับเงินโดยไม่ตรวจสลิปตอนเก็บเงิน (overrideReason ใน checkForNewPayment) ยังเป็น ADMIN เท่านั้น
+    if (user.role !== Role.ADMIN && user.role !== Role.STAFF) {
+      throw new ForbiddenException('ยืนยันรับเงินเองได้เฉพาะเจ้าของร้านและหน้าร้าน');
+    }
     const payment = await this.prisma.payment.findUnique({ where: { id: paymentId } });
     if (!payment) throw new NotFoundException(`ไม่พบการชำระเงิน id: ${paymentId}`);
     if (payment.status !== PaymentStatus.COMPLETED) {

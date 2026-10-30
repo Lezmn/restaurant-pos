@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCart, type CartLine } from '@/features/public/cart-store'
@@ -8,8 +9,13 @@ import { TableSessionStatus } from '@/types/enums'
 import { CustomerLayout } from '@/components/layout/CustomerLayout'
 
 // layout ไม่ได้ทดสอบ socket/การดึงข้อมูลจริง — ทดสอบแค่ว่าตะกร้าถูกผูก/ล้างถูกโต๊ะ
+const callStaff = vi.fn()
 vi.mock('@/features/live/hooks', () => ({ useCustomerLiveEvents: vi.fn() }))
-vi.mock('@/features/public/hooks', () => ({ useSession: vi.fn() }))
+vi.mock('@/features/public/hooks', () => ({
+  useSession: vi.fn(),
+  // ปุ่มเรียกพนักงานบน header — ไม่ได้ทดสอบในไฟล์นี้
+  useCallStaff: () => ({ mutate: callStaff, isPending: false, isSuccess: false }),
+}))
 
 type SessionResult = ReturnType<typeof useSession>
 
@@ -53,6 +59,7 @@ const openSession = (
   customerName: null,
   split: null,
   checkoutRequested: false,
+  callStaffPending: false,
 })
 
 function renderAt(token: string) {
@@ -117,5 +124,41 @@ describe('CustomerLayout: ตะกร้าไม่หายเพราะเ
 
     expect(await screen.findByText('หน้าเมนู')).toBeInTheDocument()
     expect(useCart.getState()).toMatchObject({ token: 'real', lines: [line] })
+  })
+})
+
+describe('CustomerLayout: ปุ่มเรียกพนักงาน', () => {
+  beforeEach(() => {
+    callStaff.mockClear()
+    useCart.setState({ token: 'real', lines: [], repriced: [] })
+  })
+
+  // ทดสอบ: ยังไม่มีคำขอค้าง → กดเรียกได้ ส่ง token ของโต๊ะนี้
+  it('ไม่มีคำขอค้าง → ปุ่มเรียกพนักงานกดได้ ส่ง token', async () => {
+    mockSession({ data: openSession('real') })
+    renderAt('real')
+    await userEvent.click(await screen.findByRole('button', { name: 'เรียกพนักงาน' }))
+    expect(callStaff).toHaveBeenCalledWith({ token: 'real' })
+  })
+
+  // ทดสอบ: มีคำขอค้าง (แม้รีเฟรชหน้า) → "แจ้งแล้ว" กดซ้ำไม่ได้
+  // แล้วพนักงานกดรับทราบ (session ใหม่ไม่มีคำขอค้าง) → ปุ่มกลับมาเป็นเรียกพนักงาน + บอก screen reader
+  it('คำขอค้าง → แจ้งแล้ว กดไม่ได้ / พนักงานรับทราบ → กลับมากดได้', async () => {
+    mockSession({ data: { ...openSession('real'), callStaffPending: true } })
+    const { rerender } = renderAt('real')
+    expect(await screen.findByRole('button', { name: 'แจ้งแล้ว' })).toBeDisabled()
+
+    mockSession({ data: openSession('real') })
+    rerender(
+      <MemoryRouter initialEntries={['/t/real']}>
+        <Routes>
+          <Route path="/t/:token" element={<CustomerLayout />}>
+            <Route index element={<p>หน้าเมนู</p>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('button', { name: 'เรียกพนักงาน' })).toBeEnabled()
+    expect(screen.getByText('พนักงานรับทราบแล้ว')).toBeInTheDocument()
   })
 })

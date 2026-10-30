@@ -9,7 +9,7 @@ import { useMenuItems } from '@/features/menu/hooks'
 import { useTables } from '@/features/tables/hooks'
 import { Role, TableStatus } from '@/types/enums'
 
-// หัวจอของพนักงาน — ปุ่ม "ของหมด" อยู่แถวเดียวกับจำนวนโต๊ะว่าง และโผล่เฉพาะหน้า Order (จอครัว)
+// หัวจอของพนักงาน — ปุ่ม "ของหมด" อยู่บน header ข้างหัวข้อหน้า และโผล่เฉพาะหน้า Order (จอครัว)
 // ใส่ของจริงที่เหลือไว้ด้วย — Chrome จริง (npm run test:browser) ไม่ยอม import ชื่อที่ mock ไม่มี
 vi.mock('@/features/tables/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/tables/hooks')>()),
@@ -90,20 +90,21 @@ function setup({
 }
 
 const soldOutButton = () => screen.queryByRole('button', { name: /^ของหมด/ })
-/** แถวใต้ชื่อร้าน ที่มีจำนวนโต๊ะว่าง */
-const tableCountRow = () => screen.getByText(/จำนวนโต๊ะที่ว่าง/).parentElement as HTMLElement
+/** ป้ายจำนวนโต๊ะว่างบน header (ตัวเลขอยู่ใน <span> แยก) */
+const tableCount = () => screen.getByText(/จำนวนโต๊ะที่ว่าง/)
+const header = () => screen.getByRole('banner')
 
 describe('EmployeeLayout — ปุ่มของหมดบนหัวจอ', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  // ทดสอบ: หน้า Order (จอครัว) ต้องมีปุ่มของหมด อยู่แถวเดียวกับจำนวนโต๊ะว่าง (ไม่กินอีกแถวเหนือบอร์ด) และบอกจำนวนที่ปิดอยู่
-  // วิธี: เปิด /employee/order โดยมีเมนูหมด 1 + วัตถุดิบหมด 1 → เช็กปุ่ม "ของหมด (2)" อยู่ในแถวเดียวกับ "จำนวนโต๊ะที่ว่าง" และหน้าเนื้อหาครัวยังขึ้น
-  it('หน้า Order → มีปุ่ม "ของหมด (จำนวน)" ในแถวเดียวกับจำนวนโต๊ะว่าง', () => {
+  // ทดสอบ: หน้า Order (จอครัว) ต้องมีปุ่มของหมดบน header (ไม่กินอีกแถวเหนือบอร์ด) และบอกจำนวนที่ปิดอยู่
+  // วิธี: เปิด /employee/order โดยมีเมนูหมด 1 + วัตถุดิบหมด 1 → เช็กปุ่ม "ของหมด (2)" อยู่ใน header (banner) และหน้าเนื้อหาครัวยังขึ้น
+  it('หน้า Order → มีปุ่ม "ของหมด (จำนวน)" บน header', () => {
     setup()
     expect(screen.getByText('บอร์ดครัว')).toBeInTheDocument()
     const button = soldOutButton()
     expect(button).toHaveTextContent('ของหมด (2)')
-    expect(within(tableCountRow()).getByRole('button', { name: /^ของหมด/ })).toBe(button)
+    expect(within(header()).getByRole('button', { name: /^ของหมด/ })).toBe(button)
   })
 
   // ทดสอบ: ยังไม่มีอะไรหมด ปุ่มต้องเขียนแค่ "ของหมด" ไม่มีวงเล็บ (0)
@@ -118,7 +119,7 @@ describe('EmployeeLayout — ปุ่มของหมดบนหัวจอ
   it.each(['/employee/check', '/employee/tables'])('หน้าอื่น (%s) → ไม่มีปุ่มของหมด', (path) => {
     setup({ path, role: Role.STAFF })
     expect(soldOutButton()).not.toBeInTheDocument()
-    expect(screen.getByText(/จำนวนโต๊ะที่ว่าง 2 โต๊ะ/)).toBeInTheDocument()
+    expect(tableCount()).toHaveTextContent('จำนวนโต๊ะที่ว่าง 2 โต๊ะ')
   })
 
   // ทดสอบ: กดปุ่มของหมดบนหัวจอแล้วต้องเปิดกล่องเลือกเมนู/วัตถุดิบที่หมด (ย้ายมาจากในบอร์ดครัวแล้วยังใช้ได้)
@@ -130,15 +131,15 @@ describe('EmployeeLayout — ปุ่มของหมดบนหัวจอ
     expect(within(dialog).getByText('เมนูหมด 0')).toBeInTheDocument()
   })
 
-  // ทดสอบ: จำนวนโต๊ะว่างนับเฉพาะโต๊ะสถานะ AVAILABLE และระหว่างโหลดขึ้น "—" พร้อมบอกชื่อและ role ของคนที่ login
-  // วิธี: mock 3 โต๊ะ (ว่าง 2) → เช็ก "จำนวนโต๊ะที่ว่าง 2 โต๊ะ" และ "(ครัวหนึ่ง · KITCHEN)" → mock โต๊ะยังไม่มา → เช็ก "—"
-  it('จำนวนโต๊ะว่าง นับเฉพาะโต๊ะว่าง / ระหว่างโหลดขึ้น "—" และบอกชื่อกับ role', () => {
+  // ทดสอบ: จำนวนโต๊ะว่างนับเฉพาะโต๊ะสถานะ AVAILABLE และระหว่างโหลดขึ้น "—" พร้อมป้ายบัญชีตาม role (ชื่อคนอยู่ใน tooltip)
+  // วิธี: mock 3 โต๊ะ (ว่าง 2) → เช็ก "จำนวนโต๊ะที่ว่าง 2 โต๊ะ" และป้าย "บัญชีครัว" ที่มี title เป็นชื่อ → mock โต๊ะยังไม่มา → เช็ก "—"
+  it('จำนวนโต๊ะว่าง นับเฉพาะโต๊ะว่าง / ระหว่างโหลดขึ้น "—" และบอกบัญชีที่ login', () => {
     const { unmount } = setup()
-    expect(tableCountRow()).toHaveTextContent('จำนวนโต๊ะที่ว่าง 2 โต๊ะ')
-    expect(tableCountRow()).toHaveTextContent('(ครัวหนึ่ง · KITCHEN)')
+    expect(tableCount()).toHaveTextContent('จำนวนโต๊ะที่ว่าง 2 โต๊ะ')
+    expect(within(header()).getByText('บัญชีครัว')).toHaveAttribute('title', 'ครัวหนึ่ง')
     unmount()
 
     setup({ tables: null })
-    expect(tableCountRow()).toHaveTextContent('จำนวนโต๊ะที่ว่าง — โต๊ะ')
+    expect(tableCount()).toHaveTextContent('จำนวนโต๊ะที่ว่าง — โต๊ะ')
   })
 })

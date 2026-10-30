@@ -7,12 +7,14 @@ import { call, customerOrder, menuItemByName, ok, openNewSession, tokens } from 
 // หน้าลูกค้าดึงออเดอร์ใหม่ทุก 10 วิ (ORDER_POLL_MS) + socket — เผื่อเวลาให้รอบดึงถัดไปมาถึง
 const LIVE = { timeout: 20_000 }
 
-const currentStep = (page: Page) => page.locator('li[aria-current="step"]')
+// การ์ดละแถบสถานะ — ใบใหม่สุดอยู่บนสุด อ่านขั้นปัจจุบันจาก aria-valuetext
+const bars = (page: Page) => page.getByRole('progressbar')
+const currentStep = (page: Page) => bars(page).first()
 const eta = (page: Page) => page.getByText('คาดว่าจะได้รับในอีก')
 
 // ทดสอบ: ลูกค้าเห็นสถานะออเดอร์เปลี่ยนเอง รับออเดอร์แล้ว → กำลังปรุงอาหาร → เสิร์ฟแล้ว และเวลารอหายไปเมื่อเสิร์ฟ
 // วิธี: เปิดโต๊ะใหม่ สั่งน้ำผ่าน QR → ลูกค้าเปิดหน้าสถานะบนมือถือ → ครัวเปลี่ยนสถานะผ่าน API ทีละขั้น
-//       → เช็กขั้นที่ aria-current="step" บนจอลูกค้า (ไม่กดรีเฟรช) และว่ามี/ไม่มี "คาดว่าจะได้รับในอีก"
+//       → เช็ก aria-valuetext ของแถบสถานะบนจอลูกค้า (ไม่กดรีเฟรช) และว่ามี/ไม่มี "คาดว่าจะได้รับในอีก"
 test('ลูกค้าเห็นสถานะออเดอร์เดินตามครัว: รับออเดอร์แล้ว → กำลังปรุง → เสิร์ฟแล้ว', async ({ browser, request }) => {
   const t = await tokens(request)
   const { table, session } = await openNewSession(request, t)
@@ -26,19 +28,19 @@ test('ลูกค้าเห็นสถานะออเดอร์เด�
   await expect(customer.getByText('2× น้ำเปล่า')).toBeVisible()
 
   await test.step('ยังไม่เริ่มปรุง → รับออเดอร์แล้ว + บอกเวลารอ', async () => {
-    await expect(currentStep(customer)).toHaveText(/รับออเดอร์แล้ว/)
+    await expect(currentStep(customer)).toHaveAttribute('aria-valuetext', 'รับออเดอร์แล้ว')
     await expect(eta(customer)).toBeVisible()
   })
 
   await test.step('ครัวเริ่มปรุง → กำลังปรุงอาหาร', async () => {
     await ok(await call(request, 'PATCH', `/orders/${order.id}/status`, { token: t.KITCHEN, data: { status: 'PREPARING' } }))
-    await expect(currentStep(customer)).toHaveText(/กำลังปรุงอาหาร/, LIVE)
+    await expect(currentStep(customer)).toHaveAttribute('aria-valuetext', 'กำลังปรุงอาหาร', LIVE)
     await expect(eta(customer)).toBeVisible()
   })
 
   await test.step('ครัวเสิร์ฟ → เสิร์ฟแล้ว และไม่บอกเวลารอแล้ว', async () => {
     await ok(await call(request, 'PATCH', `/orders/${order.id}/status`, { token: t.KITCHEN, data: { status: 'SERVED' } }))
-    await expect(currentStep(customer)).toHaveText(/เสิร์ฟแล้ว/, LIVE)
+    await expect(currentStep(customer)).toHaveAttribute('aria-valuetext', 'เสิร์ฟแล้ว', LIVE)
     await expect(eta(customer)).toHaveCount(0)
   })
 
@@ -46,8 +48,8 @@ test('ลูกค้าเห็นสถานะออเดอร์เด�
 })
 
 // ทดสอบ: ครัวยกเลิกออเดอร์ → ลูกค้าเห็นแบนเนอร์ยกเลิกและ "ไม่คิดเงิน" เอง ส่วนออเดอร์ใหม่ยังเดินสถานะได้ปกติ
-// วิธี: สั่งน้ำ 1 ออเดอร์ → ลูกค้าเปิดหน้าสถานะ → ครัวยกเลิกผ่าน API → เช็กแบนเนอร์ ป้าย "ยกเลิกแล้ว" และไม่มี stepper
-//       → สั่งออเดอร์ใหม่ → เช็กว่า stepper กลับมาที่ "รับออเดอร์แล้ว" และแบนเนอร์ของใบเก่ายังอยู่
+// วิธี: สั่งน้ำ 1 ออเดอร์ → ลูกค้าเปิดหน้าสถานะ → ครัวยกเลิกผ่าน API → เช็กแบนเนอร์ ป้าย "ยกเลิกแล้ว" และไม่มีแถบสถานะ
+//       → สั่งออเดอร์ใหม่ → เช็กว่าการ์ดใบใหม่อยู่ที่ "รับออเดอร์แล้ว" และแบนเนอร์ของใบเก่ายังอยู่
 test('ครัวยกเลิกออเดอร์: ลูกค้าเห็นแบนเนอร์และไม่คิดเงิน ออเดอร์ใหม่ยังติดตามได้', async ({ browser, request }) => {
   const t = await tokens(request)
   const { session } = await openNewSession(request, t)
@@ -56,7 +58,7 @@ test('ครัวยกเลิกออเดอร์: ลูกค้าเ
 
   const customer = await (await browser.newContext({ viewport: { width: 375, height: 812 } })).newPage()
   await customer.goto(`/t/${session.token}/status`)
-  await expect(currentStep(customer)).toHaveText(/รับออเดอร์แล้ว/)
+  await expect(currentStep(customer)).toHaveAttribute('aria-valuetext', 'รับออเดอร์แล้ว')
   // POST /public/orders ไม่ส่งเลขออเดอร์กลับมา — อ่านจากการ์ดบนจอแทน
   const ref = (await customer.getByText(/^ออเดอร์ #\w+$/).innerText()).replace('ออเดอร์ #', '')
 
@@ -65,11 +67,11 @@ test('ครัวยกเลิกออเดอร์: ลูกค้าเ
   await expect(banner).toBeVisible(LIVE)
   await expect(customer.getByText('ยกเลิกแล้ว', { exact: true })).toBeVisible()
   await expect(customer.getByText('ไม่คิดเงิน', { exact: true })).toBeVisible()
-  await expect(currentStep(customer)).toHaveCount(0)
+  await expect(bars(customer)).toHaveCount(0)
 
-  // สั่งใหม่หลังโดนยกเลิก → stepper ตามออเดอร์ล่าสุด แต่ยังบอกว่าใบเก่าถูกยกเลิก
+  // สั่งใหม่หลังโดนยกเลิก → ใบใหม่มีแถบสถานะของตัวเอง แต่ยังบอกว่าใบเก่าถูกยกเลิก
   await customerOrder(request, session.token, [{ menuItemId: water.id, quantity: 1 }])
-  await expect(currentStep(customer)).toHaveText(/รับออเดอร์แล้ว/, LIVE)
+  await expect(currentStep(customer)).toHaveAttribute('aria-valuetext', 'รับออเดอร์แล้ว', LIVE)
   await expect(customer.getByText(/ทั้งหมด 2 รายการ/)).toBeVisible()
   await expect(banner).toBeVisible()
 

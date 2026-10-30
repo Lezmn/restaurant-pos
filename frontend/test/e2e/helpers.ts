@@ -38,22 +38,22 @@ export async function loginViaApi(
   }
 }
 
-/** ยัด auth state (token + user จริงจาก loginViaApi) ลง localStorage ตรง ๆ ตาม src/lib/auth-storage.ts */
+/**
+ * ยัด auth state (token + user จริงจาก loginViaApi) ตรง ๆ แทนการกรอกฟอร์ม
+ * token อยู่ใน httpOnly cookie `restaurant_token` แบบที่ backend ตั้งให้ (src/auth/auth-cookie.ts)
+ * ส่วน user อยู่ใน localStorage ตาม src/lib/auth-storage.ts
+ * cookie ผูกกับ host ของ API — localhost ไม่สนพอร์ต หน้าเว็บกับ page.request จึงส่ง cookie ไปเองทั้งคู่
+ */
 export async function setAuthState(
   page: Page,
   accessToken: string,
   user: { id: string; email: string; name: string; role: 'ADMIN' | 'STAFF' | 'KITCHEN' },
 ) {
-  await page.evaluate(
-    ([token, u]) => {
-      localStorage.setItem('restaurant.token', token as string)
-      localStorage.setItem('restaurant.user', JSON.stringify(u))
-    },
-    [accessToken, user] as const,
-  )
+  await page.context().addCookies([{ name: 'restaurant_token', value: accessToken, url: API_URL }])
+  await page.evaluate((u) => localStorage.setItem('restaurant.user', JSON.stringify(u)), user)
 }
 
-/** login เป็น admin จริงผ่าน API แล้วยัด token ลง localStorage — ใช้ setup ก่อนทุกเทสที่ต้อง login เป็น admin */
+/** login เป็น admin จริงผ่าน API แล้วยัด auth state ลงหน้า — ใช้ setup ก่อนทุกเทสที่ต้อง login เป็น admin */
 export async function loginAsAdmin(page: Page, request: APIRequestContext) {
   const { accessToken, user } = await loginViaApi(request, 'admin', 'ChangeMe123!')
   await page.goto('/login')
@@ -101,7 +101,8 @@ export async function openTableAndPlaceOrder(
   let tableCardText = ''
   for (let attempt = 0; attempt < 3; attempt++) {
     tableCardText = await pickFreeTable(page)
-    await tablesPageCard(page, tableCardText).getByRole('button', { name: 'เปิดโต๊ะ/สร้าง QR' }).click()
+    const panel = await selectTable(page, tableCardText)
+    await panel.getByRole('button', { name: 'เปิดโต๊ะ/สร้าง QR' }).click()
     await expect(qrDialog.or(taken)).toBeVisible()
     if (await qrDialog.isVisible()) break
     await page.reload()
@@ -111,8 +112,8 @@ export async function openTableAndPlaceOrder(
   await page.keyboard.press('Escape')
   await expect(qrDialog).toHaveCount(0)
 
-  const openedTable = tablesPageCard(page, tableCardText)
-  await openedTable.getByRole('button', { name: 'รับออเดอร์แทนลูกค้า' }).click()
+  // แผงรายละเอียดยังเปิดค้างโต๊ะเดิมหลังเปิดโต๊ะ — ปุ่มรับออเดอร์อยู่ในแผงนั้น
+  await tablesPageCard(page, tableCardText).getByRole('button', { name: 'รับออเดอร์แทนลูกค้า' }).click()
 
   // TakeOrderDialog: กด "+ เพิ่ม" ที่เมนู → ได้บรรทัดใหม่ด้านล่าง (เลือกตัวเลือก/จำนวน/หมายเหตุรายบรรทัด)
   const orderDialog = page.getByRole('dialog')
@@ -148,10 +149,12 @@ export async function openTableAndPlaceOrder(
  * คืนเป็นชื่อแทน locator: locator แบบ nth/first ประเมินใหม่ทุกครั้ง พอเทสอื่นเปิดโต๊ะไปก่อน จะชี้ไปโต๊ะอื่น
  */
 export async function pickFreeTable(page: Page) {
-  const free = page.locator('article', { hasText: 'ว่าง' })
+  // ผังโต๊ะ: การ์ดเป็นปุ่มเลือกโต๊ะ — ป้าย "ว่าง" ไม่ซ้ำกับสถานะอื่น (มีลูกค้า/จองแล้ว/ขอเช็คบิล/เรียกพนักงาน)
+  const free = page.getByRole('region', { name: 'ผังโต๊ะ' }).getByRole('button').filter({ hasText: 'ว่าง' })
   await expect(free.first()).toBeVisible()
   const pick = free.nth(randomInt(await free.count()))
-  return (await pick.locator('p.text-xl').innerText()).trim()
+  // ตัวเลขใหญ่บนการ์ด = "โต๊ะ " (sr-only) + เลขโต๊ะ
+  return ((await pick.locator('span').first().textContent()) ?? '').trim()
 }
 
 /**
@@ -162,16 +165,12 @@ export async function pickFreeTable(page: Page) {
  * จนกว่าออเดอร์ทุกใบในโต๊ะจะถูกเสิร์ฟก่อน (ดู CheckPage.tsx: notServed.length > 0 = blocked)
  */
 export async function advanceOrderToServed(page: Page, orderId: string) {
-  // ไล่สถานะผ่าน API ด้วย token ของคนที่ login อยู่ (ADMIN) — helper นี้แค่เตรียมสถานะให้เทสต์หน้าแคชเชียร์
+  // ไล่สถานะผ่าน API ด้วย cookie ของคนที่ login อยู่ (ADMIN) — page.request ใช้ cookie ชุดเดียวกับหน้า
+  // helper นี้แค่เตรียมสถานะให้เทสต์หน้าแคชเชียร์
   // เดิมกดผ่านจอครัว: ตั๋วสะสมเยอะ + ป๊อปอัป "เรียกพนักงาน" จากเทสต์อื่นที่รันพร้อมกัน ทำให้หมดเวลาเป็นพัก ๆ
   // ขั้นตอนบนจอครัวจริงเทสต์แยกที่ test/e2e/kitchen/kitchen-flow.spec.ts
-  const token = await page.evaluate(() => localStorage.getItem('restaurant.token'))
-  expect(token, 'ต้อง login (ADMIN/KITCHEN) ก่อนเรียก advanceOrderToServed').toBeTruthy()
   for (const status of ['PREPARING', 'SERVED']) {
-    const res = await page.request.patch(`${API_URL}/orders/${orderId}/status`, {
-      headers: { Authorization: `Bearer ${token}` },
-      data: { status },
-    })
+    const res = await page.request.patch(`${API_URL}/orders/${orderId}/status`, { data: { status } })
     expect(res.ok(), `เปลี่ยนสถานะออเดอร์เป็น ${status} ไม่สำเร็จ (${res.status()})`).toBe(true)
   }
 }
@@ -187,13 +186,62 @@ export function checkTableTile(page: Page, tableName: string) {
 }
 
 /**
- * การ์ดโต๊ะในหน้า /employee/tables แบบตรงตัว — hasText: 'โต๊ะ 1' จะไปชน 'โต๊ะ 10', 'โต๊ะ 11' ...
- * เมื่อร้านมีโต๊ะเกิน 9 ตัว จึงเทียบหัวการ์ด (p.text-xl) แบบเต็มข้อความ
+ * การ์ดโต๊ะในผังโต๊ะ (/employee/tables) — ชื่อปุ่มขึ้นต้นด้วย "โต๊ะ N" ตามด้วยสถานะ
+ * (?!\d): 'โต๊ะ 1' ต้องไม่ไปชน 'โต๊ะ 10', 'โต๊ะ 11' เมื่อร้านมีโต๊ะเกิน 9 ตัว
+ */
+export function tablesTile(page: Page, tableCardText: string) {
+  const escaped = tableCardText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return page
+    .getByRole('region', { name: 'ผังโต๊ะ' })
+    .getByRole('button', { name: new RegExp(`^${escaped}(?!\\d)`) })
+}
+
+/**
+ * แผงรายละเอียดของโต๊ะที่เลือกอยู่ (ปุ่มเปิดโต๊ะ/รับออเดอร์/ดู QR/ปิดโต๊ะ อยู่ในนี้)
+ * ต้องแตะการ์ดก่อนด้วย selectTable — แผงค้างโต๊ะเดิมไว้จนกว่าจะเลือกโต๊ะอื่นหรือโหลดหน้าใหม่
  */
 export function tablesPageCard(page: Page, tableCardText: string) {
-  return page
-    .locator('article')
-    .filter({ has: page.locator('p.text-xl').getByText(tableCardText, { exact: true }) })
+  return page.getByRole('region', { name: tableCardText, exact: true })
+}
+
+/** แตะการ์ดโต๊ะในผัง แล้วคืนแผงรายละเอียดของโต๊ะนั้น */
+export async function selectTable(page: Page, tableCardText: string) {
+  await tablesTile(page, tableCardText).click()
+  const panel = tablesPageCard(page, tableCardText)
+  await expect(panel).toBeVisible()
+  return panel
+}
+
+/**
+ * แทน window.print ด้วยฟังก์ชันเปล่าก่อนหน้าโหลด — ใบเสร็จ PromptPay สั่งพิมพ์เองทันที
+ * กล่องพิมพ์จริงของเบราว์เซอร์ทดสอบไม่ได้ (และอาจค้างรอ) เรียกก่อน page.goto
+ */
+export async function stubPrint(page: Page) {
+  await page.addInitScript(() => {
+    window.print = () => {}
+  })
+}
+
+/**
+ * PromptPay แบบพิมพ์ใบเสร็จก่อน: กด "พิมพ์ใบเสร็จ" ในกล่องรับเงิน → บิลบันทึกเป็น "รอสลิป"
+ * ใบเสร็จ (มี QR) สั่งพิมพ์เอง แล้วกล่อง "ตรวจสลิป" ของบิลนั้นเด้งขึ้นมาเอง — คืนกล่องนั้นพร้อมเลขใบเสร็จ
+ * ต้อง stubPrint ก่อนเปิดหน้า
+ */
+export async function printPromptPay(page: Page, payDialog: Locator) {
+  await payDialog.getByRole('button', { name: 'พิมพ์ใบเสร็จ', exact: true }).click()
+  const slipDialog = page.getByRole('dialog', { name: 'ตรวจสลิป' })
+  await expect(slipDialog).toBeVisible()
+  const receiptNo = (await slipDialog.getByText(/^RCPT-/).innerText()).trim()
+  return { slipDialog, receiptNo }
+}
+
+/**
+ * ลูกค้า: "เพิ่มรายการ" พากลับหน้าเมนูแล้ว (ไม่ไปตะกร้า) — เปิดตะกร้าจากแท็บ "รายการที่เลือก"
+ * มีทั้งแถบล่าง (มือถือ) และแถบบน (จอใหญ่) ตัวที่ซ่อนอยู่ไม่นับเป็น role จึงได้ตัวที่เห็นเสมอ
+ */
+export async function openCart(page: Page) {
+  await page.getByRole('link', { name: /^รายการที่เลือก/ }).click()
+  await expect(page).toHaveURL(/\/cart$/)
 }
 
 /**
@@ -210,28 +258,6 @@ export async function chooseOption(page: Page, role: 'radio' | 'checkbox', name:
 /** ตาราง "บิลที่เก็บแล้ววันนี้" ในหน้า Check (section มี aria-labelledby จึงเป็น region) */
 export function paidBillsTable(page: Page) {
   return page.getByRole('region', { name: /บิลที่เก็บแล้ววันนี้/ }).locator('table')
-}
-
-/**
- * PromptPay: กด "พิมพ์ใบเสร็จ" ในกล่องรับเงิน → คืนเลขใบเสร็จของบิลที่เพิ่งสร้าง (สถานะ "รอสลิป")
- * ใบเสร็จมี QR เด้งขึ้นแล้วสั่งพิมพ์เอง จากนั้นหน้าเว็บเปิดกล่อง "ตรวจสลิป" ต่อให้ — แทน window.print ไม่ให้กล่องพิมพ์จริงค้าง
- */
-export async function printPromptPayReceipt(page: Page, dialog: Locator) {
-  await page.evaluate(() => {
-    window.print = () => {}
-  })
-  const [res] = await Promise.all([
-    page.waitForResponse((r) => new URL(r.url()).pathname === '/payments' && r.request().method() === 'POST'),
-    dialog.getByRole('button', { name: 'พิมพ์ใบเสร็จ', exact: true }).click(),
-  ])
-  expect(res.ok()).toBe(true)
-  const paid = (await res.json()) as { receipt: { number: string } }
-  return paid.receipt.number
-}
-
-/** กล่อง "ตรวจสลิป" (เด้งหลังพิมพ์ใบเสร็จ PromptPay หรือกดจากตารางบิล) — ใส่ข้อความ QR ของสลิปแล้วกดตรวจ */
-export function slipDialog(page: Page) {
-  return page.getByRole('dialog', { name: 'ตรวจสลิป' })
 }
 
 /**

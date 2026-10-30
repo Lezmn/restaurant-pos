@@ -97,10 +97,10 @@ const navItems = [
 ]
 
 /** หน้าตาเดียวกันทุกปุ่มใน sidebar (เมนู / กลับหน้าพนักงาน / Logout) — ใส่ flex หรือ hidden เองตามจอ */
-// พื้น brand-50 + ตัว brand-500 เต็ม (5.3:1) — เดิมพื้น brand-100/70 + ตัว /80 ได้แค่ 2.9:1 · สูง 44px ตามเป้ากดของระบบ
+// สีเดียวกับแถบ rail ฝั่งพนักงาน — พื้นเข้ม ตัว rail-text (12:1) / หน้าที่อยู่ = ส้ม brand-300 ตัว rail · สูง 44px ตามเป้ากดของระบบ
 const navItemBase = 'min-h-11 shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition'
-const navItemClass = `${navItemBase} text-brand-500 hover:bg-brand-75/60`
-const navItemActiveClass = `${navItemBase} bg-brand-500 text-white`
+const navItemClass = `${navItemBase} text-rail-text hover:bg-white/10`
+const navItemActiveClass = `${navItemBase} bg-brand-300 text-rail`
 
 export function OwnerLayout() {
   const user = useAuth((s) => s.user)
@@ -115,9 +115,9 @@ export function OwnerLayout() {
   return (
     <div className="flex min-h-dvh flex-col bg-white lg:flex-row">
       {/* จอใหญ่: sidebar ซ้ายตามดีไซน์ / จอเล็ก: แถบบนเลื่อนแนวนอน ค้างติดขอบบนตอนเลื่อนหน้า (สลับหน้าได้ตลอด) */}
-      <aside className="sticky top-0 z-20 flex shrink-0 flex-col border-b border-brand-75 bg-brand-50 lg:static lg:min-h-dvh lg:w-56 lg:border-r lg:border-b-0">
+      <aside className="sticky top-0 z-20 flex shrink-0 flex-col bg-rail lg:static lg:min-h-dvh lg:w-56">
         <div className="flex items-center gap-2 px-4 py-4">
-          <p className="min-w-0 text-lg leading-tight font-bold text-balance text-brand-500">{RESTAURANT_NAME}</p>
+          <p className="min-w-0 text-lg leading-tight font-bold text-balance text-brand-300">{RESTAURANT_NAME}</p>
           {/* จอเล็ก: แถบเมนูเลื่อนแนวนอน ปุ่มท้ายแถวจะหลุดจอ — วางปุ่มกลับไว้แถวชื่อร้านให้เห็นตลอด */}
           {user && (
             <Link
@@ -167,7 +167,7 @@ export function OwnerLayout() {
 
         <div className="hidden px-3 pb-4 lg:block">
           {user && (
-            <p className="px-3 pb-2 text-xs text-brand-500">
+            <p className="px-3 pb-2 text-xs text-rail-text">
               {user.name} · {user.role}
             </p>
           )}

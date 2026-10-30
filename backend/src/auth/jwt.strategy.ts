@@ -2,8 +2,9 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { Role } from '@prisma/client';
-import { ExtractJwt, Strategy } from 'passport-jwt';
+import { Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { readStaffToken } from './auth-cookie';
 
 export type AuthenticatedUser = {
   id: string;
@@ -21,7 +22,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(config: ConfigService, private readonly prisma: PrismaService) {
     const secret = config.get<string>('JWT_SECRET');
     if (!secret) throw new Error('JWT_SECRET is required');
-    super({ jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(), ignoreExpiration: false, secretOrKey: secret });
+    // หน้าเว็บส่งมาใน httpOnly cookie; Swagger/สคริปต์ยังใช้ Authorization: Bearer ได้
+    super({ jwtFromRequest: readStaffToken, ignoreExpiration: false, secretOrKey: secret });
   }
 
   async validate(payload: JwtPayload): Promise<AuthenticatedUser> {

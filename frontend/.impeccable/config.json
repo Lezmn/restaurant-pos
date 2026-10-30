@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "border-accent-on-rounded",
+        "value": "*",
+        "files": [
+          "src/pages/customer/MenuItemPage.tsx"
+        ],
+        "createdAt": "2026-10-29T19:38:43.723Z",
+        "reason": "Claude triage: same order bar as the 2026-10-29 exception (border-t-2 full-width divider on mobile, uniform lg:border-2 box on desktop); path recorded relative to frontend/ because the hook ran from there"
+      }
+    ]
+  }
+}

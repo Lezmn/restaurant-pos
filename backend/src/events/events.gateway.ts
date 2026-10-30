@@ -9,6 +9,7 @@ import {
 import { TableSessionStatus } from '@prisma/client';
 import { Server, Socket } from 'socket.io';
 import { decimalToNumber } from '../common/interceptors/decimal.interceptor';
+import { readAuthCookie } from '../auth/auth-cookie';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** ห้องรวมของพนักงานทุกคน (POS / ครัว / เจ้าของ) */
@@ -42,9 +43,11 @@ type StaffPayload = { sub: string; tv?: number };
 const userRoom = (userId: string) => `user:${userId}`;
 
 /**
- * Handshake: client ส่งอย่างใดอย่างหนึ่งมาใน `socket.handshake.auth`
- *   - `token`        = JWT ของพนักงาน → เข้าห้อง staff
- *   - `sessionToken` = token จาก QR ของลูกค้า → เข้าห้อง session ของตัวเอง
+ * Handshake: เช็กตามลำดับ
+ *   - `handshake.auth.token`        = JWT ของพนักงาน (สคริปต์/เทสต์) → เข้าห้อง staff
+ *   - `handshake.auth.sessionToken` = token จาก QR ของลูกค้า → เข้าห้อง session ของตัวเอง
+ *   - cookie ของพนักงาน (หน้าเว็บ, withCredentials) → เข้าห้อง staff
+ *     มาหลัง sessionToken: เครื่องพนักงานที่เปิดหน้า QR ลูกค้าต้องได้ห้องของโต๊ะ ไม่ใช่ห้อง staff
  * ไม่มีทั้งคู่ หรือตรวจไม่ผ่าน → ตัดการเชื่อมต่อทันที
  *
  * CORS ตั้งใน SocketIoAdapter (main.ts) เพราะ decorator นี้รันก่อน .env ถูกโหลด
@@ -76,7 +79,12 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         await this.joinAsCustomer(client, auth.sessionToken);
         return;
       }
-      throw new Error('ต้องส่ง token หรือ sessionToken ใน handshake.auth');
+      const cookieToken = readAuthCookie(client.handshake.headers?.cookie);
+      if (cookieToken) {
+        await this.joinAsStaff(client, cookieToken);
+        return;
+      }
+      throw new Error('ต้อง login หรือส่ง sessionToken ใน handshake.auth');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unauthorized';
       this.logger.warn(`ปฏิเสธการเชื่อมต่อ ${client.id}: ${message}`);

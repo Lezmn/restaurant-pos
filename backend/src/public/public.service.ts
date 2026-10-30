@@ -62,16 +62,22 @@ export class PublicService {
 
   async getSession(token: string) {
     const session = await this.getOpenSession(token);
-    // แจ้งขอชำระเงินที่ยังรอพนักงานอยู่ — หน้าลูกค้าใช้ล็อกปุ่มไม่ให้กดซ้ำ แม้รีเฟรชหน้า
-    const checkoutRequest = await this.prisma.serviceRequest.findFirst({
-      where: {
-        tableSessionId: session.id,
-        type: ServiceRequestType.CHECKOUT,
-        status: ServiceRequestStatus.PENDING,
-      },
-      select: { id: true, createdAt: true },
-      orderBy: { createdAt: 'desc' },
-    });
+    // คำขอที่ยังรอพนักงานอยู่ — หน้าลูกค้าใช้ล็อกปุ่มไม่ให้กดซ้ำ แม้รีเฟรชหน้า
+    // พนักงานกด "รับทราบ"/เก็บเงินแล้ว คำขอไม่ PENDING อีก ปุ่มฝั่งลูกค้ากลับมากดได้
+    const pendingOf = (type: ServiceRequestType) =>
+      this.prisma.serviceRequest.findFirst({
+        where: {
+          tableSessionId: session.id,
+          type,
+          status: ServiceRequestStatus.PENDING,
+        },
+        select: { id: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+      });
+    const [checkoutRequest, callStaffRequest] = await Promise.all([
+      pendingOf(ServiceRequestType.CHECKOUT),
+      pendingOf(ServiceRequestType.CALL_STAFF),
+    ]);
 
     return {
       id: session.id,
@@ -85,6 +91,7 @@ export class PublicService {
         seats: session.table.seats,
       },
       checkoutRequest,
+      callStaffRequest,
     };
   }
 

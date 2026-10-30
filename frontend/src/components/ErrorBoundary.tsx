@@ -1,3 +1,4 @@
+import { ErrorScreen } from '@/components/ErrorScreen'
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 
 interface Props {
@@ -27,30 +28,7 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     const { error } = this.state
     if (!error) return this.props.children
-
-    return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
-        <span aria-hidden className="text-4xl">
-          ⚠️
-        </span>
-        <h1 className="text-xl font-bold text-ink">เกิดข้อผิดพลาด</h1>
-        <p className="max-w-md text-sm text-gray-600">
-          ระบบทำงานผิดพลาดโดยไม่คาดคิด ลองโหลดหน้าใหม่อีกครั้ง
-          ถ้ายังไม่หายกรุณาแจ้งพนักงาน
-        </p>
-
-        <pre className="max-w-md overflow-x-auto rounded-lg bg-gray-100 p-3 text-left text-xs text-gray-600">
-          {error.message}
-        </pre>
-
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="rounded-full bg-brand-300 px-6 py-2.5 text-sm font-bold text-white"
-        >
-          โหลดหน้าใหม่
-        </button>
-      </div>
-    )
+    // หน้าตาเดียวกับ errorElement ของ router — ตัวนี้จับเฉพาะที่พังนอก router (เช่น provider ชั้นบน)
+    return <ErrorScreen error={error} />
   }
 }

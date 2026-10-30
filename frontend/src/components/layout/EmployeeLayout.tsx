@@ -1,3 +1,4 @@
+import logoUrl from '@/assets/logo.svg'
 import { AlertSoundToggle } from '@/components/AlertSoundToggle'
 import { CallStaffAlert } from '@/components/CallStaffAlert'
 import { Toaster } from '@/components/ui/Toaster'
@@ -66,7 +67,7 @@ function IconLogout() {
   )
 }
 
-/** นาฬิกา + วันที่แบบ พ.ศ. ตามดีไซน์ (16:30 / 20/7/2569) */
+/** นาฬิกา + วันที่แบบ พ.ศ. (16:30 / พ. 29 ต.ค. 2569) — ตัวเข้มบนพื้นขาว ไม่ใช่ตัวขาวบนส้มอ่อนแบบเดิม */
 function Clock() {
   const [now, setNow] = useState(() => new Date())
 
@@ -79,18 +80,17 @@ function Clock() {
     hour: '2-digit',
     minute: '2-digit',
   })
-  const date = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear() + 543}`
+  const date = now.toLocaleDateString('th-TH', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
 
   return (
-    <div className="flex items-center gap-2 rounded-2xl bg-brand-50 px-3 py-2 text-brand-500 sm:gap-3 sm:px-4">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden className="h-6 w-6 shrink-0 sm:h-8 sm:w-8">
-        <circle cx="12" cy="13" r="8" />
-        <path d="M12 9.5V13l2.5 1.5M5 4 3 6M19 4l2 2" strokeLinecap="round" />
-      </svg>
-      <div className="text-right leading-tight">
-        <p className="text-sm font-bold tabular-nums sm:text-base">{time}</p>
-        <p className="text-sm font-bold tabular-nums sm:text-base">{date}</p>
-      </div>
+    <div className="hidden shrink-0 text-right leading-tight sm:block">
+      <p className="text-lg font-bold text-text tabular-nums">{time}</p>
+      <p className="text-xs font-semibold text-gray-600">{date}</p>
     </div>
   )
 }
@@ -98,23 +98,56 @@ function Clock() {
 interface Tab {
   to: string
   label: string
+  /** หัวข้อหน้าบน header */
+  title: string
   icon: ReactNode
   roles: Role[]
+  /** โหลดไฟล์ของหน้านั้นล่วงหน้า — ชี้ module เดียวกับ lazy() ใน routes.tsx จึงได้ chunk เดียวกัน */
+  preload: () => Promise<unknown>
 }
 
 const tabs: Tab[] = [
-  { to: '/employee/order', label: 'Order', icon: <IconChef />, roles: pageRoles.order },
-  { to: '/employee/manage', label: 'Manage', icon: <IconFolder />, roles: pageRoles.manage },
-  { to: '/employee/check', label: 'Check', icon: <IconReceipt />, roles: pageRoles.check },
-  { to: '/employee/tables', label: 'Table', icon: <IconTable />, roles: pageRoles.tables },
-  { to: '/employee/takeaway', label: 'Takeaway', icon: <IconBag />, roles: pageRoles.takeaway },
+  { to: '/employee/order', label: 'คิวครัว', title: 'คิวครัว', icon: <IconChef />, roles: pageRoles.order, preload: () => import('@/pages/employee/OrderPage') },
+  { to: '/employee/manage', label: 'เมนู/ของหมด', title: 'เมนูและของหมด', icon: <IconFolder />, roles: pageRoles.manage, preload: () => import('@/pages/employee/ManagePage') },
+  { to: '/employee/check', label: 'รับเงิน', title: 'รับเงิน', icon: <IconReceipt />, roles: pageRoles.check, preload: () => import('@/pages/employee/CheckPage') },
+  { to: '/employee/tables', label: 'โต๊ะ', title: 'โต๊ะ', icon: <IconTable />, roles: pageRoles.tables, preload: () => import('@/pages/employee/TablesPage') },
+  { to: '/employee/takeaway', label: 'กลับบ้าน', title: 'สั่งกลับบ้าน', icon: <IconBag />, roles: pageRoles.takeaway, preload: () => import('@/pages/employee/TakeawayPage') },
 ]
+
+/**
+ * โหลดไฟล์ของทุกแท็บที่ role นี้เปิดได้ตอนเครื่องว่าง — บนเซิร์ฟเวอร์จริง chunk ของแต่ละหน้าใช้เวลาดาวน์โหลด ~0.4s
+ * ถ้ารอจนกดแท็บครั้งแรก จอจะขึ้น "กำลังโหลด..." ทุกหน้าที่ยังไม่เคยเปิด (รู้สึกว่าแท็บค้าง)
+ * โหลดแล้ว browser cache ไว้ (immutable) กดครั้งต่อไปไม่ต้องรอ — โหลดพลาดก็ไม่เป็นไร กดแท็บจะโหลดใหม่เอง
+ */
+function usePreloadTabs(list: Tab[]) {
+  const key = list.map((t) => t.to).join(',')
+  useEffect(() => {
+    const run = () => {
+      for (const tab of list) tab.preload().catch(() => {})
+    }
+    const idle = window.requestIdleCallback
+    if (idle) {
+      const id = idle(run, { timeout: 3000 })
+      return () => window.cancelIdleCallback(id)
+    }
+    const id = window.setTimeout(run, 1500)
+    return () => window.clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- key แทนรายการแท็บ (array ใหม่ทุก render)
+  }, [key])
+}
+
+const roleAccount: Record<Role, string> = {
+  [Role.ADMIN]: 'เจ้าของร้าน',
+  [Role.KITCHEN]: 'บัญชีครัว',
+  [Role.STAFF]: 'บัญชีหน้าร้าน',
+}
 
 export function EmployeeLayout() {
   const user = useAuth((s) => s.user)
   const signOut = useAuth((s) => s.signOut)
   const navigate = useNavigate()
-  const onOrderPage = useLocation().pathname.startsWith('/employee/order')
+  const { pathname } = useLocation()
+  const onOrderPage = pathname.startsWith('/employee/order')
   const { data: tables } = useTables()
   // ต่อ socket ที่ layout จึงได้ event ทุกหน้าของพนักงาน (ครัว / Check / โต๊ะ / คำขอ)
   useStaffLiveEvents()
@@ -122,123 +155,93 @@ export function EmployeeLayout() {
   const available =
     tables?.filter((t) => t.status === TableStatus.AVAILABLE).length ?? 0
 
-  // ดีไซน์โชว์ปุ่มครบทุกอัน — ปุ่มที่ role นี้ไม่มีสิทธิ์จะแสดงแบบจาง ๆ และกดไม่ได้
-  const canOpen = (tab: Tab) => Boolean(user && tab.roles.includes(user.role))
-  // ปุ่มที่ role นี้กดได้อยู่ชิดซ้าย ปุ่มที่กดไม่ได้ (จาง) ไปอยู่ขวา — ลำดับภายในกลุ่มคงเดิม
-  const orderedTabs = [...tabs.filter(canOpen), ...tabs.filter((tab) => !canOpen(tab))]
+  // แสดงเฉพาะหน้าที่ role นี้เข้าได้ — UI ไม่พาไปเจอสิ่งที่ทำไม่ได้ (เดิมโชว์ปุ่มจางที่กดไม่ได้ปนอยู่)
+  const visibleTabs = tabs.filter((tab) => Boolean(user && tab.roles.includes(user.role)))
+  const title = tabs.find((tab) => pathname.startsWith(tab.to))?.title ?? ''
+  usePreloadTabs(visibleTabs)
+
+  const logout = () => {
+    signOut()
+    navigate('/login')
+  }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-white">
-      <header className="px-4 pt-4 sm:px-8">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-2">
-            <span aria-hidden className="text-2xl text-brand-400">
-              🍴
-            </span>
-            {/* brand-400 ผ่าน contrast เฉพาะตัวหนา 24px — จอเล็กตัว 18px ใช้ brand-500 */}
-            <p className="truncate text-lg font-bold text-brand-500 sm:text-2xl sm:text-brand-400">
-              {RESTAURANT_NAME}
-            </p>
+    <div className="flex min-h-dvh bg-staff-ground">
+      {/* แถบนำทาง: แท็บเล็ตขึ้นไปเป็นแถบซ้ายสีเข้ม / มือถือเป็นแถบล่าง — ส้ม = แท็บที่อยู่ */}
+      <nav
+        aria-label="เมนูหลักพนักงาน"
+        className="fixed inset-x-0 bottom-0 z-20 flex bg-rail pb-[env(safe-area-inset-bottom)] md:sticky md:top-0 md:h-dvh md:w-26 md:shrink-0 md:flex-col md:items-center md:gap-2 md:py-4 md:pb-4"
+      >
+        {/* โลโก้ร้าน — ชื่อร้านอยู่ที่หัวจอแล้ว จึงซ่อนจาก screen reader */}
+        <img src={logoUrl} alt="" aria-hidden className="mb-4 hidden h-16 w-16 md:block" />
+        {visibleTabs.map((tab) => (
+          <NavLink
+            key={tab.to}
+            to={tab.to}
+            className={({ isActive }) =>
+              `flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-xs font-semibold transition md:w-20 md:flex-none md:rounded-2xl md:py-3 md:text-[13px] [&>svg]:h-6 [&>svg]:w-6 ${
+                isActive ? 'bg-brand-300 text-rail' : 'text-rail-text hover:bg-white/10'
+              }`
+            }
+          >
+            {tab.icon}
+            <span className="text-center leading-tight">{tab.label}</span>
+          </NavLink>
+        ))}
+        <button
+          type="button"
+          onClick={logout}
+          className="flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-xs font-semibold text-rail-text transition hover:bg-white/10 md:mt-auto md:w-20 md:flex-none md:rounded-2xl md:py-3 md:text-[13px] [&>svg]:h-6 [&>svg]:w-6"
+        >
+          <IconLogout />
+          <span>ออกจากระบบ</span>
+        </button>
+      </nav>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-10 flex min-h-19 flex-wrap items-center gap-x-4 gap-y-2 border-b-2 border-staff-line bg-white px-4 py-2 sm:px-6">
+          <div className="min-w-0">
+            <p className="truncate text-xs font-semibold text-brand-500 sm:text-[13px]">{RESTAURANT_NAME}</p>
+            <h1 className="text-xl font-bold leading-tight text-text sm:text-2xl">{title}</h1>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
+
+          {/* ปุ่มของหมด (เฉพาะหน้าครัว) อยู่บน header — กดได้ตลอดโดยไม่กินแถวเหนือบอร์ด */}
+          {onOrderPage && <KitchenSoldOutButton />}
+
+          <div className="ml-auto flex items-center gap-2 sm:gap-3">
+            <p className="hidden rounded-xl bg-staff-ground px-3 py-2 text-sm font-semibold text-gray-700 lg:block">
+              จำนวนโต๊ะที่ว่าง <span className="font-bold text-text tabular-nums">{tables ? available : '—'}</span> โต๊ะ
+            </p>
             <AlertSoundToggle />
             {/* ADMIN = เจ้าของร้าน มีหน้า Dashboard แยกอีกชุด (บัญชีผู้ใช้อยู่ในนั้นด้วย) */}
             {user?.role === Role.ADMIN && (
               <Link
                 to="/owner"
-                className="hidden min-h-11 items-center whitespace-nowrap rounded-lg border-2 border-brand-400 px-3 py-2 text-sm font-bold text-brand-500 transition hover:bg-brand-50 sm:flex"
+                className="hidden min-h-11 items-center whitespace-nowrap rounded-xl border-2 border-brand-500 px-3 text-sm font-bold text-brand-500 transition hover:bg-brand-50 sm:flex"
               >
                 Dashboard
               </Link>
             )}
-            <button
-              type="button"
-              onClick={() => {
-                signOut()
-                navigate('/login')
-              }}
-              // แดงแบบ danger-outline แยกจากปุ่มส้มอื่นบนหัวจอ · ใช้คำว่า Logout ให้ตรงกับฝั่งเจ้าของร้าน
-              className="flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-lg border-2 border-danger bg-white px-3 py-2 text-sm font-bold text-danger-ink transition hover:bg-danger/5"
-            >
-              <span aria-hidden className="[&>svg]:h-5 [&>svg]:w-5">
-                <IconLogout />
-              </span>
-              <span className="hidden sm:inline">Logout</span>
-              <span className="sr-only sm:hidden">Logout</span>
-            </button>
             <Clock />
-          </div>
-        </div>
-
-        {/* ปุ่มของหมด (เฉพาะหน้า Order) อยู่แถวเดียวกับจำนวนโต๊ะ — ไม่กินอีกแถวเหนือบอร์ดครัว */}
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          {onOrderPage ? <KitchenSoldOutButton /> : <span />}
-          <div className="ml-auto text-right text-base font-bold text-black sm:text-xl">
-            จำนวนโต๊ะที่ว่าง {tables ? available : '—'} โต๊ะ
             {user && (
-              // มือถือขึ้นบรรทัดใหม่ — ไม่งั้นแถวยาวเกินจนปุ่มของหมดตกไปอยู่อีกแถว
-            <span className="block text-sm font-normal text-gray-600 sm:ml-3 sm:inline">
-                ({user.name} · {user.role})
+              <span
+                title={user.name}
+                className="hidden rounded-xl border-2 border-brand-75 bg-brand-50 px-3 py-2 text-sm font-bold text-brand-500 sm:block"
+              >
+                {roleAccount[user.role]}
               </span>
             )}
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="flex-1 px-4 pt-4 pb-28 sm:px-8">
-        <Outlet />
-      </main>
+        <main className="flex-1 px-4 pt-4 pb-28 sm:px-6 md:pb-6">
+          <Outlet />
+        </main>
+      </div>
 
       {/* GET /service-requests เป็น @Roles(ADMIN, STAFF) — ครัว mount แล้วจะยิงโดน 403 ทุก event */}
       {user && pageRoles.requests.includes(user.role) && <CallStaffAlert />}
       <Toaster />
-
-      {/* แถบล่าง: Order · Manage · Check · Table · Takeaway — active เป็นบล็อกส้มเต็ม */}
-      <nav className="fixed inset-x-0 bottom-0 z-20 flex bg-white shadow-[0_-4px_16px_rgba(0,0,0,0.08)] pb-[env(safe-area-inset-bottom)]">
-        {orderedTabs.map((tab) => {
-          const iconClass =
-            '[&>svg]:h-6 [&>svg]:w-6 sm:[&>svg]:h-8 sm:[&>svg]:w-8'
-          const base =
-            'flex flex-1 items-center justify-center gap-2 py-4 text-lg font-bold transition sm:gap-3 sm:text-2xl'
-
-          if (!canOpen(tab)) {
-            return (
-              <button
-                key={tab.to}
-                type="button"
-                disabled
-                aria-disabled="true"
-                aria-label={`${tab.label} (ไม่มีสิทธิ์)`}
-                title={`ต้องเป็น ${tab.roles.join(' หรือ ')} จึงจะเข้าหน้านี้ได้`}
-                className={`${base} cursor-not-allowed text-gray-400`}
-              >
-                <span className={`text-gray-400 ${iconClass}`}>{tab.icon}</span>
-                <span className="hidden sm:inline">{tab.label}</span>
-              </button>
-            )
-          }
-
-          // active เป็นบล็อก brand-400 (ตัว 24px หนา = ตัวใหญ่ ผ่าน 3:1) ไอคอนต้องเป็นขาวด้วย ไม่งั้นกลืนกับพื้น
-          return (
-            <NavLink
-              key={tab.to}
-              to={tab.to}
-              aria-label={tab.label}
-              className={({ isActive }) =>
-                `${base} ${
-                  isActive
-                    ? 'bg-brand-400 text-white [&_.nav-icon]:text-white'
-                    : 'text-black hover:bg-brand-50'
-                }`
-              }
-            >
-              <span className={`nav-icon text-brand-500 ${iconClass}`}>{tab.icon}</span>
-              <span className="hidden sm:inline">{tab.label}</span>
-            </NavLink>
-          )
-        })}
-
-      </nav>
     </div>
   )
 }

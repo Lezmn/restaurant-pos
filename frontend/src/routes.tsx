@@ -2,6 +2,7 @@
 // การประกาศ lazy component ไว้ที่นี่คือจุดประสงค์ของไฟล์ ไม่ได้ทำให้ Fast Refresh เสีย
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute'
 import { PageLoading } from '@/components/ui/PageLoading'
+import { RouteErrorPage } from '@/pages/RouteErrorPage'
 import { pageRoles } from '@/features/auth/permissions'
 import { lazy, Suspense, type ReactNode } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
@@ -128,110 +129,116 @@ const s = (node: ReactNode) => (
 )
 
 export const router = createBrowserRouter([
-  { path: '/', element: <Navigate to="/employee" replace /> },
-
-  // ---------- ฝั่งลูกค้า: เข้าผ่าน QR ไม่ต้อง login ----------
   {
-    path: '/t/:token',
-    element: s(<CustomerLayout />),
+    // ครอบทุกเส้นทาง — หน้าไหนพังตอน render หรือโหลดไฟล์ไม่ได้ ขึ้นหน้า error ของร้านแทนหน้า default ของ React Router
+    errorElement: <RouteErrorPage />,
     children: [
-      { index: true, element: s(<CustomerMenuPage />) },
-      { path: 'menu/:menuItemId', element: s(<CustomerMenuItemPage />) },
-      { path: 'cart', element: s(<CustomerCartPage />) },
-      { path: 'bill', element: s(<CustomerBillPage />) },
-      { path: 'status', element: s(<CustomerStatusPage />) },
-    ],
-  },
+      { path: '/', element: <Navigate to="/employee" replace /> },
 
-  // ---------- login หน้าเดียวใช้ได้ทุก role ----------
-  // เดิมแยก /employee/login กับ /owner/login ทั้งที่ฟอร์มเหมือนกัน
-  // เจ้าของร้านเข้าหน้าพนักงานได้อยู่แล้ว (มีปุ่ม Dashboard ที่หัวจอ)
-  {
-    path: '/login',
-    element: s(
-      <LoginPage
-        redirectTo="/employee"
-        hint="admin (ADMIN) · staff (STAFF) · kitchen (KITCHEN)"
-      />,
-    ),
-  },
-  // ลิงก์เก่าที่อาจถูก bookmark ไว้
-  { path: '/employee/login', element: <Navigate to="/login" replace /> },
-  { path: '/owner/login', element: <Navigate to="/login" replace /> },
-  {
-    path: '/employee',
-    // ชั้นที่ 1: ต้องมี token ไม่งั้นเด้งไปหน้า login
-    element: <ProtectedRoute />,
-    children: [
+      // ---------- ฝั่งลูกค้า: เข้าผ่าน QR ไม่ต้อง login ----------
       {
-        element: s(<EmployeeLayout />),
+        path: '/t/:token',
+        element: s(<CustomerLayout />),
         children: [
-          { index: true, element: s(<EmployeeHome />) },
-
-          // ชั้นที่ 2: เช็ค role ทีละหน้า ตรงกับ @Roles(...) ฝั่ง NestJS
-          {
-            element: <ProtectedRoute roles={pageRoles.order} />,
-            children: [{ path: 'order', element: s(<OrderPage />) }],
-          },
-          {
-            element: <ProtectedRoute roles={pageRoles.check} />,
-            children: [{ path: 'check', element: s(<CheckPage />) }],
-          },
-          {
-            element: <ProtectedRoute roles={pageRoles.manage} />,
-            children: [{ path: 'manage', element: s(<ManagePage />) }],
-          },
-          {
-            element: <ProtectedRoute roles={pageRoles.tables} />,
-            children: [{ path: 'tables', element: s(<TablesPage />) }],
-          },
-          {
-            element: <ProtectedRoute roles={pageRoles.takeaway} />,
-            children: [{ path: 'takeaway', element: s(<TakeawayPage />) }],
-          },
-
-          // หน้าที่ไม่มีในดีไซน์ แต่เขียนไว้แล้วและ backend รองรับ
-          // เข้าถึงได้ทาง URL ตรง แต่ไม่ได้อยู่ในแถบล่าง
-          {
-            element: <ProtectedRoute roles={pageRoles.orders} />,
-            children: [{ path: 'orders', element: s(<OrdersPage />) }],
-          },
-          {
-            element: <ProtectedRoute roles={pageRoles.requests} />,
-            children: [{ path: 'requests', element: s(<RequestsPage />) }],
-          },
-          // บัญชีผู้ใช้ย้ายไปอยู่ฝั่งเจ้าของร้านแล้ว — ลิงก์เก่าที่อาจถูก bookmark ไว้
-          { path: 'users', element: <Navigate to="/owner/users" replace /> },
+          { index: true, element: s(<CustomerMenuPage />) },
+          { path: 'menu/:menuItemId', element: s(<CustomerMenuItemPage />) },
+          { path: 'cart', element: s(<CustomerCartPage />) },
+          { path: 'bill', element: s(<CustomerBillPage />) },
+          { path: 'status', element: s(<CustomerStatusPage />) },
         ],
       },
-    ],
-  },
 
-  // ---------- ฝั่งเจ้าของร้าน: ADMIN เท่านั้น ----------
-  {
-    path: '/owner',
-    element: (
-      <ProtectedRoute roles={pageRoles.owner} fallbackPath="/employee" />
-    ),
-    children: [
+      // ---------- login หน้าเดียวใช้ได้ทุก role ----------
+      // เดิมแยก /employee/login กับ /owner/login ทั้งที่ฟอร์มเหมือนกัน
+      // เจ้าของร้านเข้าหน้าพนักงานได้อยู่แล้ว (มีปุ่ม Dashboard ที่หัวจอ)
       {
-        element: s(<OwnerLayout />),
+        path: '/login',
+        element: s(
+          <LoginPage
+            redirectTo="/employee"
+            hint="admin (ADMIN) · staff (STAFF) · kitchen (KITCHEN)"
+          />,
+        ),
+      },
+      // ลิงก์เก่าที่อาจถูก bookmark ไว้
+      { path: '/employee/login', element: <Navigate to="/login" replace /> },
+      { path: '/owner/login', element: <Navigate to="/login" replace /> },
+      {
+        path: '/employee',
+        // ชั้นที่ 1: ต้องมี token ไม่งั้นเด้งไปหน้า login
+        element: <ProtectedRoute />,
         children: [
-          { index: true, element: <Navigate to="/owner/dashboard" replace /> },
-          { path: 'dashboard', element: s(<DashboardPage />) },
-          { path: 'finance', element: s(<FinancePage />) },
-          { path: 'sales', element: s(<SalesPage />) },
-          { path: 'cash-closes', element: s(<CashClosesPage />) },
-          { path: 'audit', element: s(<AuditLogPage />) },
-          { path: 'line', element: s(<LineSettingsPage />) },
           {
-            element: <ProtectedRoute roles={pageRoles.users} fallbackPath="/owner" />,
-            children: [{ path: 'users', element: s(<UsersPage />) }],
+            element: s(<EmployeeLayout />),
+            children: [
+              { index: true, element: s(<EmployeeHome />) },
+
+              // ชั้นที่ 2: เช็ค role ทีละหน้า ตรงกับ @Roles(...) ฝั่ง NestJS
+              {
+                element: <ProtectedRoute roles={pageRoles.order} />,
+                children: [{ path: 'order', element: s(<OrderPage />) }],
+              },
+              {
+                element: <ProtectedRoute roles={pageRoles.check} />,
+                children: [{ path: 'check', element: s(<CheckPage />) }],
+              },
+              {
+                element: <ProtectedRoute roles={pageRoles.manage} />,
+                children: [{ path: 'manage', element: s(<ManagePage />) }],
+              },
+              {
+                element: <ProtectedRoute roles={pageRoles.tables} />,
+                children: [{ path: 'tables', element: s(<TablesPage />) }],
+              },
+              {
+                element: <ProtectedRoute roles={pageRoles.takeaway} />,
+                children: [{ path: 'takeaway', element: s(<TakeawayPage />) }],
+              },
+
+              // หน้าที่ไม่มีในดีไซน์ แต่เขียนไว้แล้วและ backend รองรับ
+              // เข้าถึงได้ทาง URL ตรง แต่ไม่ได้อยู่ในแถบล่าง
+              {
+                element: <ProtectedRoute roles={pageRoles.orders} />,
+                children: [{ path: 'orders', element: s(<OrdersPage />) }],
+              },
+              {
+                element: <ProtectedRoute roles={pageRoles.requests} />,
+                children: [{ path: 'requests', element: s(<RequestsPage />) }],
+              },
+              // บัญชีผู้ใช้ย้ายไปอยู่ฝั่งเจ้าของร้านแล้ว — ลิงก์เก่าที่อาจถูก bookmark ไว้
+              { path: 'users', element: <Navigate to="/owner/users" replace /> },
+            ],
           },
         ],
       },
+
+      // ---------- ฝั่งเจ้าของร้าน: ADMIN เท่านั้น ----------
+      {
+        path: '/owner',
+        element: (
+          <ProtectedRoute roles={pageRoles.owner} fallbackPath="/employee" />
+        ),
+        children: [
+          {
+            element: s(<OwnerLayout />),
+            children: [
+              { index: true, element: <Navigate to="/owner/dashboard" replace /> },
+              { path: 'dashboard', element: s(<DashboardPage />) },
+              { path: 'finance', element: s(<FinancePage />) },
+              { path: 'sales', element: s(<SalesPage />) },
+              { path: 'cash-closes', element: s(<CashClosesPage />) },
+              { path: 'audit', element: s(<AuditLogPage />) },
+              { path: 'line', element: s(<LineSettingsPage />) },
+              {
+                element: <ProtectedRoute roles={pageRoles.users} fallbackPath="/owner" />,
+                children: [{ path: 'users', element: s(<UsersPage />) }],
+              },
+            ],
+          },
+        ],
+      },
+
+      { path: '*', element: s(<NotFoundPage />) },
     ],
   },
-
-  { path: '*', element: s(<NotFoundPage />) },
 ])

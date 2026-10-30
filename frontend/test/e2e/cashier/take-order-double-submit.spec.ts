@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAsCashier, pickFreeTable, tablesPageCard } from '../helpers'
+import { loginAsCashier, pickFreeTable, tablesPageCard, selectTable } from '../helpers'
 
 // ⚠️ ยิง backend จริง — เปิดโต๊ะ 1 โต๊ะและสร้างออเดอร์ค้างไว้ 1 ใบ (DB ทดสอบเท่านั้น)
 
@@ -14,7 +14,7 @@ test('STAFF กด "ส่งเข้าครัว" สองครั้ง�
 
   // สุ่มโต๊ะว่างแล้วอ้างด้วยชื่อ — .first() ประเมินใหม่ทุกครั้ง เทสอื่นเปิดโต๊ะนั้นไปก่อนจะกดผิดโต๊ะ
   const tableCardText = await pickFreeTable(page)
-  const availableTable = tablesPageCard(page, tableCardText)
+  const availableTable = await selectTable(page, tableCardText)
 
   await availableTable.getByRole('button', { name: 'เปิดโต๊ะ/สร้าง QR' }).click()
   const qrDialog = page.getByRole('dialog', { name: /^QR โต๊ะ/ })
