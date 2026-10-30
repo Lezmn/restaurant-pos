@@ -118,6 +118,8 @@ jobs:
           # ทั้งชุด (~110 เทสต์) ยิงจาก localhost เกิน 1000 ครั้ง/นาทีของเพดานต่อ IP — เปิดกว้างเฉพาะ E2E
           THROTTLE_IP_LIMIT: 100000
           SLIPOK_MOCK: 'true'
+          # ห้ามส่ง LINE จริงจาก E2E (เทสต์ปิดยอดจะส่งสรุปเข้า LINE)
+          LINE_DISABLED: 'true'
         run: |
           nohup node dist/main > ../api.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:3000/health && break; sleep 2; done

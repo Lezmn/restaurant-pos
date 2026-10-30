@@ -72,6 +72,42 @@ describe('LineMessagingService', () => {
   });
 });
 
+describe('LineMessagingService — LINE_DISABLED (เครื่องทดสอบ/E2E)', () => {
+  const realFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = realFetch;
+  });
+  const ready = settingsStub({ token: 'tok', to: 'U123' });
+
+  // ทดสอบ: LINE_DISABLED=true ต้องไม่ยิง LINE เลย แม้ใน DB ตั้ง token/ปลายทางครบ (กันเทสต์ปิดยอดส่งสรุปปลอมเข้า LINE จริง)
+  // วิธี: สร้าง service ที่ตั้งค่าครบ + LINE_DISABLED=true → push คืน false, send คืน ok:false พร้อมบอกว่าปิดไว้ และ fetch ไม่ถูกเรียก
+  it('LINE_DISABLED=true → push/send ไม่เรียก LINE แม้ตั้งค่าครบ', async () => {
+    global.fetch = jest.fn() as any;
+    const line = new LineMessagingService(config({ LINE_DISABLED: 'true' }), ready);
+    expect(line.disabled).toBe(true);
+    await expect(line.push('สรุปยอด')).resolves.toBe(false);
+    const r = await line.send('tok', 'U123', 'ทดสอบ');
+    expect(r).toEqual({ ok: false, status: null, message: expect.stringMatching(/LINE_DISABLED=true/) });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  // ทดสอบ: ค่าอื่นที่ไม่ใช่ "true" (ไม่ตั้ง / false / ว่าง) ต้องส่งได้ตามปกติ ส่วน " TRUE " ถือว่าปิด — ร้านจริงต้องไม่เผลอปิด LINE
+  // วิธี: วนค่า LINE_DISABLED หลายแบบ → เช็ก disabled และสำหรับค่าที่ไม่ปิด push ต้องเรียก fetch และคืน true
+  it.each([
+    [undefined, false],
+    ['false', false],
+    ['', false],
+    ['1', false],
+    [' TRUE ', true],
+  ])('LINE_DISABLED=%p → disabled=%p', async (value, disabled) => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true }) as any;
+    const line = new LineMessagingService(config(value === undefined ? {} : { LINE_DISABLED: value }), ready);
+    expect(line.disabled).toBe(disabled);
+    await expect(line.push('x')).resolves.toBe(!disabled);
+    expect(global.fetch).toHaveBeenCalledTimes(disabled ? 0 : 1);
+  });
+});
+
 describe('LineMessagingService — รายละเอียดเพิ่มเติม', () => {
   const realFetch = global.fetch;
   afterEach(() => {

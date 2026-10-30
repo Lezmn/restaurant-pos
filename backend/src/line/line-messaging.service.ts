@@ -30,6 +30,9 @@ function explain(status: number | null, body: string): string {
  *
  * token / ปลายทาง ตั้งจากหน้าเว็บ /owner/line (เก็บเข้ารหัสใน DB) หรือ .env (LINE_CHANNEL_ACCESS_TOKEN + LINE_TO)
  * ยังไม่ตั้ง / ปิดไว้ = ข้ามเงียบ ๆ — ร้านที่ยังไม่สมัคร LINE OA ใช้ระบบได้ตามปกติ
+ *
+ * LINE_DISABLED=true (ใน .env) = ไม่ยิง LINE เลยไม่ว่าใน DB จะตั้งไว้อย่างไร — ใช้กับ API ทดสอบ/E2E
+ * เพราะ DB ทดสอบอาจมี token จริงค้างอยู่ แล้วเทสต์ปิดยอดจะส่งสรุปปลอมเข้า LINE ของเจ้าของร้าน
  */
 @Injectable()
 export class LineMessagingService {
@@ -45,8 +48,17 @@ export class LineMessagingService {
     return this.config.get<string>('RESTAURANT_NAME')?.trim() || '';
   }
 
+  /** LINE_DISABLED=true — ปิดการส่งทั้งระบบ (เครื่องทดสอบ) */
+  get disabled() {
+    return this.config.get<string>('LINE_DISABLED')?.trim().toLowerCase() === 'true';
+  }
+
   /** ส่งตามค่าที่ตั้งไว้ — คืน true ถ้าส่งสำเร็จ ไม่ throw ทุกกรณี (ผู้เรียกไม่ต้อง try/catch) */
   async push(text: string): Promise<boolean> {
+    if (this.disabled) {
+      this.logger.log('ข้ามการส่ง LINE (LINE_DISABLED=true)');
+      return false;
+    }
     let cfg;
     try {
       cfg = await this.settings.get();
@@ -63,6 +75,10 @@ export class LineMessagingService {
 
   /** ส่งด้วย token/ปลายทางที่ระบุ — ใช้ตอนกด "ส่งข้อความทดสอบ" (บอกสาเหตุถ้าไม่สำเร็จ) */
   async send(token: string, to: string, text: string): Promise<LineSendResult> {
+    // ทางเดียวที่ออกไป LINE — กันตรงนี้จึงครอบทั้งสรุปปิดยอดและปุ่มส่งข้อความทดสอบ
+    if (this.disabled) {
+      return { ok: false, status: null, message: 'เซิร์ฟเวอร์นี้ปิดการส่ง LINE ไว้ (LINE_DISABLED=true)' };
+    }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
     try {

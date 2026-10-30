@@ -1,7 +1,7 @@
 // รัน E2E บนเครื่องด้วยคำสั่งเดียว: npm run test:e2e:local [-- ตัวเลือกของ playwright]
 //   1. เปิด container ฐานข้อมูลทดสอบ แล้วรอจนพร้อม
 //   2. ลง migration ที่ยังไม่ได้ลง (prisma migrate deploy — เพิ่มอย่างเดียว ไม่ลบข้อมูล) + build backend
-//   3. เปิด API ทดสอบ :3100 (login ได้ไม่จำกัด, SlipOK จำลอง) และหน้าเว็บ :5273 ที่ชี้ไป API นั้น
+//   3. เปิด API ทดสอบ :3100 (login ได้ไม่จำกัด, SlipOK จำลอง, ไม่ส่ง LINE) และหน้าเว็บ :5273 ที่ชี้ไป API นั้น
 //   4. รัน playwright แล้วปิด server ที่สคริปต์นี้เปิดเองเมื่อจบ (ตัวที่เปิดค้างไว้อยู่แล้วจะใช้ต่อ ไม่ปิดให้)
 // ไม่แตะ API ตัวจริงบน :3000 — ตัวนั้นจำกัด login 5 ครั้ง E2E จะโดน 429
 //
@@ -121,6 +121,8 @@ if (await isUp(`${API_URL}/health`)) {
     THROTTLE_LIMIT: '10000',
     THROTTLE_IP_LIMIT: '100000', // ทั้งชุดยิงจาก IP เดียว (ค่าเริ่มต้น 1000/นาที ไม่พอ)
     SLIPOK_MOCK: 'true',
+    // DB ทดสอบอาจมี token LINE จริงค้างอยู่ — เทสต์ปิดยอดจะส่งสรุปปลอมเข้า LINE เจ้าของร้าน
+    LINE_DISABLED: 'true',
     CORS_ORIGIN: `${WEB_URL},http://localhost:5173`,
   })
   await waitUntilUp(`${API_URL}/health`, 'API', api.child, api.logFile)

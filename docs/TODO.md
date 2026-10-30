@@ -8,7 +8,7 @@
    - เพิ่มเทสต์: สต็อกอัตโนมัติ, บังคับเปลี่ยนรหัส ADMIN (API + หน้าเว็บ), ใบเสร็จพิมพ์เอง (เทสต์จำนวนลูกค้าเอาออกแล้ว พร้อมฟีเจอร์)
    - รันบนเครื่อง: reset DB ทดสอบก่อนทุกครั้ง (`npx prisma migrate reset --force` กับ DB ทดสอบ) — ข้อมูลค้างจากรอบก่อน
      (โต๊ะเปิดค้างเป็นร้อย) ทำหน้า Check ช้าจนเทสต์หมดเวลา; API ทดสอบต้องตั้ง `LOGIN_THROTTLE_LIMIT=1000`,
-     `THROTTLE_IP_LIMIT=100000`, `SLIPOK_MOCK=true`
+     `THROTTLE_IP_LIMIT=100000`, `SLIPOK_MOCK=true`, `LINE_DISABLED=true`
    - เทสต์ที่เทียบ "ยอดขายทั้งวัน" ติด tag `@totals-*` รันแยกหลังชุดหลักจบ (playwright.config.ts)
 2. **SonarQube** — ✅ สแกน + แก้แล้ว (2026-10-22) เหลือที่ตั้งใจไม่แก้ ดู "หมายเหตุ Sonar" ด้านล่าง
    - สแกนซ้ำหลังแก้โค้ดชุดใหญ่: `cd backend && npx jest --coverage` แล้วรัน sonar-scanner ทั้ง backend/frontend
