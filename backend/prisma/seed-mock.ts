@@ -619,6 +619,11 @@ async function main() {
   // ---------- จำลองการขายรายวัน ----------
   const now = new Date();
   const allDays = days(FIRST_DAY, LAST_DAY);
+  // วันนี้จำลองขายถึงแค่ตอนนี้ — ไม่ให้มีบิลที่จ่ายเงิน "ในอนาคต" (ไม่งั้นดันบิลจริงตกหน้าแรกของตารางบิลวันนี้)
+  const DINE_VISIT_MINUTES = 150;
+  const TAKEAWAY_VISIT_MINUTES = 25;
+  const lastArrival = (day: string, visitMinutes: number) =>
+    (now.getTime() - at(day, 0).getTime()) / MIN - visitMinutes;
   const openDays: string[] = [];
   let paydayBoost = 1;
   for (const [index, day] of allDays.entries()) {
@@ -642,7 +647,7 @@ async function main() {
 
     // ----- นั่งทานที่ร้าน -----
     const tableFree = new Map<number, number>(); // เลขโต๊ะ → นาทีที่ว่าง
-    const arrivals = Array.from({ length: dineCount }, arrival).sort((a, b) => a - b);
+    const arrivals = Array.from({ length: dineCount }, arrival).sort((a, b) => a - b).filter((m) => m <= lastArrival(day, DINE_VISIT_MINUTES));
     for (const minute of arrivals) {
       const guests = weighted([[1, 22], [2, 36], [3, 18], [4, 15], [5, 5], [6, 3], [8, 1]] as const);
       const table = TABLES
@@ -771,7 +776,7 @@ async function main() {
       const r = rand();
       const m = r < 0.45 ? normal(11 * 60 + 50, 35) : r < 0.85 ? normal(17 * 60 + 45, 45) : 10 * 60 + rand() * 10.5 * 60;
       return Math.round(Math.min(20 * 60 + 30, Math.max(10 * 60, m)));
-    }).sort((a, b) => a - b);
+    }).sort((a, b) => a - b).filter((m) => m <= lastArrival(day, TAKEAWAY_VISIT_MINUTES));
     for (const [i, minute] of takeawayArrivals.entries()) {
       const sessionId = randomUUID();
       const openedAt = at(day, minute + rand());
