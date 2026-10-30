@@ -55,19 +55,19 @@ test('ครัวไล่สถานะ รอคิว → กำลัง�
   const card = (column: string) =>
     page.getByRole('region', { name: column, exact: true }).locator('article', { hasText: `#${orderRef}` })
 
-  await card('รอคิว').getByRole('button', { name: 'เริ่มปรุง' }).click()
-  await expect(card('กำลังปรุง')).toBeVisible()
-  await card('กำลังปรุง').getByRole('button', { name: 'ทำเสร็จแล้ว' }).click()
+  await card('รอคิว').getByRole('button', { name: 'เริ่มทำ' }).click()
+  await expect(card('กำลังทำ')).toBeVisible()
+  await card('กำลังทำ').getByRole('button', { name: 'ทำเสร็จ', exact: true }).click()
   // ทำเสร็จแล้ว → ขึ้นคอลัมน์ "เสร็จแล้ว" พร้อมปุ่มยกเลิก 5 วิ แล้วค่อยบันทึกเป็นเสิร์ฟแล้ว
-  await expect(card('เสร็จแล้ว')).toBeVisible()
-  await expect(card('เสร็จแล้ว').getByRole('button', { name: 'เสิร์ฟแล้ว · เอาออก' })).toBeVisible({ timeout: 15_000 })
+  await expect(card('เสร็จแล้ว รอเสิร์ฟ')).toBeVisible()
+  await expect(card('เสร็จแล้ว รอเสิร์ฟ').getByRole('button', { name: 'เสิร์ฟแล้ว' })).toBeVisible({ timeout: 15_000 })
 
   // ลูกค้าเห็นว่าเสิร์ฟแล้ว
   const customer = await (await browser.newContext({ viewport: { width: 375, height: 812 } })).newPage()
   await customer.goto(`/t/${token}/status`)
   await expect(customer.getByText(`ออเดอร์ #${orderRef}`)).toBeVisible()
 
-  await card('เสร็จแล้ว').getByRole('button', { name: 'เสิร์ฟแล้ว · เอาออก' }).click()
+  await card('เสร็จแล้ว รอเสิร์ฟ').getByRole('button', { name: 'เสิร์ฟแล้ว' }).click()
   await expect(page.locator('article', { hasText: `#${orderRef}` })).toHaveCount(0)
   // รีเฟรชแล้วต้องไม่กลับมา (เก็บใน DB ไม่ใช่ state ในจอ)
   await page.reload()

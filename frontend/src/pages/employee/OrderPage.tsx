@@ -35,6 +35,14 @@ const UNDO_MS = 5000
 
 type ColumnKey = 'queue' | 'cooking' | 'done'
 
+type PlaceFilter = 'all' | 'dineIn' | 'takeaway'
+
+const PLACE_FILTERS: Record<PlaceFilter, { label: string; match: (o: Order) => boolean }> = {
+  all: { label: 'ทั้งหมด', match: () => true },
+  dineIn: { label: 'ทานที่ร้าน', match: (o) => !o.isTakeaway },
+  takeaway: { label: 'กลับบ้าน', match: (o) => o.isTakeaway },
+}
+
 /**
  * หนึ่งรายการอาหารในการ์ดออเดอร์ — แยกออกมาจาก JSX ของหน้า
  * เพราะเดิมซ้อนกันถึง 6 ชั้น (map > map > JSX > onChange > setState updater) อ่านยาก
@@ -116,10 +124,13 @@ const columns: {
   badge: string
   button: string
   buttonLabel: string
+  /** คำบอกใบ้ท้ายหัวคอลัมน์ — บอกว่าคอลัมน์นี้ใครต้องทำอะไรต่อ */
+  hint: string
 }[] = [
   {
     key: 'queue',
     title: 'รอคิว',
+    hint: 'กดเพื่อเริ่มทำ',
     status: OrderStatus.PENDING,
     dot: 'bg-status-queue',
     border: 'border-status-queue',
@@ -129,30 +140,32 @@ const columns: {
     // สีปุ่ม = สีของคอลัมน์ตัวเอง ให้เข้าชุดกับหัวคอลัมน์
     // พื้นปุ่มตัวขาวใช้ -ink — สีสถานะปกติคอนทราสต์ไม่ถึง 4.5:1
     button: 'bg-status-queue-ink',
-    buttonLabel: 'เริ่มปรุง',
+    buttonLabel: 'เริ่มทำ',
   },
   {
     key: 'cooking',
-    title: 'กำลังปรุง',
+    title: 'กำลังทำ',
+    hint: 'กดเมื่อพร้อมเสิร์ฟ',
     status: OrderStatus.PREPARING,
     dot: 'bg-status-cooking',
     border: 'border-status-cooking',
     band: 'bg-status-cooking/10',
     badge: 'bg-status-cooking-ink text-white',
     button: 'bg-status-cooking-ink',
-    buttonLabel: 'ทำเสร็จแล้ว',
+    buttonLabel: 'ทำเสร็จ',
   },
   {
     key: 'done',
-    title: 'เสร็จแล้ว',
+    title: 'เสร็จแล้ว รอเสิร์ฟ',
+    hint: 'หน้าร้านกดเสิร์ฟ',
     status: OrderStatus.SERVED,
     dot: 'bg-status-done',
     border: 'border-status-done',
     band: 'bg-status-done/10',
     badge: 'bg-status-done-ink text-white',
     button: 'bg-status-done-ink',
-    // กดแล้วตั๋วหายจากบอร์ด — ชื่อปุ่มบอกตรง ๆ ไม่ซ้ำกับ "ทำเสร็จแล้ว" ของคอลัมน์ก่อนหน้า
-    buttonLabel: 'เสิร์ฟแล้ว · เอาออก',
+    // กดแล้วตั๋วหายจากบอร์ด — ชื่อปุ่มไม่ซ้ำกับ "ทำเสร็จ" ของคอลัมน์ก่อนหน้า
+    buttonLabel: 'เสิร์ฟแล้ว',
   },
 ]
 
@@ -394,10 +407,15 @@ export function OrderPage() {
   const [boardRef, boardHeight] = useFillScreen<HTMLDivElement>()
   const portrait = useMediaQuery(PORTRAIT_TABLET)
   // ตั๋วที่รอเลิกทำ แสดงเหมือนเสร็จแล้ว ให้ครัวเห็นผลทันทีที่กด
+  const [place, setPlace] = useState<PlaceFilter>('all')
+  const shown = visible.filter(PLACE_FILTERS[place].match)
   const listOf = (status: OrderStatus) =>
-    visible
+    shown
       .filter((o) => (deferred.has(o.id) ? OrderStatus.SERVED : o.status) === status)
       .sort(byOldest)
+  // ตัวเลขบนแท็บนับเฉพาะตั๋วที่ยังอยู่บนบอร์ด (3 คอลัมน์รวมกัน) ไม่ขึ้นกับแท็บที่เลือกอยู่
+  const board = visible.filter((o) => o.status !== OrderStatus.CANCELLED && o.status !== OrderStatus.PAID)
+  const placeCount = (key: PlaceFilter) => board.filter(PLACE_FILTERS[key].match).length
   const doneColumn = columns[2]
 
   const toggleItem = (itemId: string, isChecked: boolean) => {
@@ -438,6 +456,26 @@ export function OrderPage() {
         </>
       )}
 
+      {!isPending && !unknown && (
+        <div role="group" aria-label="กรองตามประเภทออเดอร์" className="mb-3 flex flex-wrap gap-2">
+          {(Object.keys(PLACE_FILTERS) as PlaceFilter[]).map((key) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={place === key}
+              onClick={() => setPlace(key)}
+              className={`min-h-11 rounded-full border-2 px-4 text-base font-bold transition ${
+                place === key
+                  ? 'border-brand-500 bg-brand-500 text-white'
+                  : 'border-staff-line bg-white text-gray-800 hover:bg-brand-50'
+              }`}
+            >
+              {PLACE_FILTERS[key].label} <span className="tabular-nums">{placeCount(key)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {!isPending && !unknown && portrait && (
         <DoneStrip
           column={doneColumn}
@@ -475,8 +513,9 @@ export function OrderPage() {
                     className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm font-bold ${column.badge}`}
                   >
                     {list.length}
-                    {/* iPad แนวตั้ง 3 คอลัมน์แคบ — ตัดคำว่า "รายการ" ออก ชื่อคอลัมน์จะได้ไม่โดนตัด */}
-                    <span className="hidden lg:inline"> รายการ</span>
+                  </span>
+                  <span className="ml-auto hidden shrink-0 text-sm font-semibold text-gray-700 xl:block">
+                    {column.hint}
                   </span>
                 </header>
 

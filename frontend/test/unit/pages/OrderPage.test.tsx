@@ -69,13 +69,29 @@ describe('OrderPage (จอครัว)', () => {
     expect(screen.queryByText('ไม่มีรายการ')).not.toBeInTheDocument()
   })
 
+  // ทดสอบ: แท็บ ทั้งหมด / ทานที่ร้าน / กลับบ้าน นับตั๋วถูกและกรองบอร์ดตามประเภท
+  // วิธี: mock ออเดอร์ทานที่ร้าน 1 + กลับบ้าน 1 → เช็กเลขบนแท็บ → กดกลับบ้านแล้วเหลือตั๋วเดียว
+  it('แท็บกรองทานที่ร้าน/กลับบ้าน นับตั๋วและกรองบอร์ดถูก', async () => {
+    const takeaway: Order = { ...order, id: 'o2', placeLabel: 'กลับบ้าน #3', isTakeaway: true }
+    vi.mocked(getOrders).mockResolvedValue([order, takeaway])
+    const user = userEvent.setup()
+    renderPage()
+
+    expect(await screen.findByRole('button', { name: 'ทั้งหมด 2' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'ทานที่ร้าน 1' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'กลับบ้าน 1' }))
+    expect(screen.getByText('กลับบ้าน #3')).toBeInTheDocument()
+    expect(screen.queryByText('โต๊ะ 4')).not.toBeInTheDocument()
+  })
+
   it('โหลดได้ → แสดงตั๋วในคอลัมน์รอคิว และคอลัมน์ที่ว่างขึ้น "ไม่มีรายการ"', async () => {
     vi.mocked(getOrders).mockResolvedValue([order])
     renderPage()
 
     expect(await screen.findByText('โต๊ะ 4')).toBeInTheDocument()
     expect(screen.getByText('กะเพราหมู')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'เริ่มปรุง' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'เริ่มทำ' })).toBeEnabled()
     expect(screen.getAllByText('ไม่มีรายการ')).toHaveLength(2)
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
@@ -90,7 +106,7 @@ describe('OrderPage (จอครัว)', () => {
     )
     renderPage()
 
-    const startButtons = await screen.findAllByRole('button', { name: 'เริ่มปรุง' })
+    const startButtons = await screen.findAllByRole('button', { name: 'เริ่มทำ' })
     await userEvent.click(startButtons[0])
     await userEvent.click(startButtons[1])
 
@@ -113,7 +129,7 @@ describe('OrderPage (จอครัว)', () => {
     const ticket = (await screen.findByText('โต๊ะ 4')).closest('article')!
     expect(within(ticket).queryByRole('button', { name: 'ยกเลิกออเดอร์' })).not.toBeInTheDocument()
     expect(within(ticket).queryByText(/^รอ \d|เพิ่งสั่ง/)).not.toBeInTheDocument()
-    expect(within(ticket).getByRole('button', { name: 'เสิร์ฟแล้ว · เอาออก' })).toBeEnabled()
+    expect(within(ticket).getByRole('button', { name: 'เสิร์ฟแล้ว' })).toBeEnabled()
   })
 
   describe('กด "ทำเสร็จแล้ว" → หน่วงไว้ให้เลิกทำได้ก่อนส่งจริง', () => {
@@ -129,16 +145,16 @@ describe('OrderPage (จอครัว)', () => {
     const pressDone = async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       renderPage()
-      await user.click(await screen.findByRole('button', { name: 'ทำเสร็จแล้ว' }))
+      await user.click(await screen.findByRole('button', { name: 'ทำเสร็จ', exact: true }))
     }
 
     it('ตั๋วย้ายไปเสร็จแล้วทันที แต่ยังไม่ส่ง และส่งเมื่อครบเวลา', async () => {
       await pressDone()
 
-      const done = screen.getByRole('region', { name: 'เสร็จแล้ว' })
+      const done = screen.getByRole('region', { name: 'เสร็จแล้ว รอเสิร์ฟ' })
       expect(within(done).getByText('โต๊ะ 4')).toBeInTheDocument()
       expect(within(done).getByRole('button', { name: 'ยกเลิก' })).toBeEnabled()
-      expect(within(done).queryByRole('button', { name: 'เสิร์ฟแล้ว · เอาออก' })).not.toBeInTheDocument()
+      expect(within(done).queryByRole('button', { name: 'เสิร์ฟแล้ว' })).not.toBeInTheDocument()
       expect(updateOrderStatus).not.toHaveBeenCalled()
 
       await act(async () => vi.advanceTimersByTime(UNDO_MS))
@@ -152,7 +168,7 @@ describe('OrderPage (จอครัว)', () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       await user.click(screen.getByRole('button', { name: 'ยกเลิก' }))
 
-      const cookingColumn = screen.getByRole('region', { name: 'กำลังปรุง' })
+      const cookingColumn = screen.getByRole('region', { name: 'กำลังทำ' })
       expect(within(cookingColumn).getByText('โต๊ะ 4')).toBeInTheDocument()
       await act(async () => vi.advanceTimersByTime(UNDO_MS * 2))
       expect(updateOrderStatus).not.toHaveBeenCalled()
@@ -161,7 +177,7 @@ describe('OrderPage (จอครัว)', () => {
     it('ออกจากหน้าระหว่างรอ → ส่งที่ค้างไว้ทันที', async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const { unmount } = renderPage()
-      await user.click(await screen.findByRole('button', { name: 'ทำเสร็จแล้ว' }))
+      await user.click(await screen.findByRole('button', { name: 'ทำเสร็จ', exact: true }))
       unmount()
       await waitFor(() => expect(updateOrderStatus).toHaveBeenCalledTimes(1))
       expect(vi.mocked(updateOrderStatus).mock.calls[0][0]).toEqual({ id: 'o1', status: OrderStatus.SERVED })
@@ -251,11 +267,11 @@ describe('OrderPage (จอครัว)', () => {
       ])
       renderPage()
 
-      const strip = await screen.findByRole('region', { name: 'เสร็จแล้ว' })
+      const strip = await screen.findByRole('region', { name: 'เสร็จแล้ว รอเสิร์ฟ' })
       expect(within(strip).getByText('โต๊ะ 7')).toBeInTheDocument()
-      expect(within(strip).getByRole('button', { name: 'เสิร์ฟแล้ว · เอาออก' })).toBeEnabled()
+      expect(within(strip).getByRole('button', { name: 'เสิร์ฟแล้ว' })).toBeEnabled()
       expect(screen.getByRole('group', { name: 'ตั๋วรอคิว' })).toBeInTheDocument()
-      expect(screen.queryByRole('group', { name: 'ตั๋วเสร็จแล้ว' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('group', { name: 'ตั๋วเสร็จแล้ว รอเสิร์ฟ' })).not.toBeInTheDocument()
     })
   })
 })
