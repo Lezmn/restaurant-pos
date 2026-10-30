@@ -4,6 +4,7 @@
 //   frontend/test/e2e/**   → npm run test:e2e:local   (Playwright + API ทดสอบ :3100 — ไม่ยิง :3000 จึงไม่โดน 429)
 //   frontend/test/unit/**  → vitest run               (เร็ว ไม่ต้องใช้ DB)
 //   backend/test/**        → jest                     (เร็ว ไม่ต้องใช้ DB)
+//   frontend / backend     → unit test ของฝั่งนั้นทั้งหมด (frontend ไม่รวม E2E)
 //   ไม่ใส่ไฟล์              → unit ทั้งสองฝั่ง (ไม่รัน E2E เพราะช้า — สั่ง E2E ทั้งชุดเองด้วย npm run t -- frontend/test/e2e)
 //
 // ใส่พาธแบบเต็ม (frontend/test/...) หรือสั้น (test/unit/lib/discount.test.ts / discount.test.ts) ก็ได้
@@ -75,7 +76,12 @@ for (const arg of targets) {
   const abs = locate(arg)
   if (!abs) fail(`ไม่พบไฟล์/โฟลเดอร์ "${arg}"`)
   const rel = relative(root, abs).replaceAll('\\', '/')
-  if (rel.startsWith('frontend/test/e2e')) groups.e2e.push(relative(frontend, abs).replaceAll('\\', '/'))
+  // ทั้งฝั่ง = unit test ของฝั่งนั้น (เร็ว ไม่ต้องใช้ DB) — E2E ช้าและต้องใช้ DB ต้องสั่งเองด้วย frontend/test/e2e
+  if (rel === 'frontend' || rel === 'frontend/test') {
+    log('frontend = unit test ของหน้าเว็บ (ถ้าจะรัน E2E: npm run t -- frontend/test/e2e)')
+    groups.unit.push('test/unit')
+  } else if (rel === 'backend') groups.backend.push('test')
+  else if (rel.startsWith('frontend/test/e2e')) groups.e2e.push(relative(frontend, abs).replaceAll('\\', '/'))
   else if (rel.startsWith('frontend/test/unit')) groups.unit.push(relative(frontend, abs).replaceAll('\\', '/'))
   else if (rel.startsWith('backend/test')) groups.backend.push(relative(backend, abs).replaceAll('\\', '/'))
   else fail(`"${rel}" ไม่ได้อยู่ใน frontend/test/e2e, frontend/test/unit หรือ backend/test`)

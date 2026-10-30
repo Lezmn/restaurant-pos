@@ -37,6 +37,9 @@ npm run dev
 ```bash
 npm run t -- <ไฟล์หรือโฟลเดอร์> [ตัวเลือก]    # รันจากโฟลเดอร์หลักที่ไหนก็ได้ พิมพ์แค่ชื่อไฟล์ก็พอ
 npm run t                                      # ไม่ใส่ไฟล์ = unit test ทั้ง backend + frontend
+npm run t -- frontend                          # unit test ของหน้าเว็บทั้งหมด (ไม่รวม E2E)
+npm run t -- backend                           # unit test ของ backend ทั้งหมด
+npm run t -- frontend/test/e2e                 # E2E ทั้งโฟลเดอร์ (Chrome อย่างเดียว ช้า ต้องใช้ DB)
 ```
 
 สคริปต์ `scripts/t.mjs` เลือกวิธีรันให้เองจากพาธของไฟล์:
