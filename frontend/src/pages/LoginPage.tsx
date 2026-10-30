@@ -10,9 +10,12 @@ import { Navigate, useNavigate } from 'react-router-dom'
 const SHOW_DEMO_LOGIN =
   import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_LOGIN === 'true'
 
-/** ช่องกรอกตามดีไซน์ Desktop-1 — ขอบเทาเข้ม มุมโค้งมาก · จอใหญ่ขยายตามสัดส่วนใน Figma */
+/**
+ * ช่องกรอกตามดีไซน์ Desktop-1 — ขอบเทาเข้ม มุมโค้งมาก · จอใหญ่ขยายตามสัดส่วนใน Figma
+ * ตัวอักษร 16px ตั้งแต่จอเล็ก — ต่ำกว่านี้ iOS Safari จะซูมหน้าเองตอนแตะช่องกรอก
+ */
 const inputClass =
-  'mt-2 w-full rounded-xl border border-gray-500 bg-white px-4 py-2.5 text-sm text-black outline-none transition placeholder:text-gray-400 focus:border-brand-400 focus:ring-2 focus:ring-brand-75 lg:py-3 lg:text-base xl:rounded-2xl xl:px-5 xl:py-4'
+  'mt-2 w-full rounded-xl border border-gray-500 bg-white px-4 py-2.5 text-base text-black outline-none transition placeholder:text-gray-400 focus:border-brand-400 focus:ring-2 focus:ring-brand-75 lg:py-3 xl:rounded-2xl xl:px-5 xl:py-4'
 
 /** ส้อม-มีดสีน้ำตาลหน้าชื่อร้าน */
 function IconCutlery() {
@@ -26,7 +29,9 @@ function IconCutlery() {
 
 /**
  * หน้า login เดียวใช้ได้ทุก role ตามดีไซน์ Desktop-1:
- * ฟอร์มชิดซ้าย ภาพเชฟเต็มความสูงทางขวา (ซ่อนบนจอเล็ก ให้ฟอร์มเต็มจอ)
+ * - จอแนวนอนตั้งแต่ md (desktop / แท็บเล็ตแนวนอน): ฟอร์มชิดซ้าย ภาพเชฟเต็มความสูงทางขวา
+ * - จอแนวตั้งทุกขนาด: ภาพเชฟย่อไว้บนฟอร์ม จัดกึ่งกลางจอ
+ * - มือถือแนวนอน: ซ่อนภาพ ให้ฟอร์มใช้ความสูงทั้งหมด
  */
 export function LoginPage({
   redirectTo,
@@ -56,7 +61,14 @@ export function LoginPage({
 
   return (
     <div className="relative flex min-h-dvh overflow-hidden bg-white">
-      <div className="relative z-10 flex flex-1 items-center justify-center px-6 py-10 md:justify-start md:pl-[12%]">
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 py-8 md:py-10 md:landscape:items-start md:landscape:pl-[12%]">
+        {/* ภาพเชฟแบบย่อสำหรับจอแนวตั้ง — อยู่ก้อนเดียวกับฟอร์มให้จัดกึ่งกลางไปด้วยกัน */}
+        <img
+          src={chefImage}
+          alt=""
+          aria-hidden
+          className="pointer-events-none mb-6 hidden h-[24dvh] max-h-80 w-auto object-contain portrait:block"
+        />
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -77,7 +89,7 @@ export function LoginPage({
             )
           }}
           // Figma: ฟอร์มกว้าง ~30% ของจอ — max-w-xs คงไว้บนจอเล็ก จอใหญ่ขยายตาม (1440px → 448px)
-          className="w-full max-w-xs lg:max-w-sm xl:max-w-md"
+          className="w-full max-w-sm md:portrait:max-w-md xl:max-w-md"
         >
           <h1 className="mb-6 flex items-center gap-2 text-xl font-bold text-brand-400 lg:text-2xl xl:mb-8 xl:text-3xl">
             <IconCutlery />
@@ -147,7 +159,7 @@ export function LoginPage({
         src={chefImage}
         alt=""
         aria-hidden
-        className="pointer-events-none hidden h-dvh w-auto max-w-[55%] shrink-0 self-end object-contain object-right-bottom md:block"
+        className="pointer-events-none hidden h-dvh w-auto max-w-[55%] shrink-0 self-end object-contain object-right-bottom md:landscape:block"
       />
     </div>
   )
