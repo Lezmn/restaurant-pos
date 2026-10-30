@@ -621,7 +621,11 @@ function PaymentDialog({
   const [note, setNote] = useState('')
   // โต๊ะที่ลูกค้าไม่ได้กดเช็คบิลจาก QR ต้องให้พนักงานเลือกวิธีจ่ายเอง
   const [method, setMethod] = useState<PaymentMethod>(target.method)
+  /** ส่วนลดซ่อนไว้หลังปุ่ม "ให้ส่วนลด" — กันกรอกผิดช่องตอนรีบ และใช้ไม่บ่อย */
+  const [discountOpen, setDiscountOpen] = useState(false)
   const [discountReason, setDiscountReason] = useState('')
+  /** หมายเหตุก็ซ่อนหลังปุ่มเหมือนส่วนลด — ใช้ไม่บ่อย กล่อง PromptPay ยาวอยู่แล้ว */
+  const [noteOpen, setNoteOpen] = useState(false)
   // เลิกแยกบิลแล้ว — เหลือไว้แค่ "รับเงินต่อ" ของบิลที่หารค้างไว้ก่อนหน้า (ไม่งั้นโต๊ะนั้นเก็บเงินไม่ได้)
   const split = target.split
   /** ยอดก่อนส่วนลด (ส่งเป็น expectedTotal) */
@@ -750,7 +754,7 @@ function PaymentDialog({
           </p>
         )}
 
-        {/* เงินสด: งานหลักคือรับเงินแล้วทอน — ช่องรับเงินกับปุ่มแบงก์ขึ้นก่อนเสมอ ส่วนลดอยู่ถัดลงไป */}
+        {/* เงินสด: งานหลักคือรับเงินแล้วทอน — ช่องรับเงินกับปุ่มแบงก์ขึ้นก่อนเสมอ ส่วนลดอยู่หลังปุ่มแยก */}
         {!isPromptPay && (
           <div className="mt-4">
             <label className="block">
@@ -804,13 +808,13 @@ function PaymentDialog({
           </div>
         )}
 
-        {/* ส่วนลด: แสดงเสมอ (ว่าง = ไม่ลด) และต้องมีเหตุผลทุกครั้ง — เงินต้องตรวจสอบย้อนหลังได้ */}
-        {!split && (
+        {/* ส่วนลด: ซ่อนไว้จนกว่าจะกดเปิด และต้องมีเหตุผลทุกครั้ง — เงินต้องตรวจสอบย้อนหลังได้ */}
+        {!split && discountOpen && (
           <fieldset className="mt-4 rounded-lg border-2 border-gray-200 p-3">
             <legend className={`${fieldLabel} px-1`}>ส่วนลด</legend>
             <label className="block">
-              <span className={fieldLabel}>ลดกี่ %</span>
-              <span className="ml-1 text-sm text-gray-600">(1-100 ไม่ลดเว้นว่าง)</span>
+              <span className={fieldLabel}>ลดกี่ %<RequiredMark /></span>
+              <span className="ml-1 text-sm text-gray-600">(1-100)</span>
               <div className="relative">
                 <input
                   type="number"
@@ -829,14 +833,14 @@ function PaymentDialog({
                 </span>
               </div>
             </label>
-            {/* % ที่ใช้บ่อย กดทีเดียวไม่ต้องพิมพ์ — กดปุ่มที่เลือกอยู่ซ้ำ = ไม่ลด */}
+            {/* % ที่ใช้บ่อย กดทีเดียวไม่ต้องพิมพ์ */}
             <div className="mt-2 flex flex-wrap gap-2">
               {QUICK_DISCOUNT_PERCENTS.map((p) => (
                 <button
                   key={p}
                   type="button"
                   aria-pressed={percentNum === p}
-                  onClick={() => setPercent(percentNum === p ? '' : String(p))}
+                  onClick={() => setPercent(String(p))}
                   className={`${button(percentNum === p ? 'primary' : 'secondary', 'sm')} tabular-nums`}
                 >
                   {p}%
@@ -867,20 +871,72 @@ function PaymentDialog({
                 </label>
               </>
             )}
+            <button
+              type="button"
+              onClick={() => {
+                setPercent('')
+                setDiscountReason('')
+                setDiscountOpen(false)
+              }}
+              className={`${button('secondary', 'sm')} mt-3`}
+            >
+              ไม่ลดแล้ว
+            </button>
           </fieldset>
         )}
 
-        <label className="mt-4 block">
-          <span className={fieldLabel}>หมายเหตุ</span>
-          <span className="ml-1 text-sm text-gray-600">(พิมพ์ลงใบเสร็จ ไม่กรอกก็ได้)</span>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-            maxLength={300}
-            className={`${field} resize-none`}
-          />
-        </label>
+        {/* ปุ่มเปิดส่วนที่ยังซ่อนอยู่ เรียงแถวเดียวกัน — อยู่เหนือหมายเหตุ ให้ปุ่มส่วนลดไม่ถูกดันลงไปใต้กล่องหมายเหตุ */}
+        {((!split && !discountOpen) || !noteOpen) && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {!split && !discountOpen && (
+              <button
+                type="button"
+                aria-expanded={false}
+                onClick={() => setDiscountOpen(true)}
+                className={button('secondary', 'sm')}
+              >
+                ให้ส่วนลด
+              </button>
+            )}
+            {!noteOpen && (
+              <button
+                type="button"
+                aria-expanded={false}
+                onClick={() => setNoteOpen(true)}
+                className={button('secondary', 'sm')}
+              >
+                เพิ่มหมายเหตุ
+              </button>
+            )}
+          </div>
+        )}
+
+        {noteOpen && (
+          <div className="mt-4">
+            <label className="block">
+              <span className={fieldLabel}>หมายเหตุ</span>
+              <span className="ml-1 text-sm text-gray-600">(พิมพ์ลงใบเสร็จ)</span>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={2}
+                maxLength={300}
+                autoFocus
+                className={`${field} resize-none`}
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                setNote('')
+                setNoteOpen(false)
+              }}
+              className={`${button('secondary', 'sm')} mt-2`}
+            >
+              ไม่ใส่หมายเหตุ
+            </button>
+          </div>
+        )}
 
         {/* error อยู่ติดปุ่มรับเงิน — กล่อง PromptPay ยาวเกินจอ ถ้าอยู่หัวกล่องจะเลื่อนพ้นจอไปตอนกดปุ่มล่างสุด
             แคชเชียร์ไม่เห็นว่าสลิปไม่ผ่าน (เช่น สลิปซ้ำ) */}

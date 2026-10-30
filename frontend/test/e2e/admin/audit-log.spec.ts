@@ -43,6 +43,7 @@ test('ลด 10% → ยกเลิกบิล → หน้าประวั
   // รับเงินลด 10%: 100 → 90
   await checkTableTile(page, tableName).getByRole('button', { name: /^รับเงิน/ }).click()
   const dialog = page.getByRole('dialog', { name: `รับเงิน โต๊ะ ${tableName}` })
+  await dialog.getByRole('button', { name: 'ให้ส่วนลด' }).click()
   await dialog.getByRole('button', { name: '10%' }).click()
   await expect(dialog.getByText('฿90', { exact: true })).toBeVisible()
   await dialog.getByLabel(/เหตุผลที่ลด/).fill('ทดสอบประวัติ')
