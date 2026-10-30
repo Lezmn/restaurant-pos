@@ -73,7 +73,6 @@ const session = (id: string, tableName: string, total: number, status: TableSess
   openedAt: '2026-10-24T05:30:00.000Z',
   closedAt: null,
   total,
-  split: null,
 })
 
 const order = (sessionId: string, status: OrderStatus, id = `${sessionId}-${status}`): Order => ({

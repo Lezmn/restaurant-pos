@@ -192,7 +192,6 @@ export const mapSession = (s: ApiTableSession): TableSession => {
     openedAt: s.openedAt,
     closedAt: s.closedAt,
     total: s.total ?? 0,
-    split: s.split ?? null,
   }
 }
 

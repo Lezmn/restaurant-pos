@@ -73,14 +73,6 @@ function makePrisma() {
     restaurantTable: { update: jest.fn() },
     serviceRequest: { updateMany: jest.fn() },
     dailyCashClose: { findUnique: jest.fn().mockResolvedValue(null) },
-    billSplit: {
-      findMany: jest.fn().mockResolvedValue([]),
-      findFirst: jest.fn().mockResolvedValue(null),
-      findUnique: jest.fn().mockResolvedValue(null),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-    },
     orderItem: { findMany: jest.fn(), updateMany: jest.fn(), create: jest.fn() },
     $executeRaw: jest.fn(),
   };

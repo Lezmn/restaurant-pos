@@ -50,7 +50,6 @@ export async function getSessionByToken(token: string): Promise<PublicSession> {
     status: data.status,
     openedAt: data.openedAt,
     closedAt: data.closedAt ?? null,
-    split: data.split ?? null,
     // /public/sessions ไม่ได้ส่ง total มา ฝั่งลูกค้าใช้ยอดจากรายการออเดอร์แทน
     total: data.total ?? 0,
   }
