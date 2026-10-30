@@ -222,7 +222,9 @@ async function inspect(page: Page, screenWidth: number): Promise<Report> {
     // 2.1 แถบติดล่างต้องชิดขอบจอ หรือวางพอดีบนแถบติดล่างอีกอัน — เช่น แถบปุ่มที่ยกขึ้นไว้เหนือเมนูล่าง
     //     แต่จอใหญ่ซ่อนเมนูล่างไปแล้ว แถบจะลอยค้างโดยมีช่องโล่งข้างใต้
     const barTops = bars.map((el) => el.getBoundingClientRect().top)
+    //     การ์ดที่ตั้งใจให้ลอย (data-floating เช่น แถบตะกร้าเหนือเมนูล่าง) ไม่นับ
     const floatingBars = bars
+      .filter((el) => !el.closest('[data-floating]'))
       .filter((el) => !bars.some((o) => o !== el && o.contains(el)))
       .filter((el) => {
         const bottom = el.getBoundingClientRect().bottom

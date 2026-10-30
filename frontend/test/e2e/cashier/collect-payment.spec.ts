@@ -6,6 +6,8 @@ import {
   loginAsCashier,
   openTableAndPlaceOrder,
   paidBillsTable,
+  printPromptPay,
+  stubPrint,
 } from '../helpers'
 
 // ไล่ออเดอร์ผ่านจอครัว (มีรอเลิกทำ 5 วิ) แล้วรับเงินต่อ — รันพร้อมกันหลาย worker เกิน 30 วิได้
@@ -42,8 +44,8 @@ test('cashier เก็บเงินสดสำเร็จ เห็นใ�
   // หน้า Check ใหม่ซ่อนช่องราคาไว้หลังปุ่ม 'ให้ส่วนลด' — ยอดเต็มแสดงเป็น 'ยอดที่ต้องจ่าย'
   await expect(dialog.getByText(/ยอดที่ต้องจ่าย\s*฿50/)).toBeVisible()
 
-  // ปุ่มยืนยันบอกยอดในตัว: "รับเงิน ฿50"
-  await dialog.getByRole('button', { name: 'รับเงิน ฿50' }).click()
+  // ยอดอยู่แถบด้านบน ปุ่มยืนยันเป็นแค่ "รับเงิน"
+  await dialog.getByRole('button', { name: 'รับเงิน', exact: true }).click()
 
   // PaymentDialog ปิดแล้วเด้ง ReceiptDialog ขึ้นมาทันที
   const receipt = page.getByRole('dialog', { name: 'ใบเสร็จรับเงิน' })
@@ -62,9 +64,9 @@ test('cashier เก็บเงินสดสำเร็จ เห็นใ�
   ).toBeVisible()
 })
 
-// ทดสอบ: cashier เก็บเงินผ่าน PromptPay ได้: เห็น QR พร้อมยอด ต้องสแกนสลิปก่อนถึงบันทึกได้ และบิลขึ้นป้ายผลตรวจสลิป
-// วิธี: เตรียมโต๊ะที่เสิร์ฟแล้วเหมือนเคสเงินสด → กดรับเงินแล้วสลับเป็น PromptPay → เช็ก QR และ ฿50 → ปุ่มบันทึกต้องกดไม่ได้ → พิมพ์สลิป MOCK-OK แล้วกด Enter (ต้องไม่ส่งฟอร์ม) → กดบันทึก → เช็กใบเสร็จ และตารางบิลมีป้าย ตรวจสลิปแล้ว/รอตรวจสลิป
-test('cashier เก็บเงินผ่าน PromptPay (สแกน) สำเร็จ เห็น QR และใบเสร็จถูกต้อง', async ({
+// ทดสอบ: cashier เก็บเงินผ่าน PromptPay: เห็น QR พร้อมยอด กดพิมพ์ใบเสร็จแล้วบิลเป็น "รอสลิป" ตรวจสลิปแล้วบิลขึ้นป้ายผลตรวจ
+// วิธี: เตรียมโต๊ะที่เสิร์ฟแล้วเหมือนเคสเงินสด → กดรับเงินแล้วสลับเป็น PromptPay → เช็ก QR และ ฿50 → กดพิมพ์ใบเสร็จ → การ์ดโต๊ะหาย บิลขึ้น "รอสลิป" → ในกล่องตรวจสลิปที่เด้งขึ้นมา พิมพ์สลิป MOCK-OK กดตรวจ → ตารางบิลมีป้าย ตรวจสลิปแล้ว/รอตรวจสลิป
+test('cashier เก็บเงินผ่าน PromptPay: พิมพ์ใบเสร็จก่อน แล้วตรวจสลิปสำเร็จ', async ({
   page,
   request,
 }) => {
@@ -73,6 +75,7 @@ test('cashier เก็บเงินผ่าน PromptPay (สแกน) ส�
   await advanceOrderToServed(page, orderId)
 
   await loginAsCashier(page, request)
+  await stubPrint(page)
   await page.goto('/employee/check')
 
   const tableName = tableCardText.replace(/^โต๊ะ\s*/, '')
@@ -91,26 +94,22 @@ test('cashier เก็บเงินผ่าน PromptPay (สแกน) ส�
   await expect(dialog.getByText('ให้ลูกค้าสแกนเพื่อจ่าย')).toBeVisible()
   await expect(dialog.getByText('฿50').first()).toBeVisible()
 
-  // PromptPay ต้องสแกนสลิปให้ระบบตรวจ (SlipOK) ก่อนบันทึก — ยังไม่สแกนกดบันทึกไม่ได้
-  const save = dialog.getByRole('button', { name: 'รับเงิน ฿50' })
-  await expect(save).toBeDisabled()
-  // จำลองเครื่องสแกน 2D: พิมพ์ข้อความ QR ของสลิปลงช่องแล้วกด Enter (Enter ต้องไม่ submit ฟอร์ม)
-  // backend โหมดจำลอง (SLIPOK_MOCK=true) ขึ้นต้น MOCK-OK = ตรวจผ่าน
-  // ถ้า backend ยังไม่ได้ตั้ง SlipOK เลย บิลจะถูกบันทึกเป็น "รอตรวจสลิป" ก็ยังผ่านเทสนี้
-  const slip = dialog.getByPlaceholder(/ยิงเครื่องสแกน/)
-  await slip.fill(`MOCK-OK-e2e-${Date.now()}`)
-  await slip.press('Enter')
-  await expect(dialog).toBeVisible()
-  await save.click()
-
-  const receipt = page.getByRole('dialog', { name: 'ใบเสร็จรับเงิน' })
-  await expect(receipt).toBeVisible()
-  await expect(receipt.getByText('PromptPay')).toBeVisible()
-  const receiptNo = (await receipt.getByText(/^RCPT-/).innerText()).trim()
-  await receipt.getByRole('button', { name: 'ปิด' }).click()
-
-  // จ่ายครบแล้วการ์ดโต๊ะหายไป บิลไปอยู่ "บิลที่เก็บแล้ววันนี้" พร้อมป้ายผลตรวจสลิป
+  // PromptPay พิมพ์ใบเสร็จก่อน (ใบเสร็จมี QR ให้ลูกค้าสแกน) บิลบันทึกเป็น "รอสลิป" แล้วกล่องตรวจสลิปเด้งเอง
+  const { slipDialog, receiptNo } = await printPromptPay(page, dialog)
   await expect(tile).toHaveCount(0)
+  await expect(
+    paidBillsTable(page).getByRole('row').filter({ hasText: receiptNo }).filter({ hasText: 'รอสลิป' }),
+  ).toBeVisible()
+
+  // จำลองเครื่องสแกน 2D: พิมพ์ข้อความ QR ของสลิปลงช่องแล้วกด Enter = ส่งตรวจ
+  // backend โหมดจำลอง (SLIPOK_MOCK=true) ขึ้นต้น MOCK-OK = ตรวจผ่าน
+  // ถ้า backend ยังไม่ได้ตั้ง SlipOK เลย บิลจะเป็น "รอตรวจสลิป" ก็ยังผ่านเทสนี้
+  const slip = slipDialog.getByPlaceholder(/ยิงเครื่องสแกน/)
+  await slip.fill(`MOCK-OK-e2e-${Date.now()}`)
+  await slipDialog.getByRole('button', { name: 'ตรวจสลิป', exact: true }).click()
+  await expect(slipDialog).toHaveCount(0)
+
+  // บิลอยู่ใน "บิลที่เก็บแล้ววันนี้" พร้อมป้ายผลตรวจสลิป
   await expect(
     paidBillsTable(page).getByRole('row').filter({ hasText: receiptNo }).filter({ hasText: /ตรวจสลิปแล้ว|รอตรวจสลิป/ }),
   ).toBeVisible()

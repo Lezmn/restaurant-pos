@@ -1,6 +1,6 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test'
 import { call, customerOrder, menuItemByName, ok, openNewSession, serve, tokens } from '../api/api-helpers'
-import { checkTableTile, loginAsAdmin, loginAsCashier, paidBillsTable } from '../helpers'
+import { checkTableTile, loginAsAdmin, loginAsCashier, paidBillsTable, printPromptPay, stubPrint } from '../helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data (DB ทดสอบเท่านั้น — เก็บเงิน/ยกเลิกบิลจริง)
 // เทสสลิปค้างใช้ SlipOK โหมดจำลอง: backend ต้องตั้ง SLIPOK_MOCK=true (สลิป MOCK-DOWN-* = ธนาคารล่ม → รอตรวจ)
@@ -98,32 +98,28 @@ test('STAFF: บิลเกิน 1 ชม. → ปุ่มยกเลิก�
   await expect(billRow(page, receiptNo).getByRole('button', { name: 'ยกเลิกบิล' })).toBeEnabled({ timeout: 10_000 })
 })
 
-// ทดสอบ: ADMIN รับ PromptPay โดยไม่มีสลิปได้ ถ้าติ๊กยืนยันเองและใส่เหตุผล แล้วบิลต้องขึ้นป้าย "ยืนยันเอง"
-// วิธี: เตรียมโต๊ะที่เสิร์ฟแล้ว → admin กดรับเงินเป็น PromptPay → ปุ่มบันทึกกดไม่ได้ → ติ๊กยืนยันเอง (ช่องสแกนถูกปิด) ปุ่มยังกดไม่ได้ → ใส่เหตุผลแล้วบันทึก → เช็กใบเสร็จ การ์ดโต๊ะหาย และแถวบิลมีคำว่า "ยืนยันเอง"
-test('ADMIN รับ PromptPay โดยไม่มีสลิป: ติ๊กยืนยันเองพร้อมเหตุผล → บันทึกได้ และบิลขึ้นป้าย "ยืนยันเอง"', async ({ page, request }) => {
+// ทดสอบ: หน้าร้านรับ PromptPay แล้วลูกค้าไม่มีสลิปให้ตรวจ — ยืนยันรับเงินเองพร้อมเหตุผลได้จากกล่องตรวจสลิป บิลขึ้นป้าย "ยืนยันเอง"
+// วิธี: เตรียมโต๊ะที่เสิร์ฟแล้ว → cashier กดรับเงินเป็น PromptPay → พิมพ์ใบเสร็จ (บิลรอสลิป) → ในกล่องตรวจสลิปกด "ไม่มีสลิป / ตรวจไม่ได้ — ยืนยันรับเงินเอง" → ปุ่มยืนยันกดไม่ได้จนใส่เหตุผล → ยืนยัน → การ์ดโต๊ะหาย และแถวบิลมีคำว่า "ยืนยันเอง"
+test('รับ PromptPay แล้วไม่มีสลิป: ยืนยันเองพร้อมเหตุผลจากกล่องตรวจสลิป → บิลขึ้นป้าย "ยืนยันเอง"', async ({ page, request }) => {
   const t = await tokens(request)
-  const { tableName, total } = await servedTable(request, t)
+  const { tableName } = await servedTable(request, t)
 
-  await loginAsAdmin(page, request)
+  await loginAsCashier(page, request)
+  await stubPrint(page)
   await page.goto('/employee/check')
   await checkTableTile(page, tableName).getByRole('button', { name: /^รับเงิน/ }).click()
 
   const dialog = page.getByRole('dialog', { name: `รับเงิน โต๊ะ ${tableName}` })
   await dialog.getByRole('button', { name: 'PromptPay' }).click()
-  const save = dialog.getByRole('button', { name: `รับเงิน ฿${total}` })
-  await expect(save).toBeDisabled()
+  const { slipDialog, receiptNo } = await printPromptPay(page, dialog)
 
-  await dialog.getByRole('checkbox', { name: /ยืนยันรับเงินเอง \(ADMIN\)/ }).check()
-  await expect(dialog.getByPlaceholder(/ยิงเครื่องสแกน/)).toBeDisabled()
-  await expect(save).toBeDisabled()
-  await dialog.getByPlaceholder(/เช็คยอดเข้าในแอปธนาคาร/).fill('ลูกค้าโชว์แอป ยอดเข้าแล้ว (E2E)')
-  await save.click()
-
-  const receipt = page.getByRole('dialog', { name: 'ใบเสร็จรับเงิน' })
-  await expect(receipt).toBeVisible()
-  await expect(receipt.getByText('PromptPay')).toBeVisible()
-  const receiptNo = (await receipt.getByText(/^RCPT-/).innerText()).trim()
-  await receipt.getByRole('button', { name: 'ปิด' }).click()
+  await slipDialog.getByRole('button', { name: /ยืนยันรับเงินเอง/ }).click()
+  const confirmDialog = page.getByRole('dialog', { name: 'ยืนยันรับเงินเอง' })
+  const confirm = confirmDialog.getByRole('button', { name: 'ยืนยันว่าเงินเข้าแล้ว' })
+  await expect(confirm).toBeDisabled()
+  await confirmDialog.getByRole('textbox', { name: /เหตุผล/ }).fill('ลูกค้าโชว์แอป ยอดเข้าแล้ว (E2E)')
+  await confirm.click()
+  await expect(confirmDialog).toHaveCount(0)
 
   // การ์ดหายเมื่อรายการโต๊ะโหลดใหม่ — DB ที่มีโต๊ะเปิดค้างเยอะ + รันหลาย worker โหลดช้ากว่า 5 วิได้
   await expect(checkTableTile(page, tableName)).toHaveCount(0, { timeout: 15_000 })
@@ -143,14 +139,14 @@ test('สลิปรอตรวจขึ้นแผง "สลิป PromptPa
   )
   test.skip(pending.slipStatus !== 'PENDING', 'backend ไม่ได้ตั้ง SLIPOK_MOCK=true — สร้างสลิปรอตรวจไม่ได้')
 
-  // STAFF: เห็นบิลในแผง กดตรวจอีกครั้ง (ธนาคารยังล่ม → ยังค้างอยู่) และไม่มีปุ่มยืนยันเอง
+  // STAFF: เห็นบิลในแผง กดตรวจอีกครั้งได้ (ธนาคารยังล่ม → ยังค้างอยู่) และมีปุ่มยืนยันเอง (หน้าร้านยืนยันได้แล้ว)
   await loginAsCashier(page, request)
   await page.goto('/employee/check')
   const item = slipPanel(page).getByRole('listitem').filter({ hasText: `โต๊ะ ${tableName} ·` })
   await expect(item).toContainText(`฿${total}`)
   await expect(item).toContainText(pending.receipt.number)
   await expect(item).toContainText('รอตรวจสลิป')
-  await expect(item.getByRole('button', { name: 'ยืนยันเอง' })).toHaveCount(0)
+  await expect(item.getByRole('button', { name: 'ยืนยันเอง' })).toBeVisible()
 
   const [recheck] = await Promise.all([
     page.waitForResponse((r) => r.url().includes(`/payments/${pending.id}/slip/recheck`)),

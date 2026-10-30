@@ -1,6 +1,6 @@
 import { test, expect, devices, type Page } from '@playwright/test'
 import { call, createMenu, customerOrder, openNewSession, tokens, uniqueName } from '../api/api-helpers'
-import { loginAsKitchen } from '../helpers'
+import { loginAsKitchen, openCart } from '../helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data (DB ทดสอบเท่านั้น — สร้างเมนู/โต๊ะ/ออเดอร์จริง)
 // โน้ตต่อจาน + ตัวจับเวลาบนจอครัว (OrderPage.tsx):
@@ -46,10 +46,11 @@ test('โน้ตต่อจาน: ปุ่มความเผ็ดเล
     await note.pressSequentially(', แพ้กุ้ง')
     await expect(note).toHaveValue('เผ็ดมาก, แพ้กุ้ง')
     await customer.getByRole('button', { name: /เพิ่มรายการ/ }).click()
+    await openCart(customer)
 
     const [res] = await Promise.all([
       customer.waitForResponse((r) => new URL(r.url()).pathname === '/public/orders' && r.request().method() === 'POST'),
-      customer.getByRole('button', { name: '➤ ส่งรายการเข้าครัว' }).click(),
+      customer.getByRole('button', { name: 'ส่งรายการเข้าครัว' }).click(),
     ])
     expect(res.ok()).toBe(true)
     const allergyRef = ((await res.json()).id as string).slice(0, 6).toUpperCase()

@@ -2,15 +2,15 @@ import { test, expect } from '@playwright/test'
 import { submitLogin } from '../helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data ที่ localhost:3000
-// login ผ่านฟอร์มจริง (ไม่ยิง API ตรง) เพราะอยากดูผลบน UI ตาม header ของ EmployeeLayout
-// ที่โชว์ "({name} · {role})" — ดู src/components/layout/EmployeeLayout.tsx บรรทัด 141-145
+// login ผ่านฟอร์มจริง (ไม่ยิง API ตรง) เพราะอยากดูผลบน UI
+// หน้าพนักงาน (EmployeeLayout) โชว์ป้ายบัญชีตามตำแหน่ง ("บัญชีหน้าร้าน"/"บัญชีครัว") มีชื่อบัญชีเป็น title
 
 const accounts = [
-  // ADMIN ไปหน้า Dashboard ก่อน — แถบข้างของหน้าเจ้าของร้านโชว์ "Admin · ADMIN" แบบเดียวกัน
-  { username: 'admin', name: 'Admin', role: 'ADMIN', landingUrl: /\/owner\/dashboard$/ },
+  // ADMIN ไปหน้า Dashboard ก่อน — แถบข้างของหน้าเจ้าของร้านโชว์ "Admin · ADMIN"
+  { username: 'admin', name: 'Admin', role: 'ADMIN', landingUrl: /\/owner\/dashboard$/, shown: 'Admin · ADMIN' },
   // 23 ก.ย. รวม CASHIER + WAITER เป็น STAFF — seed เหลือบัญชี staff (ชื่อ "Staff")
-  { username: 'staff', name: 'Staff', role: 'STAFF', landingUrl: /\/employee\/check$/ },
-  { username: 'kitchen', name: 'Kitchen Staff', role: 'KITCHEN', landingUrl: /\/employee\/order$/ },
+  { username: 'staff', name: 'Staff', role: 'STAFF', landingUrl: /\/employee\/check$/, shown: 'บัญชีหน้าร้าน' },
+  { username: 'kitchen', name: 'Kitchen Staff', role: 'KITCHEN', landingUrl: /\/employee\/order$/, shown: 'บัญชีครัว' },
 ]
 
 for (const account of accounts) {
@@ -23,6 +23,6 @@ for (const account of accounts) {
     await submitLogin(page, account.username, 'ChangeMe123!')
 
     await expect(page).toHaveURL(account.landingUrl) // ตรวจสอบว่า login แล้วไปหน้า landing page ถูกต้อง
-    await expect(page.getByText(`${account.name} · ${account.role}`)).toBeVisible() // ตรวจสอบ header ของ EmployeeLayout ว่าโชว์ role ถูกต้อง
+    await expect(page.getByText(account.shown, { exact: true })).toBeVisible() // ป้ายบัญชี/role บนแถบด้านบน
   })
 }

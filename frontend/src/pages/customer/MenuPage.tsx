@@ -99,6 +99,8 @@ export function CustomerMenuPage() {
       {lines.length > 0 && (
         <Link
           to={`/t/${token}/cart`}
+          // การ์ดลอยเหนือเมนูล่างโดยตั้งใจ (เว้น 12px) — บอกเทสต์ responsive ว่าไม่ใช่แถบที่หลุดตำแหน่ง
+          data-floating
           className="fixed inset-x-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 mx-auto flex h-15 max-w-[calc(28rem-2rem)] items-center gap-3 rounded-2xl bg-brand-500 px-4 text-white shadow-lg md:hidden"
         >
           <span className="flex h-8 min-w-8 items-center justify-center rounded-full bg-white px-1 text-sm font-bold text-brand-500 tabular-nums">

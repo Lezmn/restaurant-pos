@@ -48,7 +48,8 @@ const matrix: [Method, string, Role[]][] = [
   ['GET', `/payments/${ID}`, ADMIN_STAFF],
   ['PATCH', `/payments/${ID}/void`, ADMIN_STAFF],
   ['POST', `/payments/${ID}/slip/recheck`, ADMIN_STAFF],
-  ['PATCH', `/payments/${ID}/slip/confirm`, ADMIN],
+  // หน้าร้านยืนยันสลิปเองได้ด้วย (ต้องมีเหตุผล + audit log)
+  ['PATCH', `/payments/${ID}/slip/confirm`, ADMIN_STAFF],
   ['POST', '/table-sessions', ADMIN_STAFF],
   ['GET', '/table-sessions', ADMIN_STAFF],
   ['PATCH', `/table-sessions/${ID}/close`, ADMIN_STAFF],
