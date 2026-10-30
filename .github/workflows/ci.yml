@@ -1,6 +1,6 @@
-# CI — ทุก PR และทุก push เข้า main: typecheck + unit test + build + build Docker image
-# E2E (Playwright) รันเฉพาะตอนกดเอง (Actions → CI → Run workflow) เพราะช้า (~7 นาที)
-# ตกลงกันไว้ว่าระหว่างทำฟีเจอร์ไม่รัน E2E ทุกครั้ง — รันครบก่อนส่งมอบ
+# CI — ทุก PR และทุก push เข้า main: typecheck + unit test + build + build Docker image + E2E (Playwright)
+# E2E ทั้งชุดรันบน CI ทุก PR (~8–12 นาที) — ในเครื่องรันแค่ spec ที่เกี่ยวข้องพอ
+# กดรันเองได้ที่ Actions → CI → Run workflow (เอาติ๊ก e2e ออกถ้าไม่ต้องการ)
 name: CI
 
 on:
@@ -78,7 +78,7 @@ jobs:
         run: docker build --build-arg VITE_API_URL=https://api.example.com -t restaurant-web:ci frontend
 
   e2e:
-    if: github.event_name == 'workflow_dispatch' && inputs.e2e
+    if: github.event_name != 'workflow_dispatch' || inputs.e2e
     needs: [backend, frontend]
     runs-on: ubuntu-latest
     timeout-minutes: 30
