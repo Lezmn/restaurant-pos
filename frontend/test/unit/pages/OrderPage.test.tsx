@@ -228,19 +228,21 @@ describe('OrderPage (จอครัว)', () => {
     expect(await screen.findByText(/เกินเวลา 15 นาที/)).toBeInTheDocument()
   })
 
-  it('เกิน 15 นาที → ป้ายเวลาเป็นแดงทึบ ส่วนใบที่ยังไม่เกินเป็นสีเทา', async () => {
+  it('เกิน 30 นาที → ขั้นที่สอง แดงทึบ และ screen reader ได้ยิน "เกินเวลา 30 นาที"', async () => {
     const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString()
     vi.mocked(getOrders).mockResolvedValue([
-      { ...order, id: 'ok', orderRef: 'ok005', createdAt: minutesAgo(5) },
       { ...order, id: 'late', orderRef: 'late20', createdAt: minutesAgo(20) },
+      { ...order, id: 'veryLate', orderRef: 'late40', createdAt: minutesAgo(40) },
     ])
     renderPage()
 
     const badge = (ref: string) =>
-      within(screen.getByText(`#${ref}`).closest('article')!).getByText(/^รอ \d+ นาที$/).closest('p')!
-    await screen.findByText('#ok005')
-    expect(badge('ok005')).toHaveClass('bg-gray-100')
-    expect(badge('late20')).toHaveClass('bg-danger-ink')
+      within(screen.getByText(`#${ref}`).closest('article')!).getByText(/^รอ \d+ นาที/).closest('p')!
+    await screen.findByText('#late40')
+    expect(badge('late20')).toHaveClass('border-danger')
+    expect(badge('late20')).not.toHaveClass('bg-danger-ink')
+    expect(badge('late40')).toHaveClass('bg-danger-ink')
+    expect(within(badge('late40')).getByText(/เกินเวลา 30 นาที/)).toBeInTheDocument()
   })
 
   it('เรียงตั๋วที่รอนานสุดขึ้นก่อน', async () => {

@@ -24,11 +24,10 @@ const waitedMinutes = (iso: string) =>
   Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60_000))
 
 /** สั้นพอให้อยู่บรรทัดเดียวในคอลัมน์ iPad แนวตั้ง — เกินชั่วโมงบอกเป็นชั่วโมง ไม่ใช่ "3331 นาที" */
-const waitedLabel = (minutes: number, waiting: boolean) => {
-  const prefix = waiting ? 'รอ ' : ''
+const waitedLabel = (minutes: number) => {
   if (minutes < 1) return 'เพิ่งสั่ง'
-  if (minutes < 60) return `${prefix}${minutes} นาที`
-  return `${prefix}${Math.floor(minutes / 60)} ชม.`
+  if (minutes < 60) return `รอ ${minutes} นาที`
+  return `รอ ${Math.floor(minutes / 60)} ชม.`
 }
 
 /** กด "ทำเสร็จแล้ว" แล้วรอเท่านี้ก่อนส่งจริง ระหว่างนั้นกด "ยกเลิก" บนตั๋วได้
@@ -62,20 +61,23 @@ function KitchenItemRow({
   onToggle: (checked: boolean) => void
 }>) {
   return (
-    <li className={`py-1 ${columnKey === 'done' ? 'text-gray-500' : 'text-black'}`}>
+    <li className={`py-2 ${columnKey === 'done' ? 'text-gray-500' : 'text-black'}`}>
       {/* คอลัมน์กำลังปรุง: ทั้งแถวเป็น label แตะตรงไหนก็ติ๊กได้
           จอครัวบน iPad มือเปียก/ใส่ถุงมือ เล็ง checkbox 20px ไม่ไหว */}
       <label
-        className={`flex items-center justify-between gap-3 ${
-          columnKey === 'cooking' ? 'min-h-11 cursor-pointer' : ''
+        className={`flex min-h-11 items-center justify-between gap-3 ${
+          columnKey === 'cooking' ? 'cursor-pointer' : ''
         }`}
       >
         {/* ครัวอ่านจากระยะแขน — 16px ขึ้นไป จำนวนตัวใหญ่ให้เห็นก่อนชื่อ */}
         <span className={`text-base leading-snug ${checked ? 'text-gray-500 line-through' : ''}`}>
-          <span className="mr-2 text-base font-bold text-brand-500 tabular-nums">{item.quantity}×</span>
+          <span className="mr-1 text-lg font-bold tabular-nums">{item.quantity}×</span>
           <span className="font-semibold">{item.menuItemName}</span>
+          {/* ตัวเลือก (หมู/ไข่ดาว) ทำผิดแล้วต้องทำใหม่ — ตัวเท่าชื่อเมนู สีเข้ม ไม่ใช่ตัวเล็กสีเทา */}
           {item.optionNames.length > 0 && (
-            <span className="block pl-7 text-sm text-gray-600">{item.optionNames.join(' · ')}</span>
+            <span className={`block text-base font-semibold ${checked ? '' : 'text-brand-500'}`}>
+              {item.optionNames.join(' · ')}
+            </span>
           )}
         </span>
 
@@ -90,16 +92,25 @@ function KitchenItemRow({
         )}
       </label>
 
-      {/* โน้ตทุกชนิดเป็นกล่องแดงอ่อน + ไอคอน — แพ้อาหารเติมคำนำหน้า "แพ้อาหาร:" แยกจากโน้ตทั่วไปด้วยข้อความ ไม่ใช่สีอย่างเดียว */}
-      {item.note && columnKey !== 'done' && (
-        <p className="mt-1 mb-1.5 flex items-start gap-1.5 rounded-lg bg-danger/10 px-2.5 py-1.5 text-sm font-semibold text-danger-ink">
-          <AlertIcon />
-          <span>
-            {isAllergyNote(item.note) && 'แพ้อาหาร: '}
+      {/* แพ้อาหาร = พื้นแดงตัวขาว + ไอคอน (ไม่ได้บอกด้วยสีอย่างเดียว) — ทำพลาดแล้วลูกค้าอันตราย
+          โน้ตทั่วไป (ไม่เผ็ด ฯลฯ) = กล่องเหลือง */}
+      {item.note &&
+        columnKey !== 'done' &&
+        (isAllergyNote(item.note) ? (
+          <p className="mt-1.5 flex items-start gap-1.5 rounded-md bg-danger-ink px-2 py-1 text-base font-bold text-white">
+            <AlertIcon />
+            <span>
+              <span className="sr-only">ระวัง แพ้อาหาร: </span>
+              {item.note}
+            </span>
+          </p>
+        ) : (
+          // โน้ตทั่วไป (ไม่เผ็ด / ไม่ใส่ผัก) = กล่องเหลืองมีป้าย "หมายเหตุ" — เด่นกว่าตัวเลือก แต่ไม่แรงเท่าแพ้อาหาร
+          <p className="mt-1.5 rounded-md bg-amber-100 px-2 py-1 text-base font-bold text-amber-900">
+            <span className="mr-1.5 rounded bg-amber-700 px-1.5 py-0.5 text-xs font-bold text-white">หมายเหตุ</span>
             {item.note}
-          </span>
-        </p>
-      )}
+          </p>
+        ))}
     </li>
   )
 }
@@ -159,8 +170,10 @@ const columns: {
   },
 ]
 
-/** รอเกินนี้ (นาที) ป้ายเวลาเป็นแดงทึบ + ไอคอนเตือน */
+/** รอเกินนี้ (นาที) ป้ายเวลารอเป็นขอบแดง — เริ่มช้า */
 const LATE_MINUTES = 15
+/** รอเกินนี้ (นาที) ป้ายเป็นแดงทึบ — ช้ามาก แยกขั้นไว้ไม่ให้ทุกใบแดงเท่ากันจนแดงไม่มีความหมาย */
+const VERY_LATE_MINUTES = 30
 
 /** อันที่รอนานสุดขึ้นก่อน — ครัวทำตามคิว ไม่ต้องไล่หาใบเก่าที่ตกท้ายคอลัมน์ */
 const byOldest = (a: Order, b: Order) =>
@@ -364,10 +377,10 @@ export function OrderPage() {
 
   // ติ๊กรายอาหารว่าทำแล้ว — เป็นตัวช่วยของครัว ไม่ได้ส่งขึ้น backend
   const [checked, setChecked] = useState<Record<string, boolean>>({})
-  /** ข้อความให้ screen reader อ่านเมื่อมีออเดอร์ใหม่ — เสียงติ๊งต่องอย่างเดียวไม่บอกว่าเกิดอะไร */
-  const [announcement, setAnnouncement] = useState('')
   /** ออเดอร์ที่กำลังถามยืนยันว่าจะยกเลิก — null = ไม่มีกล่องเปิดอยู่ */
   const [cancelling, setCancelling] = useState<Order | null>(null)
+  /** ข้อความให้ screen reader อ่านเมื่อมีออเดอร์ใหม่ — เสียงติ๊งต่องอย่างเดียวไม่บอกว่าเกิดอะไร */
+  const [announcement, setAnnouncement] = useState('')
 
   // เวลารอต้องเดินเอง ไม่ใช่รอ refetch ถึงจะขยับ
   const [, setTick] = useState(0)
@@ -447,21 +460,21 @@ export function OrderPage() {
       {!isPending && !unknown && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <div role="group" aria-label="กรองตามประเภทออเดอร์" className="flex flex-wrap gap-2">
-          {(Object.keys(PLACE_FILTERS) as PlaceFilter[]).map((key) => (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={place === key}
-              onClick={() => setPlace(key)}
-              className={`min-h-11 rounded-full border-2 px-4 text-base font-bold transition ${
-                place === key
-                  ? 'border-brand-500 bg-brand-500 text-white'
-                  : 'border-staff-line bg-white text-gray-800 hover:bg-brand-50'
-              }`}
-            >
-              {PLACE_FILTERS[key].label} <span className="tabular-nums">{placeCount(key)}</span>
-            </button>
-          ))}
+            {(Object.keys(PLACE_FILTERS) as PlaceFilter[]).map((key) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={place === key}
+                onClick={() => setPlace(key)}
+                className={`min-h-11 rounded-full border-2 px-4 text-base font-bold transition ${
+                  place === key
+                    ? 'border-brand-500 bg-brand-500 text-white'
+                    : 'border-staff-line bg-white text-gray-800 hover:bg-brand-50'
+                }`}
+              >
+                {PLACE_FILTERS[key].label} <span className="tabular-nums">{placeCount(key)}</span>
+              </button>
+            ))}
           </div>
           <p className="ml-auto text-sm font-semibold text-gray-700">เรียงจากรอนานสุด</p>
           <KitchenSoldOutButton />
@@ -566,6 +579,23 @@ export function OrderPage() {
 /** ออเดอร์ที่เข้ามาไม่ถึงนี้ (นาที) ติดป้าย "ใหม่" — คนที่ไม่ได้ยินเสียงก็เห็นว่าใบไหนเพิ่งเข้า */
 const NEW_MINUTES = 1
 
+function ClockIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      aria-hidden
+      className="h-4 w-4 shrink-0"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  )
+}
+
 function AlertIcon() {
   return (
     <svg
@@ -610,6 +640,7 @@ function KitchenTicket({
   const done = column.key === 'done'
   const waited = waitedMinutes(order.createdAt)
   const late = !done && waited >= LATE_MINUTES
+  const veryLate = !done && waited >= VERY_LATE_MINUTES
   const fresh = column.key === 'queue' && waited < NEW_MINUTES
   const busy = sending || awaitingUndo
 
@@ -617,63 +648,79 @@ function KitchenTicket({
     // โครงใบสั่ง: หัวใบ (โต๊ะ + เวลารอ) / รายการคั่นเส้นประ / ปุ่มท้ายใบ
     <article
       aria-busy={busy}
-      className={`overflow-hidden rounded-xl bg-white`}
+      className={`overflow-hidden rounded-2xl border-2 bg-white ${late ? 'border-status-queue-ink' : 'border-staff-line'}`}
     >
       <header className="px-3.5 pt-3 pb-2">
-        <div className="flex items-start justify-between gap-x-2 gap-y-1">
-          <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-2xl leading-tight font-bold text-black">
+        {/* อ่านจากระยะ 1 เมตร: ชื่อโต๊ะกับเวลารอเด่นสุด — คอลัมน์แคบไม่พอบรรทัดเดียว
+            ให้ป้ายเวลาตกลงบรรทัดถัดไปแทนการหักชื่อโต๊ะเป็น 2 บรรทัด */}
+        <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
+          <p className="flex max-w-full flex-wrap items-center gap-2 text-2xl leading-tight font-bold text-black">
             {order.placeLabel}
             {fresh && (
-              <span className="self-center rounded-full bg-status-queue-ink px-2 py-0.5 text-xs font-bold text-white">
+              <span className="rounded-full bg-status-queue-ink px-2 py-0.5 text-xs font-bold text-white">
                 ใหม่
+              </span>
+            )}
+            {/* เห็นตั้งแต่หัวใบ ก่อนไล่อ่านทีละจาน */}
+            {!done && order.items.some((item) => isAllergyNote(item.note)) && (
+              <span className="rounded-full bg-danger-ink px-2 py-0.5 text-xs font-bold text-white">
+                แพ้อาหาร
               </span>
             )}
           </p>
 
+          {/* เวลารอซ่อนในคอลัมน์เสร็จแล้ว — ของออกไปแล้ว ไม่ได้ "รอ" อะไรอีก
+              เกินเวลาบอก 2 ขั้น: ขอบแดง (15 นาที) → แดงทึบ (30 นาที) + ไอคอนเตือน
+              (รูปทรงเปลี่ยน ไม่ได้บอกด้วยสีอย่างเดียว) ข้อความสั้นบรรทัดเดียว */}
           {!done && (
             <p
-              className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full text-sm tabular-nums ${waitChipClass(late)}`}
+              className={`mt-0.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full text-base tabular-nums ${waitChipClass(veryLate, late)}`}
             >
-              {late && <AlertIcon />}
-              {waitedLabel(waited, column.key === 'queue')}
-              {late && <span className="sr-only"> เกินเวลา {LATE_MINUTES} นาที</span>}
+              {late ? <AlertIcon /> : <ClockIcon />}
+              {/* นาทีแรกขึ้น "เพิ่งสั่ง" — "รอ 0 นาที" อ่านแล้วแปลก */}
+              {waitedLabel(waited)}
+              {late && (
+                <span className="sr-only"> เกินเวลา {veryLate ? VERY_LATE_MINUTES : LATE_MINUTES} นาที</span>
+              )}
             </p>
           )}
         </div>
 
         <div className="mt-1 flex items-center justify-between gap-2">
-          <p className="whitespace-nowrap text-sm font-semibold text-gray-600">
+          {/* แค่ "#เลข" — คำว่า "ออเดอร์" นำหน้าทำให้ตัดบรรทัดในคอลัมน์แคบ */}
+          <p className="whitespace-nowrap text-sm font-semibold text-gray-700">
             <span className="sr-only">ออเดอร์ </span>#{order.orderRef}
           </p>
 
           {/* ยกเลิกอยู่หัวใบ ห่างจากปุ่มหลักท้ายใบ — มือเปียก/ใส่ถุงมือกดพลาดยาก
               คอลัมน์เสร็จแล้วไม่มี: ของเสิร์ฟไปแล้ว จะไม่คิดเงินเป็นเรื่องของแคชเชียร์ */}
           {!done && (
-              <button
-                type="button"
-                aria-label="ยกเลิกออเดอร์"
-                disabled={busy}
-                onClick={onCancel}
-                className="flex min-h-11 items-center gap-1 rounded-lg border-2 border-gray-300 bg-white px-3 text-sm font-semibold text-danger-ink transition hover:border-danger hover:bg-danger/5 disabled:cursor-not-allowed disabled:opacity-60"
+            <button
+              type="button"
+              aria-label="ยกเลิกออเดอร์"
+              disabled={busy}
+              onClick={onCancel}
+              className="flex min-h-11 shrink-0 items-center gap-1 rounded-lg border-2 border-gray-300 bg-white px-3 text-sm font-semibold text-danger-ink transition hover:border-danger hover:bg-danger/5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                aria-hidden
+                className="h-4 w-4"
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  aria-hidden
-                  className="h-4 w-4"
-                >
-                  <path d="M6 6l12 12M18 6 6 18" />
-                </svg>
-                ยกเลิก
-              </button>
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+              ยกเลิก
+            </button>
           )}
         </div>
       </header>
 
-      <ul className="px-3.5 pb-2">
+      {/* รายการเป็นบรรทัดบนใบสั่ง คั่นเส้นประ — ไม่ใช่กล่องซ้อนกล่อง */}
+      <ul className="divide-y divide-dashed divide-staff-line border-t-2 border-dashed border-staff-line px-3.5">
         {order.items.map((item) => (
           <KitchenItemRow
             key={item.id}
@@ -807,6 +854,9 @@ function DoneStrip({
   )
 }
 
-function waitChipClass(late: boolean) {
-  return late ? 'bg-danger-ink px-3 py-1 font-bold text-white' : 'bg-gray-100 px-3 py-1 font-semibold text-gray-700'
+function waitChipClass(veryLate: boolean, late: boolean) {
+  if (veryLate) return 'bg-danger-ink px-3 py-1 font-bold text-white'
+  return late
+    ? 'border-2 border-danger bg-white px-3 py-0.5 font-bold text-danger-ink'
+    : 'py-1 font-semibold text-gray-800'
 }
