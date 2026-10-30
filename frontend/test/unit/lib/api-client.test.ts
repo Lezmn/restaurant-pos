@@ -48,23 +48,24 @@ describe('apiClient', () => {
     expect((error as ApiError).message).toBe(RATE_LIMIT_MESSAGE)
   })
 
-  // ทดสอบ: ตอน login อยู่ ทุกคำขอต้องแนบ token ไปใน header
-  // วิธี: บันทึก token ลง authStorage → mock fetch → เรียก apiClient → เช็ก header Authorization = 'Bearer tok-1'
-  it('แนบ Bearer token เมื่อ login อยู่', async () => {
-    authStorage.save('tok-1', admin)
+  // ทดสอบ: ทุกคำขอต้องให้ browser แนบ cookie JWT ไปด้วย และไม่มี token ใน header แล้ว
+  // วิธี: login อยู่ → mock fetch → เรียก apiClient → เช็ก credentials = 'include' และไม่มี Authorization
+  it('ส่ง cookie (credentials: include) ไม่แนบ Authorization', async () => {
+    authStorage.save(admin)
     const fetchMock = vi.fn().mockResolvedValue(json(200, { ok: true }))
     vi.stubGlobal('fetch', fetchMock)
     await apiClient('/orders')
-    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer tok-1')
+    expect(fetchMock.mock.calls[0][1].credentials).toBe('include')
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBeUndefined()
   })
 
-  // ทดสอบ: token หมดอายุ (401) ต้องล้าง token แล้วพาไปหน้า /login
-  // วิธี: บันทึก token → mock fetch ตอบ 401 → เช็กว่า reject ด้วย status 401, token ถูกล้าง และ location.href เป็น /login
-  it('401 → ล้าง token แล้วเด้งไป /login', async () => {
-    authStorage.save('expired', admin)
+  // ทดสอบ: token หมดอายุ (401) ต้องล้างข้อมูลผู้ใช้แล้วพาไปหน้า /login
+  // วิธี: login อยู่ → mock fetch ตอบ 401 → เช็กว่า reject ด้วย status 401, ข้อมูลผู้ใช้ถูกล้าง และ location.href เป็น /login
+  it('401 → ล้างข้อมูลผู้ใช้แล้วเด้งไป /login', async () => {
+    authStorage.save(admin)
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(401, { message: 'Unauthorized' })))
     await expect(apiClient('/orders')).rejects.toMatchObject({ status: 401 })
-    expect(authStorage.getToken()).toBeNull()
+    expect(authStorage.getUser()).toBeNull()
     expect(href).toBe('/login')
   })
 

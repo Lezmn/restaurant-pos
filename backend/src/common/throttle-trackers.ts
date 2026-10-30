@@ -1,4 +1,5 @@
 import { JwtService } from '@nestjs/jwt';
+import { readStaffToken } from '../auth/auth-cookie';
 
 /**
  * ตัวระบุ "ใคร" สำหรับ rate limit
@@ -13,10 +14,10 @@ import { JwtService } from '@nestjs/jwt';
  */
 export function createIdentityTracker(jwt: JwtService) {
   return (req: Record<string, any>): string => {
-    const auth: unknown = req.headers?.authorization;
-    if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
+    const token = readStaffToken(req);
+    if (token) {
       try {
-        const payload = jwt.verify<{ sub: string }>(auth.slice(7));
+        const payload = jwt.verify<{ sub: string }>(token);
         return `user:${payload.sub}`;
       } catch {
         // token เสีย/หมดอายุ → นับตาม IP แทน (request จะโดน 401 ต่ออยู่แล้ว)

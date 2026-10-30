@@ -31,16 +31,18 @@ export async function apiClient<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const token = authStorage.getToken()
+  const isStaff = authStorage.getUser() !== null
   const isLoginRequest = path === '/auth/login'
 
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
+    // JWT อยู่ใน httpOnly cookie ของ API (คนละ origin กับหน้าเว็บ) — ต้อง include ไม่งั้น browser ไม่แนบ cookie ไป
+    credentials: 'include',
     headers: {
       // อัปโหลดไฟล์ (FormData) ให้ browser ใส่ multipart + boundary เอง — ใส่ JSON ทับ backend จะอ่านไฟล์ไม่ได้
       ...(init.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
       // พนักงานแนบชื่อเครื่องไปด้วย — ประวัติการทำรายการบอกได้ว่าทำจากเครื่องไหน (บัญชีใช้ร่วมกัน)
-      ...(token ? { Authorization: `Bearer ${token}`, ...deviceHeaders() } : {}),
+      ...(isStaff ? deviceHeaders() : {}),
       ...init.headers,
     },
   })

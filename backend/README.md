@@ -40,7 +40,10 @@ restaurant-app/
 
 ## Auth และสิทธิ์
 
-- Login ผ่าน `POST /auth/login` ได้ JWT กลับมา ใช้แนบใน header `Authorization: Bearer <token>`
+- Login ผ่าน `POST /auth/login` → backend ตั้ง JWT ใน httpOnly cookie `restaurant_token` (SameSite=Lax, Secure ตอน production) หน้าเว็บส่ง request ด้วย `credentials: 'include'`
+  - body ยังคืน `accessToken` ให้ Swagger/สคริปต์ใช้แนบ `Authorization: Bearer <token>` ได้ (header มาก่อน cookie)
+  - `POST /auth/logout` ลบ cookie — หน้าเว็บลบ httpOnly cookie เองไม่ได้
+  - หน้าเว็บกับ API ต้องอยู่ใต้โดเมนหลักเดียวกัน (เช่น `pos.ร้าน.com` + `api.ร้าน.com`) ไม่งั้น browser ไม่แนบ cookie
 - Guard เป็น global (`JwtAuthGuard` + `RolesGuard`) ทุก endpoint ต้อง login ตามค่าเริ่มต้น
 - ใส่ `@Public()` ที่ controller/route เพื่อยกเว้นการ login (ใช้กับ `auth/login` และ endpoint ใน `public/` ทั้งหมด)
 - ใส่ `@Roles(Role.ADMIN, ...)` เพื่อจำกัดสิทธิ์ตาม role
