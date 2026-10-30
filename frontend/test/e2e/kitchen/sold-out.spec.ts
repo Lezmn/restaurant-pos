@@ -3,7 +3,7 @@ import { call, createIngredient, createMenu, openNewSession, tokens, uniqueName 
 import { loginAsKitchen } from '../helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data (DB ทดสอบเท่านั้น — สร้างเมนู/วัตถุดิบ/โต๊ะจริง)
-// ปุ่ม "ของหมด" บนจอครัว (KitchenSoldOut.tsx): ปิดเมนูหรือวัตถุดิบได้ทันทีโดยไม่ต้องสลับไปหน้า Manage
+// ปุ่ม "ปิดเมนูที่หมด" บนจอครัว (KitchenSoldOut.tsx): ปิดเมนูหรือวัตถุดิบได้ทันทีโดยไม่ต้องสลับไปหน้า Manage
 // ใช้เมนู/วัตถุดิบที่เทสต์สร้างเอง — ปิดของ seed จะทำให้เทสต์อื่นที่สั่งพร้อมกันพัง
 test.describe.configure({ timeout: 60_000 })
 
