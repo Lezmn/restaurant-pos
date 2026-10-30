@@ -9,7 +9,7 @@ import { useState } from 'react'
 type Tab = 'menu' | 'ingredient'
 
 /**
- * ปุ่ม "ของหมด" บนจอครัว — ปิด/เปิดขายเมนูหรือวัตถุดิบได้ทันทีโดยไม่ต้องสลับไปหน้า Manage
+ * ปุ่ม "ปิดเมนูที่หมด" บนจอครัว — ปิด/เปิดขายเมนูหรือวัตถุดิบได้ทันทีโดยไม่ต้องสลับไปหน้า Manage
  * ใช้ endpoint เดียวกับหน้า Manage (ครัวมีสิทธิ์ทั้งสองอย่าง)
  * ปิดวัตถุดิบ = ทุกเมนู/ตัวเลือกที่ใช้วัตถุดิบนั้นหมดตามทันที (ลูกค้า QR เห็นด้วย)
  */
@@ -27,9 +27,13 @@ export function KitchenSoldOutButton() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="min-h-11 rounded-lg border-2 border-danger bg-white px-4 text-sm font-bold text-danger-ink transition hover:bg-danger/5"
+        className="flex min-h-11 items-center gap-2 rounded-xl border-2 border-danger bg-white px-4 text-sm font-bold text-danger-ink transition hover:bg-danger/5"
       >
-        ของหมด{offCount > 0 ? ` (${offCount})` : ''}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden className="h-4 w-4">
+          <circle cx="12" cy="12" r="9" />
+          <path d="m6 6 12 12" />
+        </svg>
+        ปิดเมนูที่หมด{offCount > 0 ? ` (${offCount})` : ''}
       </button>
       {open && <SoldOutDialog onClose={() => setOpen(false)} />}
     </>

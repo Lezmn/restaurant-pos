@@ -9,7 +9,6 @@ import { useTables } from '@/features/tables/hooks'
 import { RESTAURANT_NAME } from '@/lib/config'
 import { Role, TableStatus } from '@/types/enums'
 import { useEffect, useState, type ReactNode } from 'react'
-import { KitchenSoldOutButton } from '@/pages/employee/KitchenSoldOut'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 function IconChef() {
@@ -147,7 +146,6 @@ export function EmployeeLayout() {
   const signOut = useAuth((s) => s.signOut)
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const onOrderPage = pathname.startsWith('/employee/order')
   const { data: tables } = useTables()
   // ต่อ socket ที่ layout จึงได้ event ทุกหน้าของพนักงาน (ครัว / Check / โต๊ะ / คำขอ)
   useStaffLiveEvents()
@@ -204,9 +202,6 @@ export function EmployeeLayout() {
             <p className="truncate text-xs font-semibold text-brand-500 sm:text-[13px]">{RESTAURANT_NAME}</p>
             <h1 className="text-xl font-bold leading-tight text-text sm:text-2xl">{title}</h1>
           </div>
-
-          {/* ปุ่มของหมด (เฉพาะหน้าครัว) อยู่บน header — กดได้ตลอดโดยไม่กินแถวเหนือบอร์ด */}
-          {onOrderPage && <KitchenSoldOutButton />}
 
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <p className="hidden rounded-xl bg-staff-ground px-3 py-2 text-sm font-semibold text-gray-700 lg:block">

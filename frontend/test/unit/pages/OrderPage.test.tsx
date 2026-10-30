@@ -19,6 +19,16 @@ vi.mock('@/features/orders/api', async (importOriginal) => ({
   createOrder: vi.fn(),
 }))
 
+// ปุ่มปิดเมนูที่หมดอยู่ในแถวแท็บของหน้านี้ — ไม่ใช่ประเด็นของเทสต์นี้ จึง mock ไม่ให้ยิง API จริง
+vi.mock('@/features/menu/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/menu/hooks')>()),
+  useMenuItems: vi.fn(() => ({ data: [], isPending: false })),
+}))
+vi.mock('@/features/ingredients/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/ingredients/hooks')>()),
+  useIngredients: vi.fn(() => ({ data: [], isPending: false })),
+}))
+
 const order: Order = {
   id: 'o1',
   orderRef: 'abc123',
@@ -218,21 +228,19 @@ describe('OrderPage (จอครัว)', () => {
     expect(await screen.findByText(/เกินเวลา 15 นาที/)).toBeInTheDocument()
   })
 
-  it('เกิน 30 นาที → ขั้นที่สอง แดงทึบ และ screen reader ได้ยิน "เกินเวลา 30 นาที"', async () => {
+  it('เกิน 15 นาที → ป้ายเวลาเป็นแดงทึบ ส่วนใบที่ยังไม่เกินเป็นสีเทา', async () => {
     const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString()
     vi.mocked(getOrders).mockResolvedValue([
+      { ...order, id: 'ok', orderRef: 'ok005', createdAt: minutesAgo(5) },
       { ...order, id: 'late', orderRef: 'late20', createdAt: minutesAgo(20) },
-      { ...order, id: 'veryLate', orderRef: 'late40', createdAt: minutesAgo(40) },
     ])
     renderPage()
 
     const badge = (ref: string) =>
-      within(screen.getByText(`#${ref}`).closest('article')!).getByText(/^รอ \d+ นาที/).closest('p')!
-    await screen.findByText('#late40')
-    expect(badge('late20')).toHaveClass('border-danger')
-    expect(badge('late20')).not.toHaveClass('bg-danger-ink')
-    expect(badge('late40')).toHaveClass('bg-danger-ink')
-    expect(within(badge('late40')).getByText(/เกินเวลา 30 นาที/)).toBeInTheDocument()
+      within(screen.getByText(`#${ref}`).closest('article')!).getByText(/^รอ \d+ นาที$/).closest('p')!
+    await screen.findByText('#ok005')
+    expect(badge('ok005')).toHaveClass('bg-gray-100')
+    expect(badge('late20')).toHaveClass('bg-danger-ink')
   })
 
   it('เรียงตั๋วที่รอนานสุดขึ้นก่อน', async () => {
