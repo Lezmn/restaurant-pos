@@ -32,6 +32,31 @@ npm run dev
 - งานที่เหลือเรียงตาม priority: [`docs/TODO.md`](docs/TODO.md)
 - CI: ทุก PR รัน typecheck + unit test + build + Docker image (E2E กดรันเองใน Actions)
 
+## รันเทสต์ — คำสั่งเดียว
+
+```bash
+npm run t -- <ไฟล์หรือโฟลเดอร์> [ตัวเลือก]    # รันจากโฟลเดอร์หลักที่ไหนก็ได้ พิมพ์แค่ชื่อไฟล์ก็พอ
+npm run t                                      # ไม่ใส่ไฟล์ = unit test ทั้ง backend + frontend
+```
+
+สคริปต์ `scripts/t.mjs` เลือกวิธีรันให้เองจากพาธของไฟล์:
+
+| ไฟล์อยู่ที่ | รันด้วย | ต้องใช้ DB ไหม |
+|---|---|---|
+| `frontend/test/unit/**` | vitest | ไม่ต้อง (วินาที) |
+| `backend/test/**` | jest | ไม่ต้อง (เร็ว) |
+| `frontend/test/e2e/**` | Playwright ผ่าน `test:e2e:local` (API ทดสอบ `:3100` — ไม่ยิง `:3000` จึงไม่โดน 429) | ต้อง (สคริปต์เปิดให้เอง) |
+
+```bash
+npm run t -- discount.test.ts                         # unit หน้าเว็บ (พิมพ์แค่ชื่อไฟล์)
+npm run t -- backend/test/unit/line/line.spec.ts      # unit backend
+npm run t -- access.spec.ts --headed                  # E2E เปิดเบราว์เซอร์ให้ดู
+npm run t -- frontend/test/e2e/admin --ui             # E2E ทั้งโฟลเดอร์ ในหน้าต่าง UI ที่กดเลือกเทสต์ได้
+npm run t -- StatusPage.test.tsx -t "ยกเลิก"          # เฉพาะเทสต์ที่ชื่อมีคำนี้ (E2E ใช้ -g)
+```
+
+ตัวเลือกที่ขึ้นต้นด้วย `-` ส่งต่อให้ runner นั้นตรง ๆ · E2E ไม่ระบุ `--project` = Chrome อย่างเดียว
+
 ## เทสต์ E2E (Playwright)
 
 อยู่ที่ `frontend/test/e2e/` (unit test ของ Vitest อยู่ที่ `frontend/test/unit/`) — ยิง API `localhost:3000` และเว็บ `localhost:5173` ตรง ๆ และ **สร้างข้อมูลจริง**
