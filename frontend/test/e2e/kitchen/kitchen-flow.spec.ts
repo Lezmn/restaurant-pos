@@ -57,7 +57,7 @@ test('ครัวไล่สถานะ รอคิว → กำลัง�
 
   await card('รอคิว').getByRole('button', { name: 'เริ่มปรุง' }).click()
   await expect(card('กำลังทำ')).toBeVisible()
-  await card('กำลังทำ').getByRole('button', { name: 'ทำเสร็จ', exact: true }).click()
+  await card('กำลังทำ').getByRole('button', { name: 'ทำเสร็จแล้ว', exact: true }).click()
   // ทำเสร็จแล้ว → ขึ้นคอลัมน์ "เสร็จแล้ว" พร้อมปุ่มยกเลิก 5 วิ แล้วค่อยบันทึกเป็นเสิร์ฟแล้ว
   await expect(card('เสร็จแล้ว รอเสิร์ฟ')).toBeVisible()
   await expect(card('เสร็จแล้ว รอเสิร์ฟ').getByRole('button', { name: 'เสิร์ฟแล้ว' })).toBeVisible({ timeout: 15_000 })

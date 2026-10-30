@@ -153,7 +153,7 @@ const columns: {
     band: 'bg-status-cooking/10',
     badge: 'bg-status-cooking-ink text-white',
     button: 'bg-status-cooking-ink',
-    buttonLabel: 'ทำเสร็จ',
+    buttonLabel: 'ทำเสร็จแล้ว',
   },
   {
     key: 'done',

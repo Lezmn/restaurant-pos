@@ -155,7 +155,7 @@ describe('OrderPage (จอครัว)', () => {
     const pressDone = async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       renderPage()
-      await user.click(await screen.findByRole('button', { name: 'ทำเสร็จ' }))
+      await user.click(await screen.findByRole('button', { name: 'ทำเสร็จแล้ว' }))
     }
 
     it('ตั๋วย้ายไปเสร็จแล้วทันที แต่ยังไม่ส่ง และส่งเมื่อครบเวลา', async () => {
@@ -187,7 +187,7 @@ describe('OrderPage (จอครัว)', () => {
     it('ออกจากหน้าระหว่างรอ → ส่งที่ค้างไว้ทันที', async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const { unmount } = renderPage()
-      await user.click(await screen.findByRole('button', { name: 'ทำเสร็จ' }))
+      await user.click(await screen.findByRole('button', { name: 'ทำเสร็จแล้ว' }))
       unmount()
       await waitFor(() => expect(updateOrderStatus).toHaveBeenCalledTimes(1))
       expect(vi.mocked(updateOrderStatus).mock.calls[0][0]).toEqual({ id: 'o1', status: OrderStatus.SERVED })
