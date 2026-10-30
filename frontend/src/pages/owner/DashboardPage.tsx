@@ -640,13 +640,14 @@ function TopItemsSection({ range, className = '' }: Readonly<{ range: DateRange;
   return (
     <section className={`flex flex-col rounded-xl border border-gray-200 p-4 ${className}`}>
       <h2 className="mb-1 text-lg font-bold text-black">เมนูขายดี</h2>
-      {isPending ? (
-        <p className="py-6 text-center text-sm text-gray-600">กำลังโหลด…</p>
-      ) : !data ? (
+      {isPending && <p className="py-6 text-center text-sm text-gray-600">กำลังโหลด…</p>}
+      {!isPending && !data && (
         <LoadError what="เมนูขายดี" error={isError ? error : null} onRetry={() => void refetch()} />
-      ) : data.items.length === 0 ? (
+      )}
+      {!isPending && data?.items.length === 0 && (
         <p className="py-6 text-center text-sm text-gray-600">ยังไม่มีเมนูที่ขายได้ในช่วงนี้</p>
-      ) : (
+      )}
+      {!isPending && data && data.items.length > 0 && (
         <ol className="divide-y divide-gray-200">
           {data.items.map((item, i) => (
             <li key={item.menuItemId} className="flex items-center gap-3 py-3">

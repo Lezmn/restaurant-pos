@@ -52,12 +52,17 @@ export class SystemStatusService {
       backup,
       offsite,
       slipOk: {
-        state: (this.slipOk.mock ? 'warn' : this.slipOk.configured ? 'ok' : 'off') as CheckState,
+        state: this.slipOkState(),
         mock: this.slipOk.mock,
         configured: this.slipOk.configured,
       },
       line,
     };
+  }
+
+  private slipOkState(): CheckState {
+    if (this.slipOk.mock) return 'warn';
+    return this.slipOk.configured ? 'ok' : 'off';
   }
 
   /** ตั้งจากหน้า /owner/line (หรือ .env) — ตั้งครบแต่ปิดไว้ = off เหมือนยังไม่ตั้ง */
@@ -99,7 +104,7 @@ export class SystemStatusService {
         return { name, at: info.mtime, size: info.size };
       }),
     );
-    const latest = files.sort((a, b) => b.at.getTime() - a.at.getTime())[0];
+    const [latest] = [...files].sort((a, b) => b.at.getTime() - a.at.getTime());
     if (!latest) {
       return { state: 'error' as CheckState, lastAt: null, lastSizeBytes: null, fileCount: 0 };
     }

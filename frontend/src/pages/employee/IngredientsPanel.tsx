@@ -283,7 +283,7 @@ function IngredientImage({
       >
         {image}
         <span className="absolute inset-x-0 bottom-0 bg-black/55 py-0.5 text-center text-[11px] font-semibold text-white">
-          {uploading ? 'กำลังอัป...' : item.imageUrl ? 'เปลี่ยนรูป' : 'เพิ่มรูป'}
+          {uploading ? 'กำลังอัป...' : imageActionLabel(Boolean(item.imageUrl))}
         </span>
         <input
           type="file"
@@ -452,4 +452,8 @@ function StockForm({
       </div>
     </form>
   )
+}
+
+function imageActionLabel(hasImage: boolean) {
+  return hasImage ? 'เปลี่ยนรูป' : 'เพิ่มรูป'
 }

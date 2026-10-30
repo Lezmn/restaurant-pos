@@ -101,13 +101,7 @@ export function TrendChart({ points }: Readonly<{ points: RevenuePoint[] }>) {
               key={p.date}
               aria-hidden
               title={`${p.label} ${formatBaht(p.revenue)}`}
-              className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full ${
-                i === last
-                  ? 'h-3.5 w-3.5 border-2 border-brand-400 bg-brand-500'
-                  : dense
-                    ? 'h-1.5 w-1.5 bg-brand-400'
-                    : 'h-2.5 w-2.5 border-2 border-brand-400 bg-white'
-              }`}
+              className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full ${dotSize(i === last, dense)}`}
               style={{ left: `${x(i)}%`, top: `${y(p.revenue)}%` }}
             />
           ))}
@@ -151,4 +145,9 @@ export function TrendChart({ points }: Readonly<{ points: RevenuePoint[] }>) {
       </figcaption>
     </figure>
   )
+}
+
+function dotSize(isLast: boolean, dense: boolean) {
+  if (isLast) return 'h-3.5 w-3.5 border-2 border-brand-400 bg-brand-500'
+  return dense ? 'h-1.5 w-1.5 bg-brand-400' : 'h-2.5 w-2.5 border-2 border-brand-400 bg-white'
 }

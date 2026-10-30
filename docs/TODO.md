@@ -10,7 +10,8 @@
      (โต๊ะเปิดค้างเป็นร้อย) ทำหน้า Check ช้าจนเทสต์หมดเวลา; API ทดสอบต้องตั้ง `LOGIN_THROTTLE_LIMIT=1000`,
      `THROTTLE_IP_LIMIT=100000`, `SLIPOK_MOCK=true`, `LINE_DISABLED=true`
    - เทสต์ที่เทียบ "ยอดขายทั้งวัน" ติด tag `@totals-*` รันแยกหลังชุดหลักจบ (playwright.config.ts)
-2. **SonarQube** — ✅ สแกน + แก้แล้ว (2026-10-22) เหลือที่ตั้งใจไม่แก้ ดู "หมายเหตุ Sonar" ด้านล่าง
+2. **SonarQube** — สแกนซ้ำ 2026-10-30 แล้วแก้บางส่วน: backend 28 / frontend 60 issue, ไม่มี bug, Quality Gate ยังไม่ผ่านเพราะ new violations ยังเหลือ (coverage ผ่านทั้งสองฝั่ง)
+   สรุปและลำดับที่ควรแก้ดู `docs/SONARQUBE.md` (ที่ตั้งใจไม่แก้ดู "หมายเหตุ Sonar" ด้านล่าง)
    - สแกนซ้ำหลังแก้โค้ดชุดใหญ่: `cd backend && npx jest --coverage` แล้วรัน sonar-scanner ทั้ง backend/frontend
    - frontend ยังไม่มี coverage (ไม่ได้ติดตั้ง `@vitest/coverage-v8`) — ถ้าเกณฑ์วิชาดู coverage ต้องเพิ่ม
 3. **Deploy เครื่องจริง** ตาม `docs/DEPLOY.md` — เครื่อง + โดเมน 2 ชื่อ + `.env` ค่าจริง + `seed:prod`

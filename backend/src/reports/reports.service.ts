@@ -233,7 +233,7 @@ export class ReportsService {
     }));
 
     // วัน (0 = อาทิตย์ ตาม getDay) × ชั่วโมง — ไว้วาง heatmap ว่าวันไหนชั่วโมงไหนยุ่ง
-    const byWeekdayHour = Array.from({ length: 7 }, () => Array<number>(24).fill(0));
+    const byWeekdayHour = Array.from({ length: 7 }, () => new Array<number>(24).fill(0));
 
     for (const order of orders) {
       const slot = byHour[order.createdAt.getHours()];

@@ -382,14 +382,12 @@ function RequestsInbox({
               return (
                 <li
                   key={req.id}
-                  className={`flex shrink-0 items-center gap-3 rounded-xl border-2 bg-white p-3 ${
-                    call ? 'border-status-queue/40' : checkout ? 'border-brand-100' : 'border-staff-line'
-                  }`}
+                  className={`flex shrink-0 items-center gap-3 rounded-xl border-2 bg-white p-3 ${requestBorderClass(call, checkout)}`}
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-base font-bold text-text">
                       โต๊ะ {req.tableName} ·{' '}
-                      <span className={call ? 'text-status-queue-ink' : checkout ? 'text-brand-500' : 'text-gray-800'}>
+                      <span className={requestTextClass(call, checkout)}>
                         {requestLabel[req.type]}
                       </span>
                     </p>
@@ -526,4 +524,14 @@ function QrDialog({
       </div>
     </Modal>
   )
+}
+
+function requestBorderClass(call: boolean, checkout: boolean) {
+  if (call) return 'border-status-queue/40'
+  return checkout ? 'border-brand-100' : 'border-staff-line'
+}
+
+function requestTextClass(call: boolean, checkout: boolean) {
+  if (call) return 'text-status-queue-ink'
+  return checkout ? 'text-brand-500' : 'text-gray-800'
 }

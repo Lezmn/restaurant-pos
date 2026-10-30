@@ -148,7 +148,7 @@ function SoldOutDialog({ onClose }: Readonly<{ onClose: () => void }>) {
                   : 'bg-danger-ink text-white'
               }`}
             >
-              {busyId === row.id ? '...' : row.isAvailable ? 'ขายอยู่' : 'หมด'}
+              {busyId === row.id ? '...' : availabilityLabel(row.isAvailable)}
             </button>
           </li>
         ))}
@@ -159,4 +159,8 @@ function SoldOutDialog({ onClose }: Readonly<{ onClose: () => void }>) {
       )}
     </Modal>
   )
+}
+
+function availabilityLabel(isAvailable: boolean) {
+  return isAvailable ? 'ขายอยู่' : 'หมด'
 }

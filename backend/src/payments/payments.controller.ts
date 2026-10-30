@@ -26,8 +26,7 @@ export class PaymentsController {
   @Roles(Role.ADMIN, Role.STAFF)
   // เก็บประวัติเฉพาะบิลที่ลดราคา หรือ ADMIN ยืนยัน PromptPay เองโดยไม่มีสลิป
   @Audit(
-    ({ body }) =>
-      body.discountPercent ? 'PAYMENT_DISCOUNT' : body.slipOverrideReason ? 'PAYMENT_SLIP_OVERRIDE' : null,
+    ({ body }) => paymentAuditAction(body),
     {
       before: loadPayingTable,
       targetId: ({ result }) => (result as { id: string }).id,
@@ -135,6 +134,11 @@ export class PaymentsController {
 }
 
 type LoadedPayment = Awaited<ReturnType<typeof loadPayment>>;
+
+function paymentAuditAction(body: { discountPercent?: unknown; slipOverrideReason?: unknown }) {
+  if (body.discountPercent) return 'PAYMENT_DISCOUNT';
+  return body.slipOverrideReason ? 'PAYMENT_SLIP_OVERRIDE' : null;
+}
 
 function paymentDetails(before: unknown, extra: Record<string, unknown>) {
   const payment = before as LoadedPayment;

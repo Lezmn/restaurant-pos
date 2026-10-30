@@ -83,13 +83,13 @@ export function AuditLogPage() {
       )}
 
       <section className="rounded-xl border border-gray-200">
-        {logs.isPending ? (
-          <p className="p-6 text-center text-sm text-gray-600">กำลังโหลด...</p>
-        ) : rows.length === 0 ? (
+        {logs.isPending && <p className="p-6 text-center text-sm text-gray-600">กำลังโหลด...</p>}
+        {!logs.isPending && rows.length === 0 && (
           <p className="p-6 text-center text-sm text-gray-600">
             ไม่มีรายการในวันนี้{action ? ' ตามตัวกรองที่เลือก' : ''}
           </p>
-        ) : (
+        )}
+        {!logs.isPending && rows.length > 0 && (
           <ul className="divide-y divide-gray-200">
             {rows.map((log) => {
               const meta = auditActionMeta[log.action] ?? { label: log.action, tone: 'gray' as const }

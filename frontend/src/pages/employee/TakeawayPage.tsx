@@ -280,18 +280,14 @@ export function TakeawayPage() {
                   .reduce((n, l) => n + l.quantity, 0)
                 const showImage = Boolean(item.imageUrl) && !brokenImages.has(item.id)
                 // สร้างคลาสขอบทีละสถานะ — เดิมต่อ border-brand-400 ท้ายสตริงชนกับ border-gray-200 แล้วไม่ขึ้น
-                const tone = !orderable
-                  ? 'cursor-not-allowed border-gray-200 bg-gray-50'
-                  : inCart > 0
-                    ? 'border-brand-500 bg-white'
-                    : 'border-gray-200 bg-white hover:border-brand-400 active:scale-[0.98]'
+                const tone = itemTone(orderable, inCart)
                 return (
                   <li key={item.id} className="flex">
                     <button
                       type="button"
                       disabled={!orderable}
                       onClick={() => tapItem(item)}
-                      aria-label={`${item.name} ${formatBaht(item.price)}${orderable ? '' : ' (หมด)'}${inCart > 0 ? ` · ในตะกร้า ${inCart}` : ''}`}
+                      aria-label={itemAriaLabel(item.name, item.price, orderable, inCart)}
                       className={`relative flex w-full flex-col overflow-hidden rounded-xl border-2 text-left transition ${tone}`}
                     >
                       {/* รูปอยู่ในกรอบ 4:3 ตายตัว — รูปแนวตั้งใหญ่ ๆ เคยดันการ์ดสูงไม่เท่ากันทั้งแถว */}
@@ -683,4 +679,17 @@ function MenuSkeleton() {
       ))}
     </div>
   )
+}
+
+function itemTone(orderable: boolean, inCart: number) {
+  if (!orderable) return 'cursor-not-allowed border-gray-200 bg-gray-50'
+  return inCart > 0
+    ? 'border-brand-500 bg-white'
+    : 'border-gray-200 bg-white hover:border-brand-400 active:scale-[0.98]'
+}
+
+function itemAriaLabel(name: string, price: Parameters<typeof formatBaht>[0], orderable: boolean, inCart: number) {
+  const soldOut = orderable ? '' : ' (หมด)'
+  const cart = inCart > 0 ? ` · ในตะกร้า ${inCart}` : ''
+  return `${name} ${formatBaht(price)}${soldOut}${cart}`
 }

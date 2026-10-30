@@ -83,7 +83,7 @@ export function describeAudit(log: AuditLog): { summary: string; reason: string 
       const items = Array.isArray(d.items) ? (d.items as Obj[]) : []
       const total = items.reduce((s, i) => s + num(i.unitPrice) * num(i.quantity), 0)
       const names = items.map((i) => `${String(i.name)} ×${String(i.quantity)}`).join(', ')
-      return { summary: `ยกเลิกออเดอร์${table(d)}${names ? `: ${names}` : ''} (${baht(total)})`, reason: null }
+      return { summary: `ยกเลิกออเดอร์${table(d)}${withPrefix(': ', names)} (${baht(total)})`, reason: null }
     }
     case 'ORDER_ITEM_REMOVE': {
       const options = Array.isArray(d.options) && d.options.length ? ` (${(d.options as string[]).join(', ')})` : ''
@@ -115,12 +115,12 @@ export function describeAudit(log: AuditLog): { summary: string; reason: string 
     case 'EXPENSE_UPDATE': {
       const before = obj(d.before)
       const changes = changeList(before, obj(d.changes), { title: 'ชื่อ', amount: 'ยอด', category: 'หมวด' })
-      return { summary: `${String(before.title ?? 'รายจ่าย')}${changes ? ` · ${changes}` : ''}`, reason: null }
+      return { summary: `${String(before.title ?? 'รายจ่าย')}${withPrefix(' · ', changes)}`, reason: null }
     }
     case 'MENU_UPDATE': {
       const before = obj(d.before)
       const changes = changeList(before, obj(d.changes), { name: 'ชื่อ', price: 'ราคา', isAvailable: 'ขาย' })
-      return { summary: `${String(before.name ?? 'เมนู')}${changes ? ` · ${changes}` : ''}`, reason: null }
+      return { summary: `${String(before.name ?? 'เมนู')}${withPrefix(' · ', changes)}`, reason: null }
     }
     case 'MENU_DELETE':
       return { summary: `${String(d.name ?? 'เมนู')} (${baht(d.price)})`, reason: null }
@@ -129,7 +129,7 @@ export function describeAudit(log: AuditLog): { summary: string; reason: string 
     case 'USER_UPDATE': {
       const before = obj(d.before)
       const changes = changeList(before, obj(d.changes), { name: 'ชื่อ', role: 'ตำแหน่ง', isActive: 'ใช้งาน' })
-      return { summary: `${String(before.name ?? 'บัญชี')}${changes ? ` · ${changes}` : ''}`, reason: null }
+      return { summary: `${String(before.name ?? 'บัญชี')}${withPrefix(' · ', changes)}`, reason: null }
     }
     case 'USER_DELETE':
       return { summary: `${String(d.name ?? 'บัญชี')} (${String(d.email ?? '')})`, reason: null }
@@ -142,3 +142,6 @@ export function describeAudit(log: AuditLog): { summary: string; reason: string 
       return { summary: String(log.action), reason: null }
   }
 }
+
+/** ต่อท้ายข้อความด้วย prefix เฉพาะเมื่อมีข้อความ */
+const withPrefix = (prefix: string, text: string) => (text ? `${prefix}${text}` : '')

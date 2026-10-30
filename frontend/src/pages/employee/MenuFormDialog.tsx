@@ -410,7 +410,7 @@ function MenuImagePicker({
           <label
             className={`${button('outline', 'sm')} cursor-pointer ${uploading ? 'pointer-events-none opacity-60' : ''}`}
           >
-            {uploading ? 'กำลังอัปโหลด...' : url ? 'เปลี่ยนรูป' : 'เลือกรูปจากเครื่อง'}
+            {uploading ? 'กำลังอัปโหลด...' : imagePickLabel(Boolean(url))}
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"
@@ -461,4 +461,8 @@ function FieldError({ id, message }: Readonly<{ id: string; message: string }>) 
       {message}
     </span>
   )
+}
+
+function imagePickLabel(hasImage: boolean) {
+  return hasImage ? 'เปลี่ยนรูป' : 'เลือกรูปจากเครื่อง'
 }

@@ -19,6 +19,8 @@ export default defineConfig((env) =>
         setupFiles: ['./test/unit/setup.ts'],
         env: { TZ: 'Asia/Bangkok' },
         restoreMocks: true,
+        // `npm test -- --coverage` → coverage/lcov.info ที่ Sonar อ่าน (sonar-project.properties)
+        coverage: { provider: 'v8', include: ['src/**'], reporter: ['lcov', 'text-summary'] },
         execArgv,
       },
     }),

@@ -421,8 +421,10 @@ const HEAT_STEPS = ['bg-gray-100', 'bg-brand-50', 'bg-brand-75', 'bg-brand-300',
 const heatClass = (value: number, max: number) =>
   value === 0 ? HEAT_STEPS[0] : HEAT_STEPS[Math.min(4, 1 + Math.floor((value / max) * 3.999))]
 /** ตัวขาวได้เฉพาะบน brand-500 — บน brand-300 ได้แค่ 2.3:1 */
-const heatTextClass = (heat: string) =>
-  heat === 'bg-brand-500' ? 'font-semibold text-white' : heat === 'bg-brand-300' ? 'font-semibold text-black' : 'text-gray-700'
+const heatTextClass = (heat: string) => {
+  if (heat === 'bg-brand-500') return 'font-semibold text-white'
+  return heat === 'bg-brand-300' ? 'font-semibold text-black' : 'text-gray-700'
+}
 
 /**
  * heatmap วัน × ชั่วโมง — ใช้วางกะพนักงาน/เตรียมของ ว่าวันไหนชั่วโมงไหนยุ่ง

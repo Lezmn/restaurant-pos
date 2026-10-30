@@ -630,13 +630,7 @@ function KitchenTicket({
               (รูปทรงเปลี่ยน ไม่ได้บอกด้วยสีอย่างเดียว) ข้อความสั้นบรรทัดเดียว */}
           {!done && (
             <p
-              className={`mt-0.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full text-base tabular-nums ${
-                veryLate
-                  ? 'bg-danger-ink px-3 py-1 font-bold text-white'
-                  : late
-                    ? 'border-2 border-danger bg-white px-3 py-0.5 font-bold text-danger-ink'
-                    : 'py-1 font-semibold text-gray-800'
-              }`}
+              className={`mt-0.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full text-base tabular-nums ${waitChipClass(veryLate, late)}`}
             >
               {late ? <AlertIcon /> : <ClockIcon />}
               {/* นาทีแรกขึ้น "เพิ่งสั่ง" — "รอ 0 นาที" อ่านแล้วแปลก */}
@@ -814,4 +808,11 @@ function DoneStrip({
       )}
     </section>
   )
+}
+
+function waitChipClass(veryLate: boolean, late: boolean) {
+  if (veryLate) return 'bg-danger-ink px-3 py-1 font-bold text-white'
+  return late
+    ? 'border-2 border-danger bg-white px-3 py-0.5 font-bold text-danger-ink'
+    : 'py-1 font-semibold text-gray-800'
 }

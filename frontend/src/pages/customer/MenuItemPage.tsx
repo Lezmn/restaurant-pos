@@ -223,11 +223,7 @@ function OptionGroupBlock({
                   {/* วาดปุ่มเองให้ตรงดีไซน์ — input จริงซ่อนไว้ (sr-only) ยังกด/โฟกัสด้วยคีย์บอร์ดได้ */}
                   <span
                     aria-hidden
-                    className={`flex h-6 w-6 shrink-0 items-center justify-center border-2 peer-focus-visible:ring-2 peer-focus-visible:ring-brand-300 peer-focus-visible:ring-offset-2 ${
-                      single
-                        ? `rounded-full bg-white ${checked ? 'border-brand-500' : 'border-gray-500'}`
-                        : `rounded-md ${checked ? 'border-brand-500 bg-brand-500' : 'border-gray-500 bg-white'}`
-                    }`}
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center border-2 peer-focus-visible:ring-2 peer-focus-visible:ring-brand-300 peer-focus-visible:ring-offset-2 ${optionMarkClass(single, checked)}`}
                   >
                     {single && checked && <span className="h-3 w-3 rounded-full bg-brand-500" />}
                     {!single && checked && (
@@ -263,4 +259,9 @@ function OptionGroupBlock({
       </div>
     </fieldset>
   )
+}
+
+function optionMarkClass(single: boolean, checked: boolean) {
+  if (single) return checked ? 'rounded-full bg-white border-brand-500' : 'rounded-full bg-white border-gray-500'
+  return checked ? 'rounded-md border-brand-500 bg-brand-500' : 'rounded-md border-gray-500 bg-white'
 }

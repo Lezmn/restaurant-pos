@@ -86,7 +86,7 @@ function CallStaffButton({ token, pending }: Readonly<{ token: string; pending: 
         {done ? 'แจ้งแล้ว' : 'เรียกพนักงาน'}
       </button>
       <output className="sr-only">
-        {done ? 'แจ้งพนักงานแล้ว กรุณารอสักครู่' : acknowledged ? 'พนักงานรับทราบแล้ว' : ''}
+        {staffCallAnnouncement(done, acknowledged)}
       </output>
     </>
   )
@@ -260,4 +260,9 @@ export function CustomerLayout() {
       </nav>
     </div>
   )
+}
+
+function staffCallAnnouncement(done: boolean, acknowledged: boolean) {
+  if (done) return 'แจ้งพนักงานแล้ว กรุณารอสักครู่'
+  return acknowledged ? 'พนักงานรับทราบแล้ว' : ''
 }

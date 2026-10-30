@@ -57,11 +57,11 @@ export class LineSettingsController {
     if (!token) return { ok: false, message: 'ยังไม่มี Channel access token' };
     if (!to) return { ok: false, message: 'ยังไม่มี User ID' };
 
-    const shop = this.line.shopName;
+    const shopSuffix = this.line.shopName ? ` ${this.line.shopName}` : '';
     const result = await this.line.send(
       token,
       to,
-      `✅ เชื่อมต่อ LINE กับระบบ POS${shop ? ` ${shop}` : ''} สำเร็จ\nทดสอบโดย ${request.user.name}\nต่อไปจะได้สรุปยอดทุกครั้งที่กด "ปิดยอดวันนี้"`,
+      `✅ เชื่อมต่อ LINE กับระบบ POS${shopSuffix} สำเร็จ\nทดสอบโดย ${request.user.name}\nต่อไปจะได้สรุปยอดทุกครั้งที่กด "ปิดยอดวันนี้"`,
     );
     return result.ok
       ? { ok: true, message: 'ส่งข้อความทดสอบแล้ว — เช็คใน LINE ได้เลย' }

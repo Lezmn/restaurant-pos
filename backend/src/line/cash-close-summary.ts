@@ -32,15 +32,13 @@ export function formatCashCloseSummary(input: {
 }) {
   const total = Number(input.cashSales) + Number(input.promptpaySales);
   const diff = Number(input.difference);
-  const diffLine =
-    diff === 0
-      ? '✅ เงินตรงพอดี'
-      : diff < 0
-        ? `⚠️ เงินขาด ${baht(-diff)}`
-        : `⚠️ เงินเกิน ${baht(diff)}`;
+  let diffLine = '✅ เงินตรงพอดี';
+  if (diff < 0) diffLine = `⚠️ เงินขาด ${baht(-diff)}`;
+  else if (diff > 0) diffLine = `⚠️ เงินเกิน ${baht(diff)}`;
+  const restaurantSuffix = input.restaurantName ? ` ${input.restaurantName}` : '';
 
   return [
-    `📊 สรุปยอดปิดร้าน${input.restaurantName ? ` ${input.restaurantName}` : ''}`,
+    `📊 สรุปยอดปิดร้าน${restaurantSuffix}`,
     `วันที่ ${thaiDate(input.date)}`,
     '',
     `ยอดขายรวม ${baht(total)} (${input.paymentCount} บิล)`,
