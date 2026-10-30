@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test'
 import { loginAsAdmin, loginAsStaff } from '../helpers'
 
-// ⚠️ ต้องรัน backend จริง + seed data ที่ localhost:3000 (ทุกไฟล์ในโฟลเดอร์ test/e2e/admin)
+// ⚠️ ต้องรัน backend จริง + seed data — รันด้วย npm run test:e2e:local (API ทดสอบ :3100)
+//    ห้ามยิง API ตัวจริง :3000 — ตัวนั้นจำกัด login 5 ครั้ง/นาที เทสต์จะโดน 429
 // ADMIN มีสิทธิ์เข้าทุกหน้าของพนักงาน (ดู pageRoles ใน src/features/auth/permissions.ts)
+// สิทธิ์ของ STAFF/KITCHEN และคนที่ยังไม่ login ครบทุกหน้าอยู่ใน test/e2e/login/role-pages.spec.ts
 
 const everyEmployeePage = [
   '/employee/order',
@@ -57,11 +59,11 @@ test('ลิงก์เก่า /employee/users พาไปหน้าบั
 // ที่ redirect ต่อทันทีตาม homeByRole (STAFF -> /employee/check) เลยต้องเช็คปลายทางสุดท้ายนี้แทน
 // หน้าเจ้าของร้าน: ProtectedRoute ใช้ fallbackPath="/employee" (ไม่มี /owner/login แยกแล้ว)
 for (const { name, path } of [
-  { name: 'manage (ADMIN เท่านั้น)', path: '/employee/manage' },
+  { name: 'manage (ADMIN/KITCHEN)', path: '/employee/manage' },
   { name: 'users (ADMIN เท่านั้น)', path: '/employee/users' },
   { name: 'owner', path: '/owner/dashboard' },
 ]) {
-  // ทดสอบ: STAFF เปิดหน้าที่ให้แค่ ADMIN ใช้ (จัดการเมนู, บัญชีผู้ใช้, เจ้าของร้าน) ไม่ได้
+  // ทดสอบ: STAFF เปิดหน้าที่ไม่ใช่ของหน้าร้านไม่ได้ (จัดการเมนู = ADMIN/KITCHEN, บัญชีผู้ใช้และหน้าเจ้าของร้าน = ADMIN)
   // วิธี: วน login เป็น staff แล้วเปิดแต่ละหน้าตรง ๆ → เช็กว่าถูกพากลับ /employee/check
   test(`STAFF เข้าหน้า ${name} ไม่ได้ ต้องถูกเด้งกลับหน้าแรกของ STAFF (/employee/check)`, async ({
     page,

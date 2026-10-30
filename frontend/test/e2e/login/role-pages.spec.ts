@@ -6,6 +6,15 @@ import { loginAsKitchen, loginAsStaff } from '../helpers'
 // ไม่ใช่โชว์หน้าแล้วเจอ 403 จาก API · ตัวกันจริงคือ backend (ดู test/e2e/api/authz.spec.ts)
 // ADMIN เข้าได้ทุกหน้า (test/e2e/admin/access.spec.ts)
 
+const employeePages = [
+  '/employee/order',
+  '/employee/check',
+  '/employee/manage',
+  '/employee/tables',
+  '/employee/takeaway',
+  '/employee/orders',
+  '/employee/requests',
+]
 const ownerPages = ['/owner/dashboard', '/owner/finance', '/owner/sales', '/owner/cash-closes', '/owner/users', '/owner/audit', '/owner/line']
 
 /** เปิดทีละหน้า แล้วเช็กว่าอยู่หน้าเดิม (allowed) หรือถูกพาไปหน้าแรกของ role (denied) */
@@ -40,12 +49,8 @@ test('KITCHEN: เข้าจอครัว/จัดการเมนูไ�
   )
 })
 
-// ทดสอบ: คนที่ยังไม่ login (เช่น ลูกค้าที่สแกน QR แล้วลองพิมพ์ลิงก์หน้าพนักงานเอง) เข้าหน้าพนักงาน/เจ้าของร้านไม่ได้ ต้องไปหน้า login
-// วิธี: ไม่ login → เปิดหน้าพนักงานและหน้าเจ้าของร้านหลายหน้า → เช็กว่าทุกหน้าพาไป /login
+// ทดสอบ: คนที่ยังไม่ login (เช่น ลูกค้าที่สแกน QR แล้วลองพิมพ์ลิงก์หน้าพนักงานเอง) เข้าหน้าพนักงาน/เจ้าของร้านไม่ได้ทุกหน้า ต้องไปหน้า login
+// วิธี: ไม่ login → เปิดหน้าพนักงานทั้ง 7 หน้าและหน้าเจ้าของร้านทั้ง 7 หน้าทีละหน้า → เช็กว่าทุกหน้าพาไป /login
 test('ยังไม่ login (ลูกค้า QR): หน้าพนักงาน/เจ้าของร้านทุกหน้า พาไป /login', async ({ page }) => {
-  await expectPages(
-    page,
-    ['/employee/order', '/employee/check', '/employee/takeaway', '/employee/manage', '/owner/finance', '/owner/line'],
-    /\/login$/,
-  )
+  await expectPages(page, [...employeePages, ...ownerPages], /\/login$/)
 })
