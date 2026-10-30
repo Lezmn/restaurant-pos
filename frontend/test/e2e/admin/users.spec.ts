@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { API_URL, loginAsAdmin, loginViaApi, submitLogin } from '../helpers'
+import { API_URL, loginAsAdmin, loginViaApi, setAuthState, submitLogin } from '../helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data — เทสนี้สร้างบัญชีจริง (ชื่อสุ่มต่อรอบ)
 // ร้านใช้บัญชีกลางตามตำแหน่ง: ครัว 1 บัญชี, หน้าร้าน 1 บัญชี
@@ -120,7 +120,7 @@ test('มีคนลาออก: ตั้งรหัสใหม่ + ออ
 })
 
 // ทดสอบ: ปุ่มเปลี่ยนรหัสผ่านของตัวเองมีให้แค่ ADMIN ส่วนบัญชีกลางของครัว/หน้าร้านไม่เห็น
-// วิธี: login เป็น admin เช็กว่าเห็นปุ่ม → สลับ token เป็น staff ใน localStorage แล้วเปิด /employee/check → เช็กว่าไม่มีปุ่ม
+// วิธี: login เป็น admin เช็กว่าเห็นปุ่ม → สลับ auth state (cookie + user) เป็น staff แล้วเปิด /employee/check → เช็กว่าไม่มีปุ่ม
 test('บัญชีครัว/หน้าร้านไม่เห็นปุ่มเปลี่ยนรหัสผ่านของตัวเอง (ADMIN เห็น)', async ({ page, request }) => {
   // ปุ่มเปลี่ยนรหัสของตัวเองอยู่ที่การ์ดของ ADMIN ในหน้าบัญชีผู้ใช้ฝั่งเจ้าของร้าน
   await loginAsAdmin(page, request)
@@ -128,13 +128,7 @@ test('บัญชีครัว/หน้าร้านไม่เห็น�
   await expect(page.getByRole('button', { name: 'เปลี่ยนรหัสผ่าน' })).toBeVisible()
 
   const staff = await loginViaApi(request, 'staff', 'ChangeMe123!')
-  await page.evaluate(
-    ([token, u]) => {
-      localStorage.setItem('restaurant.token', token as string)
-      localStorage.setItem('restaurant.user', JSON.stringify(u))
-    },
-    [staff.accessToken, staff.user] as const,
-  )
+  await setAuthState(page, staff.accessToken, staff.user)
   await page.goto('/employee/check')
   await expect(page.getByText('บัญชีหน้าร้าน', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'เปลี่ยนรหัสผ่าน' })).toHaveCount(0)

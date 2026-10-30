@@ -38,22 +38,22 @@ export async function loginViaApi(
   }
 }
 
-/** ยัด auth state (token + user จริงจาก loginViaApi) ลง localStorage ตรง ๆ ตาม src/lib/auth-storage.ts */
+/**
+ * ยัด auth state (token + user จริงจาก loginViaApi) ตรง ๆ แทนการกรอกฟอร์ม
+ * token อยู่ใน httpOnly cookie `restaurant_token` แบบที่ backend ตั้งให้ (src/auth/auth-cookie.ts)
+ * ส่วน user อยู่ใน localStorage ตาม src/lib/auth-storage.ts
+ * cookie ผูกกับ host ของ API — localhost ไม่สนพอร์ต หน้าเว็บกับ page.request จึงส่ง cookie ไปเองทั้งคู่
+ */
 export async function setAuthState(
   page: Page,
   accessToken: string,
   user: { id: string; email: string; name: string; role: 'ADMIN' | 'STAFF' | 'KITCHEN' },
 ) {
-  await page.evaluate(
-    ([token, u]) => {
-      localStorage.setItem('restaurant.token', token as string)
-      localStorage.setItem('restaurant.user', JSON.stringify(u))
-    },
-    [accessToken, user] as const,
-  )
+  await page.context().addCookies([{ name: 'restaurant_token', value: accessToken, url: API_URL }])
+  await page.evaluate((u) => localStorage.setItem('restaurant.user', JSON.stringify(u)), user)
 }
 
-/** login เป็น admin จริงผ่าน API แล้วยัด token ลง localStorage — ใช้ setup ก่อนทุกเทสที่ต้อง login เป็น admin */
+/** login เป็น admin จริงผ่าน API แล้วยัด auth state ลงหน้า — ใช้ setup ก่อนทุกเทสที่ต้อง login เป็น admin */
 export async function loginAsAdmin(page: Page, request: APIRequestContext) {
   const { accessToken, user } = await loginViaApi(request, 'admin', 'ChangeMe123!')
   await page.goto('/login')
@@ -165,16 +165,12 @@ export async function pickFreeTable(page: Page) {
  * จนกว่าออเดอร์ทุกใบในโต๊ะจะถูกเสิร์ฟก่อน (ดู CheckPage.tsx: notServed.length > 0 = blocked)
  */
 export async function advanceOrderToServed(page: Page, orderId: string) {
-  // ไล่สถานะผ่าน API ด้วย token ของคนที่ login อยู่ (ADMIN) — helper นี้แค่เตรียมสถานะให้เทสต์หน้าแคชเชียร์
+  // ไล่สถานะผ่าน API ด้วย cookie ของคนที่ login อยู่ (ADMIN) — page.request ใช้ cookie ชุดเดียวกับหน้า
+  // helper นี้แค่เตรียมสถานะให้เทสต์หน้าแคชเชียร์
   // เดิมกดผ่านจอครัว: ตั๋วสะสมเยอะ + ป๊อปอัป "เรียกพนักงาน" จากเทสต์อื่นที่รันพร้อมกัน ทำให้หมดเวลาเป็นพัก ๆ
   // ขั้นตอนบนจอครัวจริงเทสต์แยกที่ test/e2e/kitchen/kitchen-flow.spec.ts
-  const token = await page.evaluate(() => localStorage.getItem('restaurant.token'))
-  expect(token, 'ต้อง login (ADMIN/KITCHEN) ก่อนเรียก advanceOrderToServed').toBeTruthy()
   for (const status of ['PREPARING', 'SERVED']) {
-    const res = await page.request.patch(`${API_URL}/orders/${orderId}/status`, {
-      headers: { Authorization: `Bearer ${token}` },
-      data: { status },
-    })
+    const res = await page.request.patch(`${API_URL}/orders/${orderId}/status`, { data: { status } })
     expect(res.ok(), `เปลี่ยนสถานะออเดอร์เป็น ${status} ไม่สำเร็จ (${res.status()})`).toBe(true)
   }
 }
