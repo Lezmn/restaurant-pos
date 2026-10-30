@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { checkTableTile, chooseOption, loginAsCashier, pickFreeTable, tablesPageCard } from '../helpers'
+import { checkTableTile, chooseOption, loginAsCashier, pickFreeTable, openCart, selectTable } from '../helpers'
 
 // เขียนจากการกระทำจริงที่ record ไว้ด้วย `npx playwright codegen --channel=chrome`:
 // cashier เปิดโต๊ะ -> เอาลิงก์ QR ไปให้ "ลูกค้า" (จำลองด้วยแท็บใหม่) -> ลูกค้าสั่งข้าวผัด (หมู)
@@ -22,7 +22,7 @@ test('cashier เปิดโต๊ะ ลูกค้าสั่งอาห�
   // เลือกโต๊ะแรกที่ยัง "ว่าง" แทนการ hardcode เลขโต๊ะ กันเทสพังถ้าลำดับ/จำนวนโต๊ะใน seed เปลี่ยน
   // สุ่มโต๊ะว่างแล้วอ้างด้วยชื่อ — .first() ประเมินใหม่ทุกครั้ง เทสอื่นเปิดโต๊ะนั้นไปก่อนจะกดผิดโต๊ะ
   const tableCardText = await pickFreeTable(page)
-  const availableTable = tablesPageCard(page, tableCardText)
+  const availableTable = await selectTable(page, tableCardText)
   // จำชื่อโต๊ะไว้ ใช้หาแถวที่ถูกต้องในหน้า Check ทีหลัง เพราะโต๊ะอื่นที่เปิดค้างจากรันเทสรอบก่อน ๆ
   // ก็มีป้าย "รอเสิร์ฟ N ออเดอร์" เหมือนกัน ถ้าไม่ระบุเจาะจงโต๊ะ จะชนกันกลายเป็น strict mode violation
   // ตัดคำว่า "โต๊ะ" ออกเหลือแค่ชื่อ แล้วให้ checkTableTile ประกอบหัวการ์ด "โต๊ะ {name}" เอง
@@ -49,7 +49,8 @@ test('cashier เปิดโต๊ะ ลูกค้าสั่งอาห�
   await customerPage.getByRole('link', { name: /^ข้าวผัด ข้าวผัด/ }).click()
   await chooseOption(customerPage, 'radio', 'หมู')
   await customerPage.getByRole('button', { name: /^เพิ่มรายการ/ }).click()
-  await customerPage.getByRole('button', { name: '➤ ส่งรายการเข้าครัว' }).click()
+  await openCart(customerPage)
+  await customerPage.getByRole('button', { name: 'ส่งรายการเข้าครัว' }).click()
 
   // ส่งออเดอร์สำเร็จ ต้องถูกพาไปหน้าติดตามสถานะ
   await expect(
@@ -57,7 +58,7 @@ test('cashier เปิดโต๊ะ ลูกค้าสั่งอาห�
   ).toBeVisible()
 
   // กลับมาฝั่งพนักงาน ไปหน้า Check ต้องเห็นโต๊ะนี้ค้างจ่ายอยู่
-  await page.getByRole('link', { name: 'Check' }).click()
+  await page.getByRole('link', { name: 'รับเงิน', exact: true }).click()
 
   // ข้าวผัด (50 บาท) + หมู (+0 บาท) = ยังไม่เสิร์ฟ เลยเก็บเงินไม่ได้ ต้องขึ้นป้าย "รอเสิร์ฟ 1 ออเดอร์" และไม่มีปุ่ม "รับเงิน"
   // ระบุการ์ดด้วยชื่อโต๊ะที่จำไว้ กันชนกับโต๊ะอื่นที่อาจมีออเดอร์ค้างจากการรันเทสรอบก่อน ๆ

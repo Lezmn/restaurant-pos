@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { chooseOption, loginAsAdmin, loginAsCashier, openTableAndPlaceOrder, pickFreeTable, tablesPageCard } from '../helpers'
+import { chooseOption, loginAsAdmin, loginAsCashier, openTableAndPlaceOrder, pickFreeTable, tablesPageCard, openCart, selectTable } from '../helpers'
 
 // ⚠️ ต้องรัน backend จริง + seed data ที่ localhost:3000
 // ทดสอบ business rule ฝั่ง backend: ปิดโต๊ะไม่ได้ถ้ายังมีออเดอร์ที่ไม่ใช่ PAID/CANCELLED ค้างอยู่
@@ -18,7 +18,7 @@ test('ปิดโต๊ะที่มีลูกค้าสั่งอา�
 
   // สุ่มโต๊ะว่างแล้วอ้างด้วยชื่อ — .first() ประเมินใหม่ทุกครั้ง เทสอื่นเปิดโต๊ะนั้นไปก่อนจะกดผิดโต๊ะ
   const tableCardText = await pickFreeTable(page)
-  const availableTable = tablesPageCard(page, tableCardText)
+  const availableTable = await selectTable(page, tableCardText)
 
   await availableTable.getByRole('button', { name: 'เปิดโต๊ะ/สร้าง QR' }).click()
 
@@ -35,7 +35,8 @@ test('ปิดโต๊ะที่มีลูกค้าสั่งอา�
   await customerPage.getByRole('link', { name: /^ข้าวผัด ข้าวผัด/ }).click()
   await chooseOption(customerPage, 'radio', 'หมู')
   await customerPage.getByRole('button', { name: /^เพิ่มรายการ/ }).click()
-  await customerPage.getByRole('button', { name: '➤ ส่งรายการเข้าครัว' }).click()
+  await openCart(customerPage)
+  await customerPage.getByRole('button', { name: 'ส่งรายการเข้าครัว' }).click()
   await expect(
     customerPage.getByRole('heading', { name: 'ติดตามสถานะออเดอร์' }),
   ).toBeVisible()
@@ -64,7 +65,7 @@ test('ยกเลิกออเดอร์แล้วปิดโต๊ะ�
 
   // ยกเลิกออเดอร์จากหน้า Order (คิวครัว) ก่อน — ต้องเป็น ADMIN/KITCHEN เท่านั้นถึงเข้าได้
   // หา <article> ด้วย orderRef เจาะจง กันชนกับออเดอร์เก่าที่อาจค้างอยู่ในโต๊ะเดียวกันจากไฟล์เทสอื่น
-  await page.getByRole('link', { name: 'Order' }).click()
+  await page.getByRole('link', { name: 'คิวครัว', exact: true }).click()
   await page
     .locator('article', { hasText: `#${orderRef}` })
     .getByRole('button', { name: 'ยกเลิกออเดอร์' })
@@ -74,8 +75,9 @@ test('ยกเลิกออเดอร์แล้วปิดโต๊ะ�
   await confirmCancel.getByRole('button', { name: 'ยกเลิกออเดอร์' }).click()
   await expect(confirmCancel).not.toBeVisible()
 
-  await page.getByRole('link', { name: 'Table' }).click()
-  await tablesPageCard(page, tableCardText)
+  await page.getByRole('link', { name: 'โต๊ะ', exact: true }).click()
+  // เปลี่ยนหน้าแล้วกลับมา แผงรายละเอียดว่าง — แตะการ์ดโต๊ะใหม่
+  await (await selectTable(page, tableCardText))
     .getByRole('button', { name: 'ปิดโต๊ะ' })
     .click()
   await page.getByRole('dialog', { name: 'ปิดโต๊ะ' }).getByRole('button', { name: 'ปิดโต๊ะ' }).click()

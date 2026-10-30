@@ -164,9 +164,9 @@ test('PromptPay (SlipOK จำลอง): ผ่าน / สลิปซ้ำ /
   expect(down.slipStatus).toBe('PENDING')
   const issues = await ok<{ id: string }[]>(await call(request, 'GET', '/payments?slipIssues=true', { token: t.STAFF }))
   expect(issues.map((p) => p.id)).toContain(down.id)
-  // STAFF ยืนยันเองไม่ได้, ADMIN ได้
-  expectStatus(await call(request, 'PATCH', `/payments/${down.id}/slip/confirm`, { token: t.STAFF, data: { reason: 'x' } }), 403)
-  const confirmed = await ok(await call(request, 'PATCH', `/payments/${down.id}/slip/confirm`, { token: t.ADMIN, data: { reason: 'เช็คแอปธนาคารแล้ว' } }))
+  // ครัวยืนยันเองไม่ได้ · หน้าร้าน (STAFF) ยืนยันได้เหมือนเจ้าของ
+  expectStatus(await call(request, 'PATCH', `/payments/${down.id}/slip/confirm`, { token: t.KITCHEN, data: { reason: 'x' } }), 403)
+  const confirmed = await ok(await call(request, 'PATCH', `/payments/${down.id}/slip/confirm`, { token: t.STAFF, data: { reason: 'เช็คแอปธนาคารแล้ว' } }))
   expect(confirmed.slipStatus).toBe('MANUAL')
 
   const s3 = await mk()

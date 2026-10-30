@@ -63,7 +63,7 @@ test('ADMIN เพิ่มเมนู + ตัวเลือก → ลูก
       await expect(link).toContainText('฿65')
       await link.click()
       const option = customer.locator('label').filter({ hasText: optionName })
-      await expect(option).toContainText('+15')
+      await expect(option).toContainText('+฿15')
       await expect(option.getByRole('checkbox')).toHaveCount(1)
     })
 

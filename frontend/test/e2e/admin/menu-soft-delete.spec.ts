@@ -69,7 +69,7 @@ test('ลบเมนูที่เคยถูกสั่ง → ซ่อน
     await loginAsCashier(page, request)
     await page.goto('/employee/check')
     await checkTableTile(page, String(table.number)).getByRole('button', { name: /^รับเงิน/ }).click()
-    await page.getByRole('dialog', { name: `รับเงิน โต๊ะ ${table.number}` }).getByRole('button', { name: 'รับเงิน ฿90' }).click()
+    await page.getByRole('dialog', { name: `รับเงิน โต๊ะ ${table.number}` }).getByRole('button', { name: 'รับเงิน', exact: true }).click()
     const receipt = page.getByRole('dialog', { name: 'ใบเสร็จรับเงิน' })
     // ชุดใหญ่รันขนาน 3 worker บันทึกบิลช้าได้หลายวินาที
     await expect(receipt).toBeVisible({ timeout: 15_000 })

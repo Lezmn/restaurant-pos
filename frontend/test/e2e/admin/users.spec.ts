@@ -136,6 +136,6 @@ test('บัญชีครัว/หน้าร้านไม่เห็น�
     [staff.accessToken, staff.user] as const,
   )
   await page.goto('/employee/check')
-  await expect(page.getByText('(Staff · STAFF)')).toBeVisible()
+  await expect(page.getByText('บัญชีหน้าร้าน', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'เปลี่ยนรหัสผ่าน' })).toHaveCount(0)
 })
