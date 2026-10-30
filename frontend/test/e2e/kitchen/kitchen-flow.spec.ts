@@ -55,7 +55,7 @@ test('ครัวไล่สถานะ รอคิว → กำลัง�
   const card = (column: string) =>
     page.getByRole('region', { name: column, exact: true }).locator('article', { hasText: `#${orderRef}` })
 
-  await card('รอคิว').getByRole('button', { name: 'เริ่มทำ' }).click()
+  await card('รอคิว').getByRole('button', { name: 'เริ่มปรุง' }).click()
   await expect(card('กำลังทำ')).toBeVisible()
   await card('กำลังทำ').getByRole('button', { name: 'ทำเสร็จ', exact: true }).click()
   // ทำเสร็จแล้ว → ขึ้นคอลัมน์ "เสร็จแล้ว" พร้อมปุ่มยกเลิก 5 วิ แล้วค่อยบันทึกเป็นเสิร์ฟแล้ว

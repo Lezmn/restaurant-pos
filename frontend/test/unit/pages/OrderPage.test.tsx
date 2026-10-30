@@ -101,7 +101,7 @@ describe('OrderPage (จอครัว)', () => {
 
     expect(await screen.findByText('โต๊ะ 4')).toBeInTheDocument()
     expect(screen.getByText('กะเพราหมู')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'เริ่มทำ' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'เริ่มปรุง' })).toBeEnabled()
     expect(screen.getAllByText('ไม่มีรายการ')).toHaveLength(2)
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
@@ -116,7 +116,7 @@ describe('OrderPage (จอครัว)', () => {
     )
     renderPage()
 
-    const startButtons = await screen.findAllByRole('button', { name: 'เริ่มทำ' })
+    const startButtons = await screen.findAllByRole('button', { name: 'เริ่มปรุง' })
     await userEvent.click(startButtons[0])
     await userEvent.click(startButtons[1])
 
