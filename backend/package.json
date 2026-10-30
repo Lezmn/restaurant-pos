@@ -20,6 +20,7 @@
     "prisma:seed:prod": "ts-node prisma/seed-prod.ts",
     "prisma:seed:menu": "ts-node prisma/seed-menu.ts",
     "prisma:seed:mock": "ts-node prisma/seed-mock.ts",
+    "admin:reset": "ts-node prisma/reset-admin.ts",
     "line:setup": "node scripts/setup-line.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
