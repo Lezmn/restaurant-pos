@@ -29,9 +29,9 @@ test('iPad แนวตั้ง: 2 คอลัมน์ + แถบเสร�
 
     const queue = page.getByRole('group', { name: 'ตั๋วรอคิว' })
     await expect(queue).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByRole('group', { name: 'ตั๋วกำลังปรุง' })).toBeVisible()
+    await expect(page.getByRole('group', { name: 'ตั๋วกำลังทำ' })).toBeVisible()
     // คอลัมน์เสร็จแล้วไม่มีบนจอแนวตั้ง — ย้ายไปเป็นแถบด้านบน
-    await expect(page.getByRole('group', { name: 'ตั๋วเสร็จแล้ว' })).toHaveCount(0)
+    await expect(page.getByRole('group', { name: 'ตั๋วเสร็จแล้ว รอเสิร์ฟ' })).toHaveCount(0)
 
     // ตั๋วเก่าขึ้นก่อน — ครัวทำตามคิว
     await expect(queue).toContainText(refOf(newer.id))
@@ -39,10 +39,10 @@ test('iPad แนวตั้ง: 2 คอลัมน์ + แถบเสร�
     expect(queueText.indexOf(refOf(older.id))).toBeLessThan(queueText.indexOf(refOf(newer.id)))
 
     // การ์ดในแถบเสร็จแล้วบอกจำนวน + ชื่อเมนู และกดเอาออกได้
-    const strip = page.getByRole('region', { name: 'เสร็จแล้ว', exact: true })
+    const strip = page.getByRole('region', { name: 'เสร็จแล้ว รอเสิร์ฟ', exact: true })
     const card = strip.getByRole('listitem').filter({ hasText: `3× ${menu.name}` })
     await expect(card).toBeVisible()
-    await card.getByRole('button', { name: 'เสิร์ฟแล้ว · เอาออก' }).click()
+    await card.getByRole('button', { name: 'เสิร์ฟแล้ว' }).click()
     await expect(card).toHaveCount(0)
   } finally {
     // เมนูถูกสั่งแล้วลบไม่ได้ — ปิดขายไว้ไม่ให้โผล่ในหน้าลูกค้าของเทสต์อื่น
@@ -56,9 +56,9 @@ test('จอแนวนอน: ยังเป็น 3 คอลัมน์ �
   await loginAsKitchen(page, request)
   await page.goto('/employee/order')
   await expect(page.getByRole('group', { name: 'ตั๋วรอคิว' })).toBeVisible({ timeout: 10_000 })
-  await expect(page.getByRole('group', { name: 'ตั๋วเสร็จแล้ว' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'ตั๋วเสร็จแล้ว รอเสิร์ฟ' })).toBeVisible()
   // "เสร็จแล้ว" มีที่เดียวคือคอลัมน์ (ไม่มีแถบซ้ำด้านบน)
-  const done = page.getByRole('region', { name: 'เสร็จแล้ว', exact: true })
+  const done = page.getByRole('region', { name: 'เสร็จแล้ว รอเสิร์ฟ', exact: true })
   await expect(done).toHaveCount(1)
-  await expect(done.getByRole('group', { name: 'ตั๋วเสร็จแล้ว' })).toBeVisible()
+  await expect(done.getByRole('group', { name: 'ตั๋วเสร็จแล้ว รอเสิร์ฟ' })).toBeVisible()
 })

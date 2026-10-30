@@ -1,5 +1,4 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EmployeeLayout } from '@/components/layout/EmployeeLayout'
@@ -9,7 +8,7 @@ import { useMenuItems } from '@/features/menu/hooks'
 import { useTables } from '@/features/tables/hooks'
 import { Role, TableStatus } from '@/types/enums'
 
-// หัวจอของพนักงาน — ปุ่ม "ของหมด" อยู่บน header ข้างหัวข้อหน้า และโผล่เฉพาะหน้า Order (จอครัว)
+// หัวจอของพนักงาน — จำนวนโต๊ะว่าง ป้ายบัญชี และเมนูนำทางตาม role
 // ใส่ของจริงที่เหลือไว้ด้วย — Chrome จริง (npm run test:browser) ไม่ยอม import ชื่อที่ mock ไม่มี
 vi.mock('@/features/tables/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/tables/hooks')>()),
@@ -89,46 +88,19 @@ function setup({
   )
 }
 
-const soldOutButton = () => screen.queryByRole('button', { name: /^ของหมด/ })
 /** ป้ายจำนวนโต๊ะว่างบน header (ตัวเลขอยู่ใน <span> แยก) */
 const tableCount = () => screen.getByText(/จำนวนโต๊ะที่ว่าง/)
 const header = () => screen.getByRole('banner')
 
-describe('EmployeeLayout — ปุ่มของหมดบนหัวจอ', () => {
+describe('EmployeeLayout — หัวจอ', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  // ทดสอบ: หน้า Order (จอครัว) ต้องมีปุ่มของหมดบน header (ไม่กินอีกแถวเหนือบอร์ด) และบอกจำนวนที่ปิดอยู่
-  // วิธี: เปิด /employee/order โดยมีเมนูหมด 1 + วัตถุดิบหมด 1 → เช็กปุ่ม "ของหมด (2)" อยู่ใน header (banner) และหน้าเนื้อหาครัวยังขึ้น
-  it('หน้า Order → มีปุ่ม "ของหมด (จำนวน)" บน header', () => {
-    setup()
-    expect(screen.getByText('บอร์ดครัว')).toBeInTheDocument()
-    const button = soldOutButton()
-    expect(button).toHaveTextContent('ของหมด (2)')
-    expect(within(header()).getByRole('button', { name: /^ของหมด/ })).toBe(button)
-  })
-
-  // ทดสอบ: ยังไม่มีอะไรหมด ปุ่มต้องเขียนแค่ "ของหมด" ไม่มีวงเล็บ (0)
-  // วิธี: mock ไม่มีเมนูหรือวัตถุดิบที่ปิดอยู่ → เช็กข้อความปุ่มเป็น "ของหมด" พอดี
-  it('ไม่มีอะไรหมด → ปุ่มเขียนแค่ "ของหมด"', () => {
-    setup({ offMenus: 0, offIngredients: 0 })
-    expect(soldOutButton()).toHaveTextContent(/^ของหมด$/)
-  })
-
-  // ทดสอบ: ปุ่มของหมดมีเฉพาะหน้า Order — หน้าอื่นของพนักงานต้องไม่มี (ปิดเมนูทำที่หน้า Manage แทน)
-  // วิธี: เปิด /employee/check และ /employee/tables ด้วย role ที่เข้าได้ → เช็กว่าไม่มีปุ่มของหมด แต่จำนวนโต๊ะว่างยังแสดง
-  it.each(['/employee/check', '/employee/tables'])('หน้าอื่น (%s) → ไม่มีปุ่มของหมด', (path) => {
+  // ทดสอบ: ปุ่มปิดเมนูที่หมดย้ายไปอยู่แถวแท็บในหน้าคิวครัวแล้ว — header ของ layout ต้องไม่มีปุ่มนี้ทุกหน้า
+  // วิธี: เปิด /employee/order, /employee/check, /employee/tables → เช็กว่า header ไม่มีปุ่มปิดเมนูที่หมด แต่จำนวนโต๊ะว่างยังแสดง
+  it.each(['/employee/order', '/employee/check', '/employee/tables'])('%s → header ไม่มีปุ่มปิดเมนูที่หมด', (path) => {
     setup({ path, role: Role.STAFF })
-    expect(soldOutButton()).not.toBeInTheDocument()
+    expect(within(header()).queryByRole('button', { name: /ปิดเมนูที่หมด/ })).not.toBeInTheDocument()
     expect(tableCount()).toHaveTextContent('จำนวนโต๊ะที่ว่าง 2 โต๊ะ')
-  })
-
-  // ทดสอบ: กดปุ่มของหมดบนหัวจอแล้วต้องเปิดกล่องเลือกเมนู/วัตถุดิบที่หมด (ย้ายมาจากในบอร์ดครัวแล้วยังใช้ได้)
-  // วิธี: เปิดหน้า Order → กดปุ่มของหมด → เช็กว่ามี dialog และเห็นเมนูที่หมดอยู่ในรายการ
-  it('กดปุ่มของหมด → เปิดกล่องเลือกของหมด', async () => {
-    setup()
-    await userEvent.click(soldOutButton()!)
-    const dialog = screen.getByRole('dialog')
-    expect(within(dialog).getByText('เมนูหมด 0')).toBeInTheDocument()
   })
 
   // ทดสอบ: จำนวนโต๊ะว่างนับเฉพาะโต๊ะสถานะ AVAILABLE และระหว่างโหลดขึ้น "—" พร้อมป้ายบัญชีตาม role (ชื่อคนอยู่ใน tooltip)
