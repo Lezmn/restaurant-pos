@@ -37,16 +37,16 @@ const ingredient = (id: string, name: string) => ({
   menuOptionCount: 0,
 })
 
-function setup({ offMenus = 1, offIngredients = 1 } = {}) {
+function setup() {
   vi.mocked(useMenuItems).mockReturnValue({
     data: [
-      ...Array.from({ length: offMenus }, (_, i) => menu(`m-off-${i}`, `เมนูหมด ${i}`, false)),
+      menu('m-off-0', 'เมนูหมด 0', false),
       menu('m-on', 'ข้าวผัด', true),
     ],
     isPending: false,
   } as never)
   vi.mocked(useIngredients).mockReturnValue({
-    data: Array.from({ length: offIngredients }, (_, i) => ingredient(`i-off-${i}`, `วัตถุดิบหมด ${i}`)),
+    data: [ingredient('i-off-0', 'วัตถุดิบหมด 0')],
     isPending: false,
   } as never)
   return render(<KitchenSoldOutButton />)
@@ -55,13 +55,10 @@ function setup({ offMenus = 1, offIngredients = 1 } = {}) {
 describe('KitchenSoldOutButton (ปุ่มปิดเมนูที่หมด บนจอครัว)', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  // ทดสอบ: ปุ่มบอกจำนวนเมนู+วัตถุดิบที่ปิดอยู่ และไม่มีวงเล็บ (0) เมื่อไม่มีอะไรหมด
-  // วิธี: mock เมนูหมด 1 + วัตถุดิบหมด 1 → "ปิดเมนูที่หมด (2)" → mock ไม่มีอะไรหมด → "ปิดเมนูที่หมด" พอดี
-  it('แสดงจำนวนที่ปิดอยู่ และไม่มีวงเล็บเมื่อไม่มีอะไรหมด', () => {
-    const { unmount } = setup()
-    expect(screen.getByRole('button', { name: /ปิดเมนูที่หมด/ })).toHaveTextContent('ปิดเมนูที่หมด (2)')
-    unmount()
-    setup({ offMenus: 0, offIngredients: 0 })
+  // ทดสอบ: ปุ่มเขียนแค่ "ปิดเมนูที่หมด" ตามดีไซน์ ไม่มีตัวเลขจำนวนต่อท้าย แม้มีของหมดอยู่
+  // วิธี: mock เมนูหมด 1 + วัตถุดิบหมด 1 → เช็กข้อความปุ่มเป็น "ปิดเมนูที่หมด" พอดี
+  it('ข้อความปุ่มไม่มีตัวเลขต่อท้าย', () => {
+    setup()
     expect(screen.getByRole('button', { name: /ปิดเมนูที่หมด/ })).toHaveTextContent(/^ปิดเมนูที่หมด$/)
   })
 
