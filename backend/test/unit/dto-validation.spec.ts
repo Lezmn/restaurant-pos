@@ -64,6 +64,71 @@ describe('DTO validation (ValidationPipe ตาม main.ts)', () => {
     });
   });
 
+  describe('ChangePasswordDto — เปลี่ยนรหัสของตัวเอง (PATCH /auth/password)', () => {
+    // ทดสอบ: ขอบความยาวรหัสใหม่ 8 ตัวและ 72 ตัวพอดีต้องผ่าน (ขอบล่าง/บนของกฎ)
+    // วิธี: ส่ง newPassword ยาว 8 และ 72 ตัวเข้า ValidationPipe → ต้องไม่มี error
+    it.each([8, 72])('รหัสใหม่ยาว %i ตัวพอดี → ผ่าน', async (length) => {
+      await valid(ChangePasswordDto, { currentPassword: 'old-pass-1', newPassword: 'a'.repeat(length) });
+    });
+
+    // ทดสอบ: รหัสใหม่สั้น/ยาวเกิน ไม่ส่ง หรือส่งผิดชนิด → 400 ที่ช่อง newPassword
+    // วิธี: ส่งแต่ละแบบเข้า ValidationPipe → ต้องได้ BadRequest ที่มีชื่อช่อง newPassword
+    it.each([
+      ['ยาว 7 ตัว', 'a'.repeat(7)],
+      ['ยาว 73 ตัว (bcrypt ใช้แค่ 72)', 'a'.repeat(73)],
+      ['ไม่ส่งมา', undefined],
+      ['เป็นตัวเลข', 12345678],
+    ])('รหัสใหม่%s → 400', async (_label, newPassword) => {
+      await invalid(ChangePasswordDto, { currentPassword: 'old-pass-1', newPassword }, 'newPassword');
+    });
+
+    // ทดสอบ: ไม่ส่งรหัสปัจจุบัน หรือส่งผิดชนิด → 400 ที่ช่อง currentPassword
+    // วิธี: ส่ง body ที่ไม่มี currentPassword / เป็นตัวเลข → ต้องได้ BadRequest ที่มีชื่อช่อง currentPassword
+    it.each([[undefined], [12345678]])('รหัสปัจจุบัน %p → 400', async (currentPassword) => {
+      await invalid(ChangePasswordDto, { currentPassword, newPassword: 'new-pass-1' }, 'currentPassword');
+    });
+
+    // ทดสอบ: ส่ง field แปลกปลอม (เช่น mustChangePassword) มากับการเปลี่ยนรหัส ต้องถูกตัดทิ้ง
+    // วิธี: ส่ง body ที่มี mustChangePassword/role เพิ่ม → ผลหลัง pipe ต้องเหลือแค่ currentPassword/newPassword
+    it('ตัด field แปลกปลอม (mustChangePassword/role) ทิ้ง', async () => {
+      const out = await check(ChangePasswordDto, {
+        currentPassword: 'old-pass-1',
+        newPassword: 'new-pass-1',
+        mustChangePassword: false,
+        role: 'ADMIN',
+      });
+      expect(out).toEqual({ currentPassword: 'old-pass-1', newPassword: 'new-pass-1' });
+    });
+  });
+
+  describe('CreateUserDto / UpdateUserDto — ความยาวรหัสผ่าน', () => {
+    const base = { name: 'ครัว', email: 'kitchen@shop.test', role: 'KITCHEN' };
+
+    // ทดสอบ: สร้างบัญชีด้วยรหัส 8 และ 72 ตัวพอดีต้องผ่าน
+    // วิธี: ส่ง CreateUserDto ที่ password ยาว 8 / 72 ตัว → ต้องไม่มี error
+    it.each([8, 72])('สร้างบัญชี รหัสยาว %i ตัวพอดี → ผ่าน', async (length) => {
+      await valid(CreateUserDto, { ...base, password: 'a'.repeat(length) });
+    });
+
+    // ทดสอบ: สร้างบัญชีด้วยรหัสสั้นกว่า 8 / ไม่ส่งรหัส → 400 ที่ช่อง password
+    // วิธี: ส่ง CreateUserDto ที่ password ยาว 7 ตัว และที่ไม่มี password → ต้องได้ BadRequest ที่ช่อง password
+    it.each([
+      ['ยาว 7 ตัว', 'a'.repeat(7)],
+      ['ไม่ส่งมา', undefined],
+    ])('สร้างบัญชี รหัส%s → 400', async (_label, password) => {
+      await invalid(CreateUserDto, { ...base, password }, 'password');
+    });
+
+    // ทดสอบ: ADMIN ตั้งรหัสใหม่ให้บัญชีอื่น (PATCH /users/:id) ใช้กฎความยาวเดียวกับตอนสร้าง
+    // วิธี: ส่ง UpdateUserDto ที่ password ยาว 7 / 73 ตัว → 400 ที่ช่อง password; ยาว 8 / 72 ตัว → ผ่าน
+    it('ตั้งรหัสให้บัญชีอื่น: 7 หรือ 73 ตัว → 400, 8 หรือ 72 ตัว → ผ่าน', async () => {
+      await invalid(UpdateUserDto, { password: 'a'.repeat(7) }, 'password');
+      await invalid(UpdateUserDto, { password: 'a'.repeat(73) }, 'password');
+      await valid(UpdateUserDto, { password: 'a'.repeat(8) });
+      await valid(UpdateUserDto, { password: 'a'.repeat(72), logoutEverywhere: true });
+    });
+  });
+
   describe('CreateUserDto / UpdateUserDto', () => {
     const base = { name: ' ครัว ', email: ' Kitchen@Shop.Test', password: '12345678', role: 'KITCHEN' };
     it('trim ชื่อ อีเมลเป็นตัวเล็ก', async () => {

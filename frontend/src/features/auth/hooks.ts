@@ -10,5 +10,5 @@ export function useLogin() {
   })
 }
 
-/** เปลี่ยนรหัสผ่านของตัวเอง (ทุก role) — ต้องรู้รหัสเดิม */
+/** เปลี่ยนรหัสผ่านของตัวเอง (เฉพาะ ADMIN — บัญชีกลาง ADMIN ตั้งให้) — ต้องรู้รหัสเดิม */
 export const useChangePassword = () => useMutation({ mutationFn: changePassword })

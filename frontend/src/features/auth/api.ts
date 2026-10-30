@@ -33,7 +33,7 @@ export async function login(payload: LoginPayload): Promise<User> {
   return mapUser(data.user)
 }
 
-/** PATCH /auth/password — ทุก role เปลี่ยนรหัสของตัวเองได้ ต้องใส่รหัสเดิม (กันคนหยิบเครื่องที่ login ค้างไปเปลี่ยน) */
+/** PATCH /auth/password — เฉพาะ ADMIN เปลี่ยนรหัสของตัวเอง ต้องใส่รหัสเดิม (กันคนหยิบเครื่องที่ login ค้างไปเปลี่ยน) */
 export async function changePassword(vars: {
   currentPassword: string
   newPassword: string

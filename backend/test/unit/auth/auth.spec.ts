@@ -83,6 +83,72 @@ describe('AuthService', () => {
     expect(saved).not.toBe('new-password-1');
     expect(await bcrypt.compare('new-password-1', saved)).toBe(true);
   });
+
+  describe('changePassword — ทีละกรณี', () => {
+    beforeEach(() => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'u1', password: hash, mustChangePassword: true });
+    });
+
+    // ทดสอบ: รหัสปัจจุบันผิด → 400 ข้อความไทย และไม่แตะ DB (รหัสเดิมยังใช้ได้)
+    // วิธี: เรียก changePassword ด้วย currentPassword ผิด → เช็กข้อความ "รหัสผ่านปัจจุบันไม่ถูกต้อง" และ update ไม่ถูกเรียก
+    it('รหัสปัจจุบันผิด → 400 "รหัสผ่านปัจจุบันไม่ถูกต้อง" ไม่บันทึก', async () => {
+      await expect(
+        service.changePassword('u1', { currentPassword: 'wrong-pass', newPassword: 'new-password-1' }),
+      ).rejects.toThrow(new BadRequestException('รหัสผ่านปัจจุบันไม่ถูกต้อง'));
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    // ทดสอบ: รหัสปัจจุบันผิดต้องได้ 400 ไม่ใช่ 401 (401 ทำให้หน้าเว็บเด้งออกจากระบบ)
+    // วิธี: จับ error ที่โยนออกมา → status ต้องเป็น 400 และไม่ใช่ UnauthorizedException
+    it('รหัสปัจจุบันผิด → status 400 ไม่ใช่ 401 (ไม่เด้งออกจากระบบ)', async () => {
+      const error = await service
+        .changePassword('u1', { currentPassword: 'wrong-pass', newPassword: 'new-password-1' })
+        .catch((e) => e);
+      expect(error.getStatus()).toBe(400);
+      expect(error).not.toBeInstanceOf(UnauthorizedException);
+    });
+
+    // ทดสอบ: รหัสใหม่เหมือนรหัสเดิม → 400 ข้อความไทย และไม่บันทึก
+    // วิธี: ส่ง newPassword เท่ากับรหัสปัจจุบัน (ที่ถูกต้อง) → เช็กข้อความ "รหัสผ่านใหม่ต้องต่างจากรหัสเดิม" และ update ไม่ถูกเรียก
+    it('รหัสใหม่ซ้ำรหัสเดิม → 400 "รหัสผ่านใหม่ต้องต่างจากรหัสเดิม" ไม่บันทึก', async () => {
+      await expect(
+        service.changePassword('u1', { currentPassword: 'correct-password', newPassword: 'correct-password' }),
+      ).rejects.toThrow(new BadRequestException('รหัสผ่านใหม่ต้องต่างจากรหัสเดิม'));
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    // ทดสอบ: รหัสปัจจุบันผิด และรหัสใหม่ก็เท่ากับที่พิมพ์มา → ต้องบอกว่ารหัสปัจจุบันผิดก่อน (ไม่บอกใบ้ว่ารหัสจริงคืออะไร)
+    // วิธี: ส่ง currentPassword = newPassword = ค่าที่ผิด → ข้อความต้องเป็น "รหัสผ่านปัจจุบันไม่ถูกต้อง"
+    it('รหัสปัจจุบันผิด + ใหม่ซ้ำที่พิมพ์ → ตอบว่ารหัสปัจจุบันผิดก่อน', async () => {
+      await expect(
+        service.changePassword('u1', { currentPassword: 'wrong-pass', newPassword: 'wrong-pass' }),
+      ).rejects.toThrow('รหัสผ่านปัจจุบันไม่ถูกต้อง');
+    });
+
+    // ทดสอบ: สำเร็จ → เก็บ bcrypt hash (12 รอบ) ของรหัสใหม่ ปลดสถานะรหัสชั่วคราว และตอบ { ok: true }
+    // วิธี: เปลี่ยนรหัสด้วยข้อมูลถูกต้อง → เช็ก where id, hash ขึ้นต้น $2a$12$/$2b$12$ ตรวจกับรหัสใหม่ผ่าน กับรหัสเดิมไม่ผ่าน, mustChangePassword=false
+    it('สำเร็จ → hash 12 รอบ, รหัสเดิมใช้ไม่ได้, mustChangePassword=false, ตอบ ok', async () => {
+      await expect(
+        service.changePassword('u1', { currentPassword: 'correct-password', newPassword: 'new-password-1' }),
+      ).resolves.toEqual({ ok: true });
+      const args = prisma.user.update.mock.calls[0][0];
+      expect(args.where).toEqual({ id: 'u1' });
+      expect(args.data.mustChangePassword).toBe(false);
+      expect(args.data.password).toMatch(/^\$2[ab]\$12\$/);
+      expect(await bcrypt.compare('new-password-1', args.data.password)).toBe(true);
+      expect(await bcrypt.compare('correct-password', args.data.password)).toBe(false);
+    });
+
+    // ทดสอบ: token ของบัญชีที่ถูกลบไปแล้ว → 401 (ไม่ใช่ 500)
+    // วิธี: ให้ findUnique คืน null → changePassword ต้องโยน UnauthorizedException และไม่บันทึก
+    it('ไม่พบบัญชี (ถูกลบไปแล้ว) → 401 ไม่บันทึก', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      await expect(
+        service.changePassword('gone', { currentPassword: 'correct-password', newPassword: 'new-password-1' }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+  });
 });
 
 function ctx(user?: { role: Role }): ExecutionContext {

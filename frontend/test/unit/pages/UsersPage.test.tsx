@@ -90,6 +90,14 @@ function setup({
 
 const card = (name: string) => screen.getByText(name, { selector: 'p' }).closest('li') as HTMLElement
 const lastToast = () => useToasts.getState().toasts.at(-1)?.message
+/** ข้อความผิดที่ขึ้นใต้ช่องนั้นในกล่อง ('' = ไม่มี) */
+const errorUnder = (dialog: HTMLElement, label: RegExp) =>
+  within(dialog).getByLabelText(label).closest('label')?.querySelector('[role="alert"]')?.textContent ?? ''
+/** วางข้อความยาวทีเดียว (พิมพ์ 73 ตัวทีละตัวช้า) */
+async function pasteInto(user: ReturnType<typeof userEvent.setup>, input: HTMLElement, text: string) {
+  await user.click(input)
+  await user.paste(text)
+}
 /** เรียก onSuccess ของ mutate ครั้งล่าสุด */
 const succeed = (m: Mut) => act(() => m.mutate.mock.calls.at(-1)![1].onSuccess())
 
@@ -216,6 +224,29 @@ describe('UsersPage — เพิ่ม/แก้ไขบัญชี', () => {
     expect(create.mutate).not.toHaveBeenCalled()
   })
 
+  // ทดสอบ: รหัสเริ่มต้นยาวเกิน 72 ตัว (bcrypt ใช้แค่ 72) → error ภาษาไทย ไม่ส่ง / ยาว 72 พอดี → ไม่มี error ช่องรหัส
+  // วิธี: กรอกชื่อ ชื่อผู้ใช้ รหัส 73 ตัว ยืนยันตรงกัน กดเพิ่ม → เห็น "รหัสผ่านยาวได้ไม่เกิน 72 ตัวอักษร" → ลบ 1 ตัวทั้งสองช่อง กดใหม่ → ส่งได้
+  it('รหัสเริ่มต้นยาว 73 ตัว → error ไม่ส่ง / 72 ตัว → ส่งได้', async () => {
+    const { user, dialog } = await openNew()
+    await user.type(within(dialog).getByPlaceholderText('เช่น ครัว, แคชเชียร์, หน้าร้าน'), 'บาร์')
+    await user.type(within(dialog).getByPlaceholderText('เช่น kitchen, cashier'), 'bar')
+    const password = within(dialog).getByLabelText(/^รหัสผ่านเริ่มต้น/)
+    const confirm = within(dialog).getByLabelText(/^ยืนยันรหัสผ่าน/)
+    await user.click(password)
+    await user.paste('a'.repeat(73))
+    await user.click(confirm)
+    await user.paste('a'.repeat(73))
+    await user.click(within(dialog).getByRole('button', { name: 'เพิ่มบัญชี' }))
+    expect(dialog).toHaveTextContent('รหัสผ่านยาวได้ไม่เกิน 72 ตัวอักษร')
+    expect(create.mutate).not.toHaveBeenCalled()
+
+    await user.type(password, '{Backspace}')
+    await user.type(confirm, '{Backspace}')
+    await user.click(within(dialog).getByRole('button', { name: 'เพิ่มบัญชี' }))
+    expect(dialog).not.toHaveTextContent('รหัสผ่านยาวได้ไม่เกิน 72 ตัวอักษร')
+    expect(create.mutate).toHaveBeenCalledTimes(1)
+  })
+
   // ทดสอบ: กรอกครบ → ชื่อผู้ใช้กลายเป็นอีเมลของร้าน (ตัวเล็ก ตัดช่องว่าง) ส่งพร้อมสิทธิ์ที่เลือก
   it('กรอกครบ → แปลงชื่อผู้ใช้เป็นอีเมลร้าน ส่งสิทธิ์ที่เลือก แล้ว toast + ปิด', async () => {
     const { user, dialog } = await openNew()
@@ -314,6 +345,19 @@ describe('UsersPage — ตั้งรหัสผ่านใหม่ให�
     expect(update.mutate).not.toHaveBeenCalled()
   })
 
+  // ทดสอบ: ตั้งรหัสให้บัญชีอื่นยาวเกิน 72 ตัว → error ภาษาไทย ไม่ส่ง (ก่อนนี้ไปเจอ error ภาษาอังกฤษจาก backend)
+  // วิธี: วางรหัส 73 ตัวทั้งสองช่องแล้วกดตั้งรหัส → เห็น "รหัสผ่านยาวได้ไม่เกิน 72 ตัวอักษร" และ mutate ไม่ถูกเรียก
+  it('รหัสยาว 73 ตัว → error ไม่ส่ง', async () => {
+    const { user, dialog } = await openReset()
+    await user.click(within(dialog).getByLabelText(/^รหัสผ่านใหม่/))
+    await user.paste('a'.repeat(73))
+    await user.click(within(dialog).getByLabelText(/^ยืนยันรหัสผ่านใหม่/))
+    await user.paste('a'.repeat(73))
+    await user.click(within(dialog).getByRole('button', { name: 'ตั้งรหัสผ่าน' }))
+    expect(dialog).toHaveTextContent('รหัสผ่านยาวได้ไม่เกิน 72 ตัวอักษร')
+    expect(update.mutate).not.toHaveBeenCalled()
+  })
+
   // ทดสอบ: ค่าเริ่มต้นติ๊กออกจากระบบทุกเครื่อง → toast บอกว่าทุกเครื่องต้อง login ใหม่ / เอาติ๊กออกได้
   it.each([
     [true, 'ตั้งรหัสใหม่ให้ ครัว แล้ว — ทุกเครื่องต้อง login ใหม่ด้วยรหัสใหม่'],
@@ -339,5 +383,196 @@ describe('UsersPage — ตั้งรหัสผ่านใหม่ให�
     const { user, dialog } = await openReset()
     await user.click(within(dialog).getByRole('button', { name: 'ยกเลิก' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+})
+
+describe('UsersPage — เพิ่มบัญชี: กฎรหัสผ่านทีละข้อ', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    useToasts.setState({ toasts: [] })
+  })
+
+  /** เปิดกล่องเพิ่มบัญชี กรอกชื่อ/ชื่อผู้ใช้ที่ถูกต้องไว้แล้ว เหลือแค่ช่องรหัส */
+  const openWithName = async () => {
+    const r = setup()
+    await r.user.click(screen.getByRole('button', { name: 'เพิ่มบัญชี' }))
+    const dialog = screen.getByRole('dialog', { name: 'เพิ่มบัญชี' })
+    await r.user.type(within(dialog).getByPlaceholderText('เช่น ครัว, แคชเชียร์, หน้าร้าน'), 'บาร์')
+    await r.user.type(within(dialog).getByPlaceholderText('เช่น kitchen, cashier'), 'bar')
+    return {
+      ...r,
+      dialog,
+      password: within(dialog).getByLabelText(/^รหัสผ่านเริ่มต้น/),
+      confirm: within(dialog).getByLabelText(/^ยืนยันรหัสผ่าน/),
+      save: () => r.user.click(within(dialog).getByRole('button', { name: 'เพิ่มบัญชี' })),
+    }
+  }
+
+  // ทดสอบ: ก่อนกดเพิ่ม ผู้ใช้เห็นคำใบ้กฎความยาวที่ช่องรหัสผ่านเริ่มต้น และยังไม่มี error
+  // วิธี: เปิดกล่องเพิ่มบัญชี → ป้ายช่องรหัสต้องมี "(อย่างน้อย 8 ตัวอักษร)" และไม่มี alert
+  it('ก่อนกด: ช่องรหัสผ่านเริ่มต้นมีคำใบ้ "อย่างน้อย 8 ตัวอักษร"', async () => {
+    const { dialog, password } = await openWithName()
+    expect(password.closest('label')).toHaveTextContent('(อย่างน้อย 8 ตัวอักษร)')
+    expect(within(dialog).queryAllByRole('alert')).toHaveLength(0)
+  })
+
+  // ทดสอบ: ไม่กรอกรหัสผ่าน → error ใต้ช่องรหัสผ่านเริ่มต้น ไม่บันทึก
+  // วิธี: กรอกชื่อ/ชื่อผู้ใช้ ไม่กรอกรหัส กดเพิ่ม → ข้อความใต้ช่องรหัส ช่องยืนยันไม่มี error และ create ไม่ถูกเรียก
+  it('ไม่กรอกรหัสผ่าน → "รหัสผ่านอย่างน้อย 8 ตัวอักษร" ใต้ช่องรหัส', async () => {
+    const { dialog, save } = await openWithName()
+    await save()
+    expect(errorUnder(dialog, /^รหัสผ่านเริ่มต้น/)).toBe('รหัสผ่านอย่างน้อย 8 ตัวอักษร')
+    expect(errorUnder(dialog, /^ยืนยันรหัสผ่าน/)).toBe('')
+    expect(create.mutate).not.toHaveBeenCalled()
+  })
+
+  // ทดสอบ: รหัสผ่าน 7 ตัว → error ใต้ช่องรหัสผ่านเริ่มต้นช่องเดียว
+  // วิธี: กรอกรหัส/ยืนยัน 7 ตัว กดเพิ่ม → ข้อความใต้ช่องรหัส มี alert เดียว ช่องรหัสขอบแดง และ create ไม่ถูกเรียก
+  it('รหัสผ่าน 7 ตัว → "รหัสผ่านอย่างน้อย 8 ตัวอักษร" ใต้ช่องรหัส', async () => {
+    const { user, dialog, password, confirm, save } = await openWithName()
+    await user.type(password, 'a'.repeat(7))
+    await user.type(confirm, 'a'.repeat(7))
+    await save()
+    expect(within(dialog).getAllByRole('alert')).toHaveLength(1)
+    expect(errorUnder(dialog, /^รหัสผ่านเริ่มต้น/)).toBe('รหัสผ่านอย่างน้อย 8 ตัวอักษร')
+    expect(password).toHaveAttribute('aria-invalid', 'true')
+    expect(create.mutate).not.toHaveBeenCalled()
+  })
+
+  // ทดสอบ: รหัสผ่าน 73 ตัว → error ใต้ช่องรหัสผ่านเริ่มต้นช่องเดียว
+  // วิธี: วางรหัส/ยืนยัน 73 ตัว กดเพิ่ม → "รหัสผ่านยาวได้ไม่เกิน 72 ตัวอักษร" ใต้ช่องรหัส และ create ไม่ถูกเรียก
+  it('รหัสผ่าน 73 ตัว → "รหัสผ่านยาวได้ไม่เกิน 72 ตัวอักษร" ใต้ช่องรหัส', async () => {
+    const { user, dialog, password, confirm, save } = await openWithName()
+    await pasteInto(user, password, 'a'.repeat(73))
+    await pasteInto(user, confirm, 'a'.repeat(73))
+    await save()
+    expect(within(dialog).getAllByRole('alert')).toHaveLength(1)
+    expect(errorUnder(dialog, /^รหัสผ่านเริ่มต้น/)).toBe('รหัสผ่านยาวได้ไม่เกิน 72 ตัวอักษร')
+    expect(create.mutate).not.toHaveBeenCalled()
+  })
+
+  // ทดสอบ: ยืนยันรหัสไม่ตรง → error ใต้ช่องยืนยันช่องเดียว
+  // วิธี: กรอกรหัส 9 ตัว ยืนยันต่างไป 1 ตัว กดเพิ่ม → "รหัสผ่านสองช่องไม่ตรงกัน" ใต้ช่องยืนยัน และ create ไม่ถูกเรียก
+  it('ยืนยันไม่ตรง → "รหัสผ่านสองช่องไม่ตรงกัน" ใต้ช่องยืนยัน', async () => {
+    const { user, dialog, password, confirm, save } = await openWithName()
+    await user.type(password, 'password1')
+    await user.type(confirm, 'password2')
+    await save()
+    expect(within(dialog).getAllByRole('alert')).toHaveLength(1)
+    expect(errorUnder(dialog, /^ยืนยันรหัสผ่าน/)).toBe('รหัสผ่านสองช่องไม่ตรงกัน')
+    expect(confirm).toHaveAttribute('aria-invalid', 'true')
+    expect(create.mutate).not.toHaveBeenCalled()
+  })
+
+  // ทดสอบ: รหัสผ่าน 8 และ 72 ตัวพอดี (ขอบของกฎ) บันทึกได้ ไม่มี error
+  // วิธี: วางรหัส/ยืนยันยาว 8 / 72 ตัว กดเพิ่ม → ไม่มี alert และ create ถูกเรียกพร้อมรหัสนั้น
+  it.each([8, 72])('รหัสผ่าน %i ตัวพอดี → บันทึกได้', async (length) => {
+    const { user, dialog, password, confirm, save } = await openWithName()
+    await pasteInto(user, password, 'p'.repeat(length))
+    await pasteInto(user, confirm, 'p'.repeat(length))
+    await save()
+    expect(within(dialog).queryAllByRole('alert')).toHaveLength(0)
+    expect(create.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ password: 'p'.repeat(length) }),
+      expect.anything(),
+    )
+  })
+})
+
+describe('UsersPage — ตั้งรหัสให้บัญชีอื่น: กฎรหัสผ่านทีละข้อ', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    useToasts.setState({ toasts: [] })
+  })
+
+  const openResetFor = async (extra: Parameters<typeof setup>[0] = {}) => {
+    const r = setup(extra)
+    await r.user.click(screen.getByRole('button', { name: 'ตั้งรหัสผ่านใหม่ให้ ครัว' }))
+    const dialog = screen.getByRole('dialog', { name: 'ตั้งรหัสผ่านใหม่ให้ ครัว' })
+    return {
+      ...r,
+      dialog,
+      password: within(dialog).getByLabelText(/^รหัสผ่านใหม่/),
+      confirm: within(dialog).getByLabelText(/^ยืนยันรหัสผ่านใหม่/),
+      save: () => r.user.click(within(dialog).getByRole('button', { name: 'ตั้งรหัสผ่าน' })),
+    }
+  }
+
+  // ทดสอบ: ก่อนกดตั้งรหัส ผู้ใช้เห็นคำใบ้กฎความยาว และยังไม่มี error
+  // วิธี: เปิดกล่องตั้งรหัสให้บัญชีครัว → ป้ายช่องรหัสใหม่มี "(อย่างน้อย 8 ตัวอักษร)" และไม่มี alert
+  it('ก่อนกด: ช่องรหัสผ่านใหม่มีคำใบ้ "อย่างน้อย 8 ตัวอักษร"', async () => {
+    const { dialog, password } = await openResetFor()
+    expect(password.closest('label')).toHaveTextContent('(อย่างน้อย 8 ตัวอักษร)')
+    expect(within(dialog).queryAllByRole('alert')).toHaveLength(0)
+  })
+
+  // ทดสอบ: ไม่กรอกอะไรแล้วกดตั้งรหัส → error ใต้ช่องรหัสใหม่ ไม่บันทึก
+  // วิธี: กดตั้งรหัสผ่านทันที → ข้อความใต้ช่องรหัสใหม่ ช่องยืนยันไม่มี error และ update ไม่ถูกเรียก
+  it('ไม่กรอกรหัส → "รหัสผ่านอย่างน้อย 8 ตัวอักษร" ใต้ช่องรหัสใหม่', async () => {
+    const { dialog, save } = await openResetFor()
+    await save()
+    expect(errorUnder(dialog, /^รหัสผ่านใหม่/)).toBe('รหัสผ่านอย่างน้อย 8 ตัวอักษร')
+    expect(errorUnder(dialog, /^ยืนยันรหัสผ่านใหม่/)).toBe('')
+    expect(update.mutate).not.toHaveBeenCalled()
+  })
+
+  // ทดสอบ: รหัส 7 ตัว → error ใต้ช่องรหัสใหม่ช่องเดียว
+  // วิธี: กรอกรหัส/ยืนยัน 7 ตัว กดตั้งรหัส → ข้อความใต้ช่องรหัสใหม่ มี alert เดียว ช่องขอบแดง และ update ไม่ถูกเรียก
+  it('รหัส 7 ตัว → "รหัสผ่านอย่างน้อย 8 ตัวอักษร" ใต้ช่องรหัสใหม่', async () => {
+    const { user, dialog, password, confirm, save } = await openResetFor()
+    await user.type(password, 'a'.repeat(7))
+    await user.type(confirm, 'a'.repeat(7))
+    await save()
+    expect(within(dialog).getAllByRole('alert')).toHaveLength(1)
+    expect(errorUnder(dialog, /^รหัสผ่านใหม่/)).toBe('รหัสผ่านอย่างน้อย 8 ตัวอักษร')
+    expect(password).toHaveAttribute('aria-invalid', 'true')
+    expect(update.mutate).not.toHaveBeenCalled()
+  })
+
+  // ทดสอบ: รหัส 73 ตัว → error ใต้ช่องรหัสใหม่ช่องเดียว
+  // วิธี: วางรหัส/ยืนยัน 73 ตัว กดตั้งรหัส → "รหัสผ่านยาวได้ไม่เกิน 72 ตัวอักษร" ใต้ช่องรหัสใหม่ และ update ไม่ถูกเรียก
+  it('รหัส 73 ตัว → "รหัสผ่านยาวได้ไม่เกิน 72 ตัวอักษร" ใต้ช่องรหัสใหม่', async () => {
+    const { user, dialog, password, confirm, save } = await openResetFor()
+    await pasteInto(user, password, 'a'.repeat(73))
+    await pasteInto(user, confirm, 'a'.repeat(73))
+    await save()
+    expect(within(dialog).getAllByRole('alert')).toHaveLength(1)
+    expect(errorUnder(dialog, /^รหัสผ่านใหม่/)).toBe('รหัสผ่านยาวได้ไม่เกิน 72 ตัวอักษร')
+    expect(update.mutate).not.toHaveBeenCalled()
+  })
+
+  // ทดสอบ: ยืนยันรหัสไม่ตรง → error ใต้ช่องยืนยันช่องเดียว
+  // วิธี: กรอกรหัส 9 ตัว ยืนยันต่างไป 1 ตัว กดตั้งรหัส → "รหัสผ่านสองช่องไม่ตรงกัน" ใต้ช่องยืนยัน และ update ไม่ถูกเรียก
+  it('ยืนยันไม่ตรง → "รหัสผ่านสองช่องไม่ตรงกัน" ใต้ช่องยืนยัน', async () => {
+    const { user, dialog, password, confirm, save } = await openResetFor()
+    await user.type(password, 'newpass99')
+    await user.type(confirm, 'newpass98')
+    await save()
+    expect(within(dialog).getAllByRole('alert')).toHaveLength(1)
+    expect(errorUnder(dialog, /^ยืนยันรหัสผ่านใหม่/)).toBe('รหัสผ่านสองช่องไม่ตรงกัน')
+    expect(confirm).toHaveAttribute('aria-invalid', 'true')
+    expect(update.mutate).not.toHaveBeenCalled()
+  })
+
+  // ทดสอบ: รหัส 8 และ 72 ตัวพอดี (ขอบของกฎ) บันทึกได้ ไม่มี error
+  // วิธี: วางรหัส/ยืนยันยาว 8 / 72 ตัว กดตั้งรหัส → ไม่มี alert และ update ถูกเรียกพร้อมรหัสนั้น
+  it.each([8, 72])('รหัส %i ตัวพอดี → บันทึกได้', async (length) => {
+    const { user, dialog, password, confirm, save } = await openResetFor()
+    await pasteInto(user, password, 'p'.repeat(length))
+    await pasteInto(user, confirm, 'p'.repeat(length))
+    await save()
+    expect(within(dialog).queryAllByRole('alert')).toHaveLength(0)
+    expect(update.mutate).toHaveBeenCalledWith(
+      { id: 'kitchen', input: { password: 'p'.repeat(length), logoutEverywhere: true } },
+      expect.anything(),
+    )
+  })
+
+  // ทดสอบ: backend ปฏิเสธ → ข้อความขึ้นเป็นแถบบนกล่อง กล่องยังเปิดอยู่ ไม่มี toast
+  // วิธี: ให้ hook update มี error → เปิดกล่องตั้งรหัส → เห็น alert ข้อความนั้น และไม่มี toast
+  it('backend ตอบ error → แถบข้อความบนกล่อง กล่องไม่ปิด', async () => {
+    const { dialog } = await openResetFor({ updateExtra: { error: new Error('บันทึกไม่สำเร็จ') } })
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('บันทึกไม่สำเร็จ')
+    expect(lastToast()).toBeUndefined()
   })
 })

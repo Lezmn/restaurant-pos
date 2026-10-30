@@ -10,6 +10,7 @@ import {
   MIN_PASSWORD_LENGTH,
   PasswordField,
 } from '@/components/layout/ChangePasswordDialog'
+import { passwordLengthError } from '@/lib/password'
 import { toLoginEmail } from '@/features/auth/api'
 import { useAuth } from '@/features/auth/use-auth'
 import type { StaffUser } from '@/features/users/api'
@@ -275,11 +276,10 @@ function usernameError(login: string) {
 function validateUserForm(
   f: Readonly<{ isNew: boolean; name: string; login: string; password: string; confirm: string }>,
 ) {
-  const shortPassword = f.password.length < MIN_PASSWORD_LENGTH
   return {
     name: f.name.trim() ? '' : 'กรอกชื่อบัญชี',
     username: f.isNew ? usernameError(f.login) : '',
-    password: f.isNew && shortPassword ? `รหัสผ่านอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร` : '',
+    password: f.isNew ? passwordLengthError(f.password) : '',
     confirm: f.isNew && f.confirm !== f.password ? 'รหัสผ่านสองช่องไม่ตรงกัน' : '',
   }
 }
@@ -458,8 +458,7 @@ function ResetPasswordDialog({
   const [attempted, setAttempted] = useState(false)
 
   const errors = {
-    password:
-      password.length >= MIN_PASSWORD_LENGTH ? '' : `รหัสผ่านอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`,
+    password: passwordLengthError(password),
     confirm: confirm === password ? '' : 'รหัสผ่านสองช่องไม่ตรงกัน',
   }
   const show = (key: keyof typeof errors) => (attempted ? errors[key] : '')

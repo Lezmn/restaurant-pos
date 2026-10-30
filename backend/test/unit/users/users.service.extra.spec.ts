@@ -99,6 +99,28 @@ describe('UsersService.update', () => {
     expect(prisma.user.update.mock.calls[1][0].data.mustChangePassword).toBe(true);
   });
 
+  // ทดสอบ: ADMIN ตั้งรหัสใหม่ให้บัญชีอื่น → เก็บเป็น bcrypt hash ไม่ใช่ตัวจริง และ response ไม่มีรหัส
+  // วิธี: update ด้วย password → เช็กว่าค่าที่บันทึกไม่ใช่ตัวจริง ตรวจด้วย bcrypt ผ่าน และ select ไม่ขอ password กลับ
+  it('ตั้งรหัสใหม่ให้บัญชีอื่น → hash ไม่เก็บตัวจริง และไม่คืนรหัสกลับ', async () => {
+    const { prisma, service } = setup();
+    await service.update('u2', { password: 'newpass12' }, 'admin-1');
+    const args = prisma.user.update.mock.calls[0][0];
+    expect(args.data.password).not.toBe('newpass12');
+    expect(await bcrypt.compare('newpass12', args.data.password)).toBe(true);
+    expect(args.select.password).toBeUndefined();
+  });
+
+  // ทดสอบ: แก้ชื่อ/สิทธิ์โดยไม่ส่งรหัส → ไม่แตะรหัสเดิม และไม่บังคับเปลี่ยนรหัส
+  // วิธี: update แค่ name ของ ADMIN → data ต้องไม่มี password และ mustChangePassword
+  it('แก้ชื่ออย่างเดียว → ไม่แตะรหัสเดิม ไม่บังคับเปลี่ยนรหัส', async () => {
+    const { prisma, service } = setup();
+    prisma.user.findUnique.mockResolvedValue(row({ role: Role.ADMIN }));
+    await service.update('u2', { name: 'ผู้จัดการ' }, 'admin-1');
+    const { data } = prisma.user.update.mock.calls[0][0];
+    expect(data.password).toBeUndefined();
+    expect(data.mustChangePassword).toBeUndefined();
+  });
+
   it('เลื่อน STAFF เป็น ADMIN พร้อมตั้งรหัส → บังคับเปลี่ยนรหัส', async () => {
     const { prisma, service } = setup();
     await service.update('u2', { role: Role.ADMIN, password: 'newpass12' }, 'admin-1');

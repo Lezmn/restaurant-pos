@@ -6,8 +6,9 @@ import { useChangePassword } from '@/features/auth/hooks'
 import { useState } from 'react'
 import { RequiredMark } from '@/components/ui/RequiredMark'
 
-/** ตรงกับ @MinLength ของ ChangePasswordDto / CreateUserDto ฝั่ง backend */
-export const MIN_PASSWORD_LENGTH = 8
+import { MIN_PASSWORD_LENGTH, passwordLengthError } from '@/lib/password'
+
+export { MIN_PASSWORD_LENGTH } from '@/lib/password'
 
 /**
  * เปลี่ยนรหัสผ่านของตัวเอง — เฉพาะ ADMIN (บัญชีกลางของครัว/หน้าร้าน ADMIN ตั้งให้ที่หน้าบัญชีผู้ใช้)
@@ -32,7 +33,8 @@ export function ChangePasswordDialog({ onClose }: Readonly<{ onClose: () => void
  * onCancel ไม่ส่งมา = ไม่มีปุ่มยกเลิก (หน้าบังคับ ต้องเปลี่ยนก่อนถึงจะใช้งานต่อได้)
  */
 function newPasswordError(next: string, current: string) {
-  if (next.length < MIN_PASSWORD_LENGTH) return `รหัสผ่านใหม่อย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`
+  const length = passwordLengthError(next, 'รหัสผ่านใหม่')
+  if (length) return length
   return next === current ? 'รหัสผ่านใหม่ต้องต่างจากรหัสเดิม' : ''
 }
 
