@@ -82,6 +82,8 @@ interface TableRow {
   checkoutRequested: boolean
   notServed: Order[]
   cancelled: Order[]
+  /** จ่ายแล้วแต่ครัวยังไม่เสิร์ฟ (กลับบ้านจ่ายก่อน) — backend ไม่ยอมปิดบิลจนกว่าจะเสิร์ฟ/ยกเลิก */
+  inKitchen: Order[]
   neverOrdered: boolean
 }
 
@@ -152,6 +154,9 @@ export function CheckPage() {
           checkoutRequested: Boolean(checkout) && state !== 'settled',
           notServed,
           cancelled,
+          inKitchen: mine.filter(
+            (o) => o.status === OrderStatus.PENDING || o.status === OrderStatus.PREPARING,
+          ),
           // เปิดโต๊ะไว้แต่ยังไม่มีออเดอร์เลย (หรือโดนยกเลิกหมด) — คนละเรื่องกับจ่ายครบแล้ว
           neverOrdered: mine.length === cancelled.length,
         }
@@ -472,7 +477,8 @@ function TableTile({
   onCharge: () => void
   onClose: () => void
 }>) {
-  const { session, state, checkoutRequested, notServed, cancelled, neverOrdered } = row
+  const { session, state, checkoutRequested, notServed, cancelled, inKitchen, neverOrdered } = row
+  const waitingKitchen = state === 'settled' && inKitchen.length > 0
   const due = session.total
 
   const badgeText = {
@@ -483,7 +489,11 @@ function TableTile({
         ? `ครัวกำลังทำ ${notServed.length} ออเดอร์`
         : 'เสิร์ฟครบแล้ว',
     serving: `รอเสิร์ฟ ${notServed.length} ออเดอร์`,
-    settled: neverOrdered ? 'ยังไม่ได้สั่ง' : 'เก็บเงินครบแล้ว',
+    settled: waitingKitchen
+      ? `ครัวกำลังทำ ${inKitchen.length} ออเดอร์`
+      : neverOrdered
+        ? 'ยังไม่ได้สั่ง'
+        : 'เก็บเงินครบแล้ว',
   }[state]
 
   return (
@@ -543,7 +553,15 @@ function TableTile({
           </p>
         )}
 
-        {state === 'settled' && (
+        {waitingKitchen && (
+          <p className="shrink-0 text-right text-sm text-gray-600">
+            ปิดบิลได้
+            <br />
+            เมื่อเสิร์ฟครบ
+          </p>
+        )}
+
+        {state === 'settled' && !waitingKitchen && (
           <button
             type="button"
             disabled={closeDisabled}
@@ -925,11 +943,7 @@ function PaymentDialog({
             disabled={isSaving || !canSubmit}
             className={button('primary', 'lg')}
           >
-            {isSaving
-              ? 'กำลังบันทึก...'
-              : isPromptPay
-                ? 'พิมพ์ใบเสร็จ'
-                : 'รับเงิน'}
+            {isSaving ? 'กำลังบันทึก...' : payActionLabel(isPromptPay)}
           </button>
         </div>
         {hasDiscount && !discountReason.trim() && (
@@ -951,4 +965,8 @@ const QUICK_DISCOUNT_PERCENTS = [5, 10, 15, 20] as const
 function quickCash(amount: number) {
   const steps = [50, 100, 500, 1000].map((note) => Math.ceil(amount / note) * note)
   return [...new Set([amount, ...steps])].filter((v) => v >= amount).slice(0, 4)
+}
+
+function payActionLabel(isPromptPay: boolean) {
+  return isPromptPay ? 'พิมพ์ใบเสร็จ' : 'รับเงิน'
 }

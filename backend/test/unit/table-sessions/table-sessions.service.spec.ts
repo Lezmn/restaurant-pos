@@ -190,14 +190,18 @@ describe('TableSessionsService', () => {
     });
 
     // ทดสอบ: ออเดอร์ที่จ่ายแล้วหรือยกเลิกแล้วไม่ทำให้ปิดโต๊ะไม่ได้
-    // วิธี: close() → เช็กว่าตอนนับออเดอร์ค้าง กรองเฉพาะ PENDING/PREPARING/SERVED (ไม่รวม PAID/CANCELLED) แล้วปิดบิลได้
+    // วิธี: close() → เช็กว่าตอนนับออเดอร์ค้าง นับ PENDING/PREPARING กับ SERVED ที่ยังไม่มี paymentId (ไม่รวม PAID/CANCELLED
+    // และไม่รวมของกลับบ้านที่จ่ายก่อนแล้วครัวเสิร์ฟ ซึ่งยังเป็น SERVED แต่มี paymentId) แล้วปิดบิลได้
     it('ออเดอร์ที่จ่ายแล้ว/ยกเลิกแล้วไม่ขวางการปิด — นับเฉพาะ รอคิว/กำลังทำ/เสิร์ฟแล้วแต่ยังไม่จ่าย', async () => {
       prisma.tableSession.findUnique.mockResolvedValue(stored(TableSessionStatus.OPEN));
       await service.close('s1');
       expect(prisma.order.count).toHaveBeenCalledWith({
         where: {
           tableSessionId: 's1',
-          status: { in: [OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.SERVED] },
+          OR: [
+            { status: { in: [OrderStatus.PENDING, OrderStatus.PREPARING] } },
+            { status: OrderStatus.SERVED, paymentId: null },
+          ],
         },
       });
       expect(prisma.tableSession.update).toHaveBeenCalled();

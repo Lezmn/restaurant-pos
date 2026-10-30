@@ -187,12 +187,14 @@ export class TableSessionsService {
     }
 
     await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // กลับบ้านจ่ายก่อน: ครัวเสิร์ฟแล้วออเดอร์ยังเป็น SERVED (ไม่เปลี่ยนเป็น PAID) แต่มี paymentId แล้ว = จบแล้ว ไม่นับค้าง
       const openOrderCount = await tx.order.count({
         where: {
           tableSessionId: id,
-          status: {
-            in: [OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.SERVED],
-          },
+          OR: [
+            { status: { in: [OrderStatus.PENDING, OrderStatus.PREPARING] } },
+            { status: OrderStatus.SERVED, paymentId: null },
+          ],
         },
       });
 
