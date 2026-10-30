@@ -147,6 +147,18 @@ describe('PaidBills — บิลที่เก็บแล้ววันน�
     expect(screen.queryByText('RCPT-p5')).not.toBeInTheDocument()
   })
 
+  // ทดสอบ: เรียงบิลใหม่สุดไปเก่าสุดเสมอ ไม่ว่า API จะส่งมาลำดับไหน
+  // วิธี: mock 3 บิลสลับลำดับ (เก่า, ใหม่สุด, กลาง) → เช็กลำดับเลขใบเสร็จในตาราง
+  it('เรียงบิลใหม่สุด → เก่าสุด แม้ API ส่งมาไม่เรียง', () => {
+    setup([
+      bill('p31', { paidAt: minutesAgo(90) }),
+      bill('p32', { paidAt: minutesAgo(5) }),
+      bill('p33', { paidAt: minutesAgo(40) }),
+    ])
+    const receiptNos = screen.getAllByText(/^RCPT-p3\d$/).map((el) => el.textContent)
+    expect(receiptNos).toEqual(['RCPT-p32', 'RCPT-p33', 'RCPT-p31'])
+  })
+
   // ทดสอบ: ตารางบิลแสดงข้อความถูกทั้งตอนยังไม่มีบิล กำลังโหลด และโหลดไม่ได้ (ต้องมีปุ่มลองใหม่ และไม่บอกว่ายังไม่มีบิล)
   // วิธี: render สามรอบด้วยรายการว่าง / ยังโหลด / error → เช็กข้อความแต่ละแบบ → กดลองใหม่ เช็ก refetch
   it('ยังไม่มีบิล / กำลังโหลด / โหลดไม่ได้ (พร้อมปุ่มลองใหม่)', async () => {

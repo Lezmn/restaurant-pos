@@ -80,7 +80,10 @@ export function PaidBills() {
   const { data: viewing } = usePayment(viewId ?? undefined)
 
   // backend กรองให้แล้ว กรองซ้ำกันไว้เผื่อเปิดจอค้างข้ามเที่ยงคืน
-  const today = (payments ?? []).filter((p) => isToday(p.paidAt))
+  // ใหม่สุดก่อน — เรียงเองฝั่งนี้ ไม่พึ่งลำดับจาก API (บิลที่เพิ่งรับเงินต้องอยู่หน้าแรกเสมอ)
+  const today = (payments ?? [])
+    .filter((p) => isToday(p.paidAt))
+    .sort((a, b) => Date.parse(b.paidAt) - Date.parse(a.paidAt))
   // วันที่ขายดีจะมีหลายสิบบิล ตัดเป็นหน้า ๆ ไม่งั้นตารางยาวจนหาโต๊ะด้านบนไม่เจอ
   const paged = usePagination(today)
 
