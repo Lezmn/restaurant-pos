@@ -3,6 +3,7 @@ import {
   useOrders,
   useUpdateOrderStatus,
 } from '@/features/orders/hooks'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ErrorNote } from '@/components/ui/ErrorNote'
 import { LoadError } from '@/components/ui/LoadError'
 import { installAudioUnlock, playAlert } from '@/lib/alert-sound'
@@ -293,6 +294,8 @@ export function OrderPage() {
   const unknown = ordersQuery.isError && !orders
   const updateStatus = useUpdateOrderStatus()
   const clearOrder = useClearOrder()
+  // ยกเลิกใช้ mutation แยก — ไม่งั้นกดเลื่อนตั๋วใบอื่นแล้วกล่องยกเลิกขึ้น "กำลังยกเลิก..." / error ของใบอื่น
+  const cancelOrder = useUpdateOrderStatus()
 
   // ตั๋วที่กำลังส่งคำขออยู่ — useMutation จำได้แค่คำขอล่าสุด กด A แล้วกด B
   // A จะปลดล็อกทั้งที่ยังส่งไม่เสร็จ (กดซ้ำได้) จึงเก็บ id ไว้เองทีละใบ
@@ -363,6 +366,8 @@ export function OrderPage() {
   const [checked, setChecked] = useState<Record<string, boolean>>({})
   /** ข้อความให้ screen reader อ่านเมื่อมีออเดอร์ใหม่ — เสียงติ๊งต่องอย่างเดียวไม่บอกว่าเกิดอะไร */
   const [announcement, setAnnouncement] = useState('')
+  /** ออเดอร์ที่กำลังถามยืนยันว่าจะยกเลิก — null = ไม่มีกล่องเปิดอยู่ */
+  const [cancelling, setCancelling] = useState<Order | null>(null)
 
   // เวลารอต้องเดินเอง ไม่ใช่รอ refetch ถึงจะขยับ
   const [, setTick] = useState(0)
@@ -522,6 +527,10 @@ export function OrderPage() {
                       onToggle={toggleItem}
                       onAdvance={() => handleAdvance(order, column.key)}
                       onUndo={() => undoServe(order.id)}
+                      onCancel={() => {
+                        cancelOrder.reset()
+                        setCancelling(order)
+                      }}
                     />
                   ))}
                 </ColumnScroll>
@@ -531,29 +540,31 @@ export function OrderPage() {
         </div>
       )}
 
+      {cancelling && (
+        <ConfirmDialog
+          title="ยกเลิกออเดอร์"
+          subject={`ออเดอร์ #${cancelling.orderRef}`}
+          detail={`${cancelling.placeLabel} · ${cancelling.items.length} รายการ`}
+          consequence="ออเดอร์นี้จะไม่ถูกคิดเงิน และลูกค้าจะเห็นว่าถูกยกเลิกทันที"
+          confirmLabel="ยกเลิกออเดอร์"
+          pendingLabel="กำลังยกเลิก..."
+          isPending={cancelOrder.isPending}
+          error={cancelOrder.error}
+          onCancel={() => setCancelling(null)}
+          onConfirm={() =>
+            cancelOrder.mutate(
+              { id: cancelling.id, status: OrderStatus.CANCELLED },
+              { onSuccess: () => setCancelling(null) },
+            )
+          }
+        />
+      )}
     </div>
   )
 }
 
 /** ออเดอร์ที่เข้ามาไม่ถึงนี้ (นาที) ติดป้าย "ใหม่" — คนที่ไม่ได้ยินเสียงก็เห็นว่าใบไหนเพิ่งเข้า */
 const NEW_MINUTES = 1
-
-function ClockIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      aria-hidden
-      className="h-4 w-4 shrink-0"
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-    </svg>
-  )
-}
 
 function AlertIcon() {
   return (
@@ -583,6 +594,7 @@ function KitchenTicket({
   onToggle,
   onAdvance,
   onUndo,
+  onCancel,
 }: Readonly<{
   order: Order
   column: (typeof columns)[number]
@@ -593,6 +605,7 @@ function KitchenTicket({
   onToggle: (itemId: string, checked: boolean) => void
   onAdvance: () => void
   onUndo: () => void
+  onCancel: () => void
 }>) {
   const done = column.key === 'done'
   const waited = waitedMinutes(order.createdAt)
@@ -630,6 +643,33 @@ function KitchenTicket({
             </p>
           )}
         </div>
+
+        {/* ยกเลิกอยู่หัวใบ ห่างจากปุ่มหลักท้ายใบ — มือเปียก/ใส่ถุงมือกดพลาดยาก
+            คอลัมน์เสร็จแล้วไม่มี: ของเสิร์ฟไปแล้ว จะไม่คิดเงินเป็นเรื่องของแคชเชียร์ */}
+        {!done && (
+          <div className="mt-1 flex justify-end">
+            <button
+              type="button"
+              aria-label="ยกเลิกออเดอร์"
+              disabled={busy}
+              onClick={onCancel}
+              className="flex min-h-11 shrink-0 items-center gap-1 rounded-lg border-2 border-gray-300 bg-white px-3 text-sm font-semibold text-danger-ink transition hover:border-danger hover:bg-danger/5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                aria-hidden
+                className="h-4 w-4"
+              >
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+              ยกเลิก
+            </button>
+          </div>
+        )}
       </header>
 
       {/* รายการเป็นบรรทัดบนใบสั่ง คั่นเส้นประ — ไม่ใช่กล่องซ้อนกล่อง */}
