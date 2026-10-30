@@ -126,9 +126,9 @@ const columns: {
     // หัวใบสั่ง = พื้นอ่อนของสีสถานะ — ทึบไม่ได้ ป้ายเกินเวลาสีแดงจะกลืนกับหัวรอคิวที่เป็นแดงอิฐ
     band: 'bg-status-queue/10',
     badge: 'bg-status-queue-ink text-white',
-    // สีปุ่ม = สีของขั้นถัดไป (กดแล้วตั๋วไปไหน) — ปุ่มเริ่มปรุงเป็นน้ำตาลแบรนด์ ไม่ใช่แดงที่อ่านเป็นปุ่มอันตราย
+    // สีปุ่ม = สีของคอลัมน์ตัวเอง ให้เข้าชุดกับหัวคอลัมน์
     // พื้นปุ่มตัวขาวใช้ -ink — สีสถานะปกติคอนทราสต์ไม่ถึง 4.5:1
-    button: 'bg-brand-500',
+    button: 'bg-status-queue-ink',
     buttonLabel: 'เริ่มปรุง',
   },
   {
@@ -139,7 +139,7 @@ const columns: {
     border: 'border-status-cooking',
     band: 'bg-status-cooking/10',
     badge: 'bg-status-cooking-ink text-white',
-    button: 'bg-status-done-ink',
+    button: 'bg-status-cooking-ink',
     buttonLabel: 'ทำเสร็จแล้ว',
   },
   {
@@ -150,7 +150,7 @@ const columns: {
     border: 'border-status-done',
     band: 'bg-status-done/10',
     badge: 'bg-status-done-ink text-white',
-    button: 'bg-success-ink',
+    button: 'bg-status-done-ink',
     // กดแล้วตั๋วหายจากบอร์ด — ชื่อปุ่มบอกตรง ๆ ไม่ซ้ำกับ "ทำเสร็จแล้ว" ของคอลัมน์ก่อนหน้า
     buttonLabel: 'เสิร์ฟแล้ว · เอาออก',
   },
