@@ -46,7 +46,7 @@
 
 11. **VAT / ใบกำกับภาษี / ส่วนลด % / หารบิล** — ต้องย้ายราคาไปหน่วยสตางค์ก่อน (ตอนนี้เป็นบาทจำนวนเต็ม)
 12. **ช่อง "ชื่อผู้ทำ"** ตอนปิดยอดลิ้นชัก / void บิล / เบิกเงิน — บัญชีกลางบอกได้แค่ตำแหน่ง ไม่รู้ว่าใคร
-13. **ย้าย JWT จาก localStorage ไป httpOnly cookie** — ลดผลกระทบถ้ามี XSS (ตอนนี้มี CSP ช่วยอยู่แล้ว ต้องแก้ทั้ง backend และ frontend)
+13. ~~**ย้าย JWT จาก localStorage ไป httpOnly cookie**~~ — เสร็จแล้ว (cookie `restaurant_token`, ดู backend/src/auth/auth-cookie.ts)
 14. **NestJS 12** — เป็น ESM-only ต้องย้าย backend + Jest เป็น ESM ทั้งโปรเจกต์ (11.2.7 ตอนนี้ไม่มีช่องโหว่)
     และ **Prisma 5 → รุ่นใหม่** (major) ทำพร้อมกันได้
 15. **ดีไซน์** — ยืนยันสี `table-head`, `accent-olive`, `promptpay` กับ Figma; ทำโลโก้ร้าน

@@ -10,11 +10,6 @@ export interface LoginPayload {
   password: string
 }
 
-export interface LoginResponse {
-  accessToken: string
-  user: User
-}
-
 /** "admin" → "admin@restaurant.local", ถ้าพิมพ์อีเมลเต็มมาแล้วก็ใช้ตามนั้น */
 export const toLoginEmail = (username: string) => {
   const name = username.trim().toLowerCase()
@@ -24,8 +19,9 @@ export const toLoginEmail = (username: string) => {
 /**
  * POST /auth/login — backend รับเฉพาะ { email, password } (LoginDto ใช้ @IsEmail)
  * หน้าจอให้กรอกแค่ชื่อผู้ใช้ แล้วเติมโดเมนของร้านให้ที่นี่
+ * backend ตั้ง JWT ใน httpOnly cookie ให้เอง — accessToken ใน body ตั้งใจไม่เก็บ (มีไว้ให้ Swagger/สคริปต์)
  */
-export async function login(payload: LoginPayload): Promise<LoginResponse> {
+export async function login(payload: LoginPayload): Promise<User> {
   const data = await apiClient<ApiLoginResponse>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({
@@ -34,7 +30,7 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
     }),
   })
 
-  return { accessToken: data.accessToken, user: mapUser(data.user) }
+  return mapUser(data.user)
 }
 
 /** PATCH /auth/password — ทุก role เปลี่ยนรหัสของตัวเองได้ ต้องใส่รหัสเดิม (กันคนหยิบเครื่องที่ login ค้างไปเปลี่ยน) */

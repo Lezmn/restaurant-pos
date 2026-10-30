@@ -103,8 +103,8 @@ src/
 ├── App.tsx / main.tsx / routes.tsx
 ├── types/            enums.ts (ตรงกับ prisma), models.ts, reports.ts
 ├── lib/
-│   ├── api-client.ts     fetch wrapper — แนบ Bearer, เจอ 401 เด้ง login
-│   ├── auth-storage.ts   เก็บ token/user ใน localStorage
+│   ├── api-client.ts     fetch wrapper — ส่ง cookie JWT (credentials: include), เจอ 401 เด้ง login
+│   ├── auth-storage.ts   เก็บข้อมูล user ใน localStorage (JWT อยู่ใน httpOnly cookie)
 │   ├── format.ts         formatBaht / formatTime
 │   ├── query-client.ts   ตั้งค่า TanStack Query
 │   └── map.ts            แปลง response ดิบ (types/api.ts) เป็น type ของหน้าจอ (types/models.ts)

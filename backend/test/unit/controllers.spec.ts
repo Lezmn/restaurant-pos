@@ -27,12 +27,36 @@ function thin<C>(Ctrl: new (svc: any) => C) {
 
 describe('AuthController', () => {
   describeDelegations(thin(AuthController), [
-    ['login', [{ email: 'a@x', password: 'p' }], 'login', [{ email: 'a@x', password: 'p' }]],
     ['changePassword', [{ user: admin }, { currentPassword: 'a', newPassword: 'b' }], 'changePassword', [
       admin.id,
       { currentPassword: 'a', newPassword: 'b' },
     ]],
   ]);
+
+  // ทดสอบ: login สำเร็จต้องตั้ง JWT ใน httpOnly cookie อายุเท่า token และไม่ส่ง expiresAt ออกไปใน body
+  // วิธี: mock service.login คืน token + expiresAt → เรียก controller.login พร้อม res ปลอม → เช็ก res.cookie และ body
+  it('login → ตั้ง httpOnly cookie อายุเท่า token แล้วคืน accessToken + user', async () => {
+    const service = autoMock();
+    const expiresAt = new Date('2026-10-30T20:00:00Z');
+    service.login.mockResolvedValue({ accessToken: 'jwt', expiresAt, user: staff });
+    const res = { cookie: jest.fn() };
+    const body = await new AuthController(service as any).login({ email: 'a@x', password: 'p' }, res as any);
+    expect(service.login).toHaveBeenCalledWith({ email: 'a@x', password: 'p' });
+    expect(res.cookie).toHaveBeenCalledWith(
+      'restaurant_token',
+      'jwt',
+      expect.objectContaining({ httpOnly: true, sameSite: 'lax', path: '/', expires: expiresAt }),
+    );
+    expect(body).toEqual({ accessToken: 'jwt', user: staff });
+  });
+
+  // ทดสอบ: logout ต้องลบ cookie (หน้าเว็บลบ httpOnly cookie เองไม่ได้)
+  // วิธี: เรียก controller.logout ด้วย res ปลอม → เช็กว่า clearCookie ชื่อ cookie ถูก
+  it('logout → ลบ cookie', () => {
+    const res = { clearCookie: jest.fn() };
+    new AuthController(autoMock() as any).logout(res as any);
+    expect(res.clearCookie).toHaveBeenCalledWith('restaurant_token', expect.objectContaining({ httpOnly: true, path: '/' }));
+  });
 
   it('me คืน user จาก token ตรง ๆ (ไม่ต้องถาม DB อีก)', () => {
     const service = autoMock();

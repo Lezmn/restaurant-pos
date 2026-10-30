@@ -24,9 +24,13 @@ export class AuthService {
       throw new UnauthorizedException('บัญชีนี้ถูกปิดใช้งาน — ติดต่อเจ้าของร้าน');
     }
 
+    // tv = tokenVersion ตอนออก token — ADMIN กด "ออกจากระบบทุกเครื่อง" แล้ว token นี้ใช้ไม่ได้
+    const accessToken = await this.jwt.signAsync({ sub: user.id, role: user.role, tv: user.tokenVersion });
+    const { exp } = this.jwt.decode<{ exp?: number }>(accessToken);
     return {
-      // tv = tokenVersion ตอนออก token — ADMIN กด "ออกจากระบบทุกเครื่อง" แล้ว token นี้ใช้ไม่ได้
-      accessToken: await this.jwt.signAsync({ sub: user.id, role: user.role, tv: user.tokenVersion }),
+      accessToken,
+      /** ให้ controller ตั้งอายุ cookie เท่ากับ token (ไม่มี exp = cookie หมดเมื่อปิด browser) */
+      expiresAt: exp ? new Date(exp * 1000) : undefined,
       user: {
         id: user.id,
         name: user.name,

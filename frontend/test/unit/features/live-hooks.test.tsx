@@ -3,13 +3,13 @@ import { act, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCustomerLiveEvents, useStaffLiveEvents } from '@/features/live/hooks'
-import { authStorage } from '@/lib/auth-storage'
+import { useAuth } from '@/features/auth/use-auth'
 import { useLiveStatus } from '@/lib/live'
 import { Role } from '@/types/enums'
 
 // socket ปลอม — เก็บ handler ไว้ให้เทสยิง event เองได้
 type Handler = () => void
-const sockets: { url: string; opts: { auth: Record<string, string> }; handlers: Map<string, Handler[]>; close: ReturnType<typeof vi.fn> }[] = []
+const sockets: { url: string; opts: { auth: Record<string, string>; withCredentials?: boolean }; handlers: Map<string, Handler[]>; close: ReturnType<typeof vi.fn> }[] = []
 vi.mock('socket.io-client', () => ({
   io: vi.fn((url: string, opts: { auth: Record<string, string> }) => {
     const handlers = new Map<string, Handler[]>()
@@ -42,22 +42,24 @@ beforeEach(() => {
     invalidated.push(filters?.queryKey as unknown[])
   })
   useLiveStatus.setState({ connected: false })
+  useAuth.setState({ user: null })
 })
 
 describe('useStaffLiveEvents', () => {
-  // ทดสอบ: ยังไม่ login (ไม่มี token) → ไม่ต่อ socket
-  it('ไม่มี token → ไม่ต่อ socket', () => {
+  // ทดสอบ: ยังไม่ login → ไม่ต่อ socket
+  it('ยังไม่ login → ไม่ต่อ socket', () => {
     renderHook(() => useStaffLiveEvents(), { wrapper })
     expect(sockets).toHaveLength(0)
   })
 
   describe('login แล้ว', () => {
-    beforeEach(() => authStorage.save('jwt-1', { id: 'u', email: 'u@x', name: 'U', role: Role.STAFF }))
+    beforeEach(() => useAuth.setState({ user: { id: 'u', email: 'u@x', name: 'U', role: Role.STAFF } }))
 
-    // ทดสอบ: ต่อด้วย token, connect → สถานะต่ออยู่ + ดึงข้อมูลที่อาจพลาด, หลุด/ต่อไม่ได้ → สถานะหลุด
-    it('ต่อด้วย token และรายงานสถานะ connect/disconnect/connect_error', () => {
+    // ทดสอบ: ต่อด้วย cookie (withCredentials) ไม่ส่ง JWT ใน auth, connect → สถานะต่ออยู่ + ดึงข้อมูลที่อาจพลาด, หลุด/ต่อไม่ได้ → สถานะหลุด
+    it('ต่อด้วย cookie และรายงานสถานะ connect/disconnect/connect_error', () => {
       renderHook(() => useStaffLiveEvents(), { wrapper })
-      expect(sockets[0].opts.auth).toEqual({ token: 'jwt-1' })
+      expect(sockets[0].opts.withCredentials).toBe(true)
+      expect(sockets[0].opts.auth).toEqual({ userId: 'u' })
 
       emit('connect')
       expect(useLiveStatus.getState().connected).toBe(true)
@@ -99,8 +101,8 @@ describe('useStaffLiveEvents', () => {
       expect(useLiveStatus.getState().connected).toBe(false)
     })
 
-    // ทดสอบ: render ซ้ำด้วย auth เดิม ไม่ต่อ socket ใหม่
-    it('render ซ้ำ token เดิม → ไม่ต่อใหม่', () => {
+    // ทดสอบ: render ซ้ำด้วยบัญชีเดิม ไม่ต่อ socket ใหม่
+    it('render ซ้ำบัญชีเดิม → ไม่ต่อใหม่', () => {
       const { rerender } = renderHook(() => useStaffLiveEvents(), { wrapper })
       rerender()
       expect(sockets).toHaveLength(1)

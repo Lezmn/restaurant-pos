@@ -39,6 +39,18 @@ describe('AuthService', () => {
     expect(payload).toMatchObject({ sub: 'u1', role: Role.STAFF, tv: 3 });
   });
 
+  // ทดสอบ: expiresAt ต้องตรงกับ exp ของ JWT — cookie จะได้หมดอายุพร้อม token ไม่ค้างเกิน
+  // วิธี: ใช้ JwtService ที่ตั้ง expiresIn 1h → login → เทียบ expiresAt กับ exp ใน token
+  it('login: expiresAt = เวลาหมดอายุของ JWT', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'u1', name: 'A', email: 'a@x', role: Role.STAFF, password: hash, isActive: true, tokenVersion: 0,
+    });
+    const timed = new JwtService({ secret: 'unit-test-secret', signOptions: { expiresIn: '1h' } });
+    const r = await new AuthService(prisma, timed).login({ email: 'a@x', password: 'correct-password' });
+    const { exp } = timed.decode<{ exp: number }>(r.accessToken);
+    expect(r.expiresAt).toEqual(new Date(exp * 1000));
+  });
+
   it('บัญชีที่ปิดใช้งาน → 401 แม้รหัสถูก', async () => {
     prisma.user.findUnique.mockResolvedValue({
       id: 'u1', name: 'A', email: 'a@x', role: Role.STAFF, password: hash, isActive: false,
@@ -115,6 +127,11 @@ describe('throttle trackers', () => {
   it('JWT ถูกต้อง → นับรายคน', () => {
     const token = jwt.sign({ sub: 'u9' });
     expect(tracker({ headers: { authorization: `Bearer ${token}` }, ip: '1.1.1.1' })).toBe('user:u9');
+  });
+
+  it('JWT ใน cookie (หน้าเว็บ) → นับรายคน', () => {
+    const token = jwt.sign({ sub: 'u9' });
+    expect(tracker({ headers: { cookie: `restaurant_token=${token}` }, ip: '1.1.1.1' })).toBe('user:u9');
   });
 
   it('JWT ปลอม → ไม่เชื่อ sub นับตาม IP แทน', () => {

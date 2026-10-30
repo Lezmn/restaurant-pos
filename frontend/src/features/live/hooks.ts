@@ -1,7 +1,7 @@
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { io, type Socket } from 'socket.io-client'
-import { authStorage } from '@/lib/auth-storage'
+import { useAuth } from '@/features/auth/use-auth'
 import { useLiveStatus } from '@/lib/live'
 import { publicKeys } from '@/features/public/hooks'
 
@@ -59,6 +59,7 @@ function invalidateAll(qc: QueryClient, keys: readonly string[][]) {
  * - socket.io-client reconnect เองอยู่แล้ว เราแค่ toggle connected เพื่อเปิด/ปิด poll สำรอง
  */
 function useSocket(
+  /** null = ยังไม่พร้อมต่อ; {} = พนักงาน (ยืนยันตัวด้วย cookie) */
   auth: Record<string, string> | null,
   bind: (socket: Socket) => void,
   onConnect: () => void,
@@ -68,7 +69,8 @@ function useSocket(
   useEffect(() => {
     if (!auth) return
 
-    const socket = io(SOCKET_URL, { auth, transports: ['websocket', 'polling'] })
+    // withCredentials: แนบ cookie JWT ของพนักงานไปตอน handshake (API อยู่คนละ origin)
+    const socket = io(SOCKET_URL, { auth, withCredentials: true, transports: ['websocket', 'polling'] })
     socket.on('connect', () => {
       setConnected(true)
       onConnect()
@@ -89,10 +91,11 @@ function useSocket(
 /** ฝั่งพนักงาน — วางไว้ใน EmployeeLayout จึงได้ event ทุกหน้า (ครัว / Check / โต๊ะ) */
 export function useStaffLiveEvents() {
   const qc = useQueryClient()
-  const token = authStorage.getToken()
+  const userId = useAuth((s) => s.user?.id)
 
   useSocket(
-    token ? { token } : null,
+    // ใส่ userId ไว้ให้ login บัญชีใหม่แล้วต่อ socket ใหม่ — backend ไม่ได้อ่านค่านี้ ยืนยันตัวจาก cookie
+    userId ? { userId } : null,
     (socket) => {
       for (const event of STAFF_EVENTS) {
         socket.on(event, () => invalidateAll(qc, STAFF_INVALIDATIONS[event]))

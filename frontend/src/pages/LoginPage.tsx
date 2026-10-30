@@ -64,14 +64,14 @@ export function LoginPage({
             login.mutate(
               { username, password },
               {
-                onSuccess: (data) => {
-                  if (allowedRoles && !allowedRoles.includes(data.user.role)) {
+                onSuccess: (signedIn) => {
+                  if (allowedRoles && !allowedRoles.includes(signedIn.role)) {
                     // login ถูกต้องแต่ไม่ใช่บัญชีของหน้านี้ — ออกให้เลย ไม่ค้าง session ไว้
                     signOut()
                     setDenied(true)
                     return
                   }
-                  navigate(homeFor(data.user.role))
+                  navigate(homeFor(signedIn.role))
                 },
               },
             )

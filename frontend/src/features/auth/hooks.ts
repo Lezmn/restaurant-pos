@@ -6,7 +6,7 @@ export function useLogin() {
   const signIn = useAuth((s) => s.signIn)
   return useMutation({
     mutationFn: login,
-    onSuccess: (data) => signIn(data.accessToken, data.user),
+    onSuccess: (user) => signIn(user),
   })
 }
 

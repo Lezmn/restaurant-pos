@@ -39,7 +39,7 @@ const MATRIX: [new (...a: any[]) => any, Record<string, Access>][] = [
     getMenu: 'PUBLIC', getSession: 'PUBLIC', getOrdersBySession: 'PUBLIC', createOrder: 'PUBLIC',
     getOrderStatus: 'PUBLIC', callStaff: 'PUBLIC', checkout: 'PUBLIC',
   }],
-  [AuthController, { login: 'PUBLIC', me: 'ANY', changePassword: [A] }],
+  [AuthController, { login: 'PUBLIC', logout: 'PUBLIC', me: 'ANY', changePassword: [A] }],
   [SystemStatusController, { getStatus: [A] }],
   [AuditController, { findAll: [A], findDevices: [A] }],
   [ReportsController, { getDashboard: [A], getIncomeExpense: [A], getSales: [A] }],

@@ -97,6 +97,9 @@ cd ~/app && docker compose run --rm migrate npm run prisma:seed:menu
                     postgres ◄─────┘   ◄── backup (pg_dump ทุกวัน → ./backups) ──► offsite (rclone → cloud)
 ```
 
+> `APP_DOMAIN` กับ `API_DOMAIN` ต้องอยู่ใต้โดเมนหลักเดียวกัน (เช่น `pos.ร้าน.com` + `api.ร้าน.com`) —
+> JWT ของพนักงานอยู่ใน httpOnly cookie แบบ SameSite=Lax ถ้าคนละโดเมน (เช่น `pos.a.com` + `api.b.com`) browser จะไม่แนบ cookie แล้ว login ไม่ติด
+
 | service | หน้าที่ |
 |---|---|
 | `postgres` | ฐานข้อมูล ไม่เปิดพอร์ตออกนอกเครื่อง |
