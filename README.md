@@ -5,8 +5,17 @@
 ```
 restaurant-pos/
 ├── backend/    # NestJS + Prisma + PostgreSQL + Socket.IO  (เดิม: Lezmn/Restaurant-Management-Back)
-└── frontend/   # React + Vite + TanStack Query + Playwright (เดิม: Lezmn/Restuarant-Front)
+├── frontend/   # React + Vite + TanStack Query + Vitest + Playwright (เดิม: Lezmn/Restuarant-Front)
+├── deploy/     # Caddyfile, สคริปต์สำรอง/กู้ข้อมูล (backup, restore, offsite) สำหรับเครื่องจริง
+├── docs/       # คู่มือ deploy / ดูแลระบบ / เครื่องพิมพ์ / SonarQube / TODO
+├── scripts/    # t.mjs (รันเทสต์คำสั่งเดียว) และสคริปต์สร้างรายงาน
+└── .github/    # workflows: CI, Deploy, Seed demo data, Seed menu
 ```
+
+ภาพรวมผลิตภัณฑ์ใน [`PRODUCT.md`](PRODUCT.md) · แนวทางออกแบบ UI ใน [`DESIGN.md`](DESIGN.md)
+
+ผู้ใช้ 3 กลุ่ม: ลูกค้าสแกน QR สั่งเองที่โต๊ะ (`/t/:token`, ไม่ต้อง login) · พนักงาน — ครัว/หน้าร้าน (`/employee/*`) · เจ้าของร้าน (`/owner/*`)
+อัปเดตแบบ real-time ผ่าน Socket.IO · รับเงินสด/บัตร/PromptPay พร้อมตรวจสลิปด้วย SlipOK
 
 ## เริ่มใช้งาน (dev)
 
@@ -29,8 +38,12 @@ npm run dev
 
 - ขึ้นเครื่องจริง: [`docs/DEPLOY.md`](docs/DEPLOY.md) — `docker-compose.prod.yml` (HTTPS อัตโนมัติ, สำรองข้อมูลทุกวัน)
 - ดูแลระบบ / สำรอง-กู้ข้อมูล / แผนสำรองเน็ตดับ / บัญชีผู้ใช้: [`docs/OPERATIONS.md`](docs/OPERATIONS.md)
+- พิมพ์ใบเสร็จด้วยเครื่องพิมพ์ความร้อน USB: [`docs/PRINTING.md`](docs/PRINTING.md)
+- ผลสแกนคุณภาพโค้ด: [`docs/SONARQUBE.md`](docs/SONARQUBE.md)
 - งานที่เหลือเรียงตาม priority: [`docs/TODO.md`](docs/TODO.md)
-- CI: ทุก PR รัน typecheck + unit test + build + Docker image (E2E กดรันเองใน Actions)
+- CI (`.github/workflows/ci.yml`): ทุก PR และทุก push เข้า `main` รัน typecheck + lint + unit test + build + Docker image + **E2E Playwright ทั้งชุด** (~8–12 นาที) — ในเครื่องรันแค่ spec ที่เกี่ยวข้องพอ
+- Deploy (`deploy.yml`): หลัง CI ผ่านบน `main` build image ขึ้น GHCR แล้ว SSH สั่ง VPS pull + รันใหม่
+- `seed-demo.yml` / `seed-menu.yml`: กดรันเองใน Actions — **seed-demo ล้างข้อมูลบนเซิร์ฟเวอร์** ใช้กับเซิร์ฟเวอร์เดโมเท่านั้น
 
 ## รันเทสต์ — คำสั่งเดียว
 
@@ -67,6 +80,7 @@ npm run t -- StatusPage.test.tsx -t "ยกเลิก"          # เฉพา
 
 - backend ตอนรันเทสต์ตั้ง `LOGIN_THROTTLE_LIMIT=1000` (ทุกเคส login ใหม่), `THROTTLE_IP_LIMIT=100000` (ทั้งชุดยิงจาก IP เดียว), `SLIPOK_MOCK=true` และ `LINE_DISABLED=true` (DB ทดสอบอาจมี token LINE จริงค้างอยู่ — เทสต์ปิดยอดจะส่งสรุปเข้า LINE จริง)
 - รันซ้ำหลายรอบโต๊ะว่างจะหมด ให้ reset + seed DB ทดสอบใหม่
+- เทสต์แบ่งเป็นโฟลเดอร์ตามบทบาท: `admin`, `alerts`, `api`, `cashier`, `customer`, `kitchen`, `login`, `owner`
 
 ```bash
 cd frontend
